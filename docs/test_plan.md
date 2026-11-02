@@ -10,7 +10,7 @@
 | 单元测试 | `tests/unit/` | 42 例（记录 9、事件 6、状态 4、安全 13、知识 4、模型适配器 6） | A 提供，B 可补 |
 | 集成测试 | `tests/integration/` | 19 例（触发、Agent 闭环、提问恢复、三分支、调度幂等、协商、证据、real 模式 stub 端到端） | A 提供，B 校验 |
 | API 测试 | `tests/api/` | 10 例（health、患者、记录、触发、任务、提问、偏好、调度、审计） | A 提供，B 扩展 |
-| 场景回放 | `evaluation/scenarios/` | 9 个（S01–S09） | **B 扩充到 ≥30** |
+| 场景回放 | `evaluation/scenarios/` | 33 个（S01–S09、B01–B24） | **B 已扩充到 ≥30** |
 | e2e | `tests/e2e/` | 11 例（回放全部场景 + 合成数据校验） | B 维护 |
 
 合计 `pytest` 收集 82 项，本次全部通过。

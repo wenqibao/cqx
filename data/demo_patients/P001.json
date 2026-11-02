@@ -1,0 +1,30 @@
+{
+  "patient": {
+    "id": "P001",
+    "name": "张伟（虚构）",
+    "age": 58,
+    "sex": "男",
+    "diabetes_type": "T2DM",
+    "duration_years": 8,
+    "complications": ["高血压"],
+    "goals": ["空腹血糖尽量控制稳定", "每天走够 6000 步"],
+    "constraints": ["早餐前服用降压药"],
+    "baseline": { "height_cm": 172, "weight_kg": 78.0 }
+  },
+  "records": [
+    { "kind": "fasting_glucose", "value": 7.2, "recorded_at_offset_hours": -156 },
+    { "kind": "fasting_glucose", "value": 7.6, "recorded_at_offset_hours": -132 },
+    { "kind": "fasting_glucose", "value": 8.1, "recorded_at_offset_hours": -108 },
+    { "kind": "fasting_glucose", "value": 8.6, "recorded_at_offset_hours": -84 },
+    { "kind": "fasting_glucose", "value": 8.9, "recorded_at_offset_hours": -60 },
+    { "kind": "fasting_glucose", "value": 9.2, "recorded_at_offset_hours": -36 },
+    { "kind": "steps", "value": 2800, "recorded_at_offset_hours": -60 },
+    { "kind": "steps", "value": 2400, "recorded_at_offset_hours": -36 },
+    { "kind": "steps", "value": 1900, "recorded_at_offset_hours": -12 },
+    { "kind": "medication_taken", "value": 0, "recorded_at_offset_hours": -60 },
+    { "kind": "medication_taken", "value": 0, "recorded_at_offset_hours": -36 },
+    { "kind": "medication_taken", "value": 1, "recorded_at_offset_hours": -12 },
+    { "kind": "weight", "value": 78.0, "recorded_at_offset_hours": -240 }
+  ],
+  "notes": "血糖上升 + 活动下降 + 漏服，用于演示多事件合并与优先级（F22）。"
+}

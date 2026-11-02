@@ -1,0 +1,83 @@
+# 健康事件检测规则（F05）
+# 规则只做"需要关注"的提示与任务触发，不产生诊断结论。
+version: 1
+
+# 检测窗口（天）
+window_days: 7
+
+rules:
+  - code: GLUCOSE_RISING
+    name: 血糖升高趋势
+    severity: medium
+    kind: trend
+    metric: fasting_glucose
+    window_days: 7
+    comparator: min_points        # 至少 2 个点才判断趋势
+    min_points: 2
+    delta_threshold: 1.5          # mmol/L，窗口内均值较前次上升
+    message: 近 7 天空腹血糖较此前上升，需要核实记录与用药执行情况。
+
+  - code: GLUCOSE_VARIABILITY
+    name: 血糖波动增大
+    severity: medium
+    kind: variability
+    metric: fasting_glucose
+    window_days: 7
+    min_points: 3
+    range_threshold: 4.0          # mmol/L
+    message: 近 7 天空腹血糖波动幅度较大。
+
+  - code: HYPOGLYCEMIA_RECORD
+    name: 低血糖记录
+    severity: high
+    kind: threshold
+    metric: fasting_glucose
+    window_days: 3
+    comparator: lte
+    threshold: 3.9
+    message: 近期出现低血糖范围记录。
+
+  - code: HYPERGLYCEMIA_RECORD
+    name: 显著高血糖记录
+    severity: high
+    kind: threshold
+    metric: fasting_glucose
+    window_days: 3
+    comparator: gte
+    threshold: 16.7
+    message: 近期出现显著升高血糖记录。
+
+  - code: LOW_ACTIVITY
+    name: 活动量下降
+    severity: low
+    kind: trend
+    metric: steps
+    window_days: 3
+    min_points: 2
+    daily_mean_threshold: 3000
+    message: 近 3 天日均步数偏低或较此前下降。
+
+  - code: MEDICATION_NONADHERENCE
+    name: 服药依从性下降
+    severity: medium
+    kind: adherence
+    metric: medication_taken
+    window_days: 3
+    missed_threshold: 2
+    message: 近 3 天出现多次未确认服药。
+
+  - code: WEIGHT_GAIN
+    name: 体重上升
+    severity: low
+    kind: trend
+    metric: weight
+    window_days: 14
+    min_points: 2
+    delta_threshold: 2.0
+    message: 近期体重上升较快。
+
+  - code: REVIEW_DUE
+    name: 复评到期
+    severity: low
+    kind: scheduled
+    message: 计划的健康复评已到期。

@@ -1,0 +1,23 @@
+{
+  "patient": {
+    "id": "P003",
+    "name": "王强（虚构）",
+    "age": 45,
+    "sex": "男",
+    "diabetes_type": "T2DM",
+    "duration_years": 3,
+    "complications": [],
+    "goals": ["减重 5kg", "每周运动 3 次"],
+    "constraints": ["工作日 09:00-18:00 上班，白天不方便接电话"],
+    "baseline": { "height_cm": 176, "weight_kg": 84.0 }
+  },
+  "records": [
+    { "kind": "fasting_glucose", "value": 6.4, "recorded_at_offset_hours": -144 },
+    { "kind": "fasting_glucose", "value": 6.2, "recorded_at_offset_hours": -96 },
+    { "kind": "fasting_glucose", "value": 6.3, "recorded_at_offset_hours": -48 },
+    { "kind": "steps", "value": 8200, "recorded_at_offset_hours": -48 },
+    { "kind": "steps", "value": 9100, "recorded_at_offset_hours": -24 },
+    { "kind": "weight", "value": 84.0, "recorded_at_offset_hours": -144 }
+  ],
+  "notes": "数据基本稳定，用于演示无事件巡检、知识问答与计划协商（F23/F24/F25）。"
+}

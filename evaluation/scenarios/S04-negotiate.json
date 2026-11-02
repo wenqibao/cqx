@@ -1,0 +1,35 @@
+{
+  "id": "S04",
+  "title": "患者提出时间冲突后协商修改任务并保存版本与偏好",
+  "features": ["F23", "F25", "F11"],
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P103",
+        "name": "场景四（虚构）",
+        "age": 47,
+        "duration_years": 3,
+        "goals": ["减重 5kg"],
+        "constraints": ["工作日 09:00-18:00 上班"]
+      }
+    },
+    { "action": "record", "kind": "steps", "value": 4000, "hours_ago": 30, "trigger": false },
+    {
+      "action": "run_agent",
+      "message": "我19:00上班，早上没时间，改成08:00记录步数",
+      "expect": {
+        "run.intent": "negotiate_plan",
+        "run.status": "completed",
+        "tasks_min": 1
+      }
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.preferences.0.kind": "preferred_time_window",
+        "state.preferences.0.value": "08:00"
+      }
+    }
+  ]
+}

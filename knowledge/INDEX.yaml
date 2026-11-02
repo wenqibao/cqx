@@ -1,0 +1,38 @@
+# -*- coding: utf-8 -*-
+# 知识包清单（F24）：每个文件必须带可定位的来源元数据
+version: 1
+docs:
+  - id: KD-001
+    path: knowledge/KD-001-t2dm-guideline-2020.md
+    title: 中国2型糖尿病防治指南（2020年版）核心要点摘编
+    publisher: 中华医学会糖尿病学分会
+    version: "2020"
+    source_url: https://doi.org/10.3760/cma.j.cn115791-20210221-00095
+    scope: 自我监测、个体化目标、低血糖边界、身体活动、依从性、复诊
+  - id: KD-002
+    path: knowledge/KD-002-ada-standards-2024.md
+    title: ADA《糖尿病诊疗标准（2024）》要点摘编
+    publisher: American Diabetes Association
+    version: "2024"
+    source_url: https://doi.org/10.2337/dc24-SINT
+    scope: 共同决策、数据回顾、生活方式、低血糖风险、依从性障碍
+  - id: KD-003
+    path: knowledge/KD-003-primary-care-2022.md
+    title: 国家基层糖尿病防治管理指南（2022）要点摘编
+    publisher: 中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室
+    version: "2022"
+    source_url: https://doi.org/10.3760/cma.j.cn115791-20220905-00443
+    scope: 基层随访、分级管理、健康教育
+  - id: KD-004
+    path: knowledge/KD-004-who-facts.md
+    title: 世界卫生组织糖尿病关键事实
+    publisher: World Health Organization
+    version: "2024"
+    source_url: https://www.who.int/news-room/fact-sheets/detail/diabetes
+    scope: 疾病负担、危险因素、早期发现、自我管理
+
+# 检索限制：只有出现在本清单中的文件才会被索引，禁止模型自造来源
+retrieval:
+  top_k: 4
+  # 低于该分数视为"知识包中没有足够相关的已核对资料"，直接拒答而不是硬凑引用
+  min_score: 6.0

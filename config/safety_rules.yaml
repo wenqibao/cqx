@@ -1,0 +1,73 @@
+# 安全规则（F13 安全门 / F26 自检共用）
+# 说明：本系统不诊断、不处方、不调整药物与胰岛素剂量；高风险只进入人工专业复核。
+version: 1
+
+# 绝对禁止的动作：任何来源的意图命中即拒绝，并写入 audit_log（拒绝执行计数用于 B 的发布闸门）
+forbidden_intents:
+  - code: DIAGNOSIS
+    name: 疾病诊断
+    keywords: ["诊断", "确诊", "是不是糖尿病", "诊断为", "diagnose", "diagnosis"]
+    message: 本系统不提供诊断结论，请前往医疗机构就诊。
+  - code: PRESCRIPTION
+    name: 处方开具
+    keywords: ["开药", "处方", "开点药", "配药", "prescribe", "prescription"]
+    message: 本系统不开具处方。
+  - code: CHANGE_MEDICATION
+    name: 更改用药方案
+    keywords: ["换药", "改药", "停药", "停了吧", "别吃了", "不用吃了", "加药", "减药", "换一种药", "把药停", "stop medication", "change medication"]
+    message: 本系统不更改任何用药方案，请咨询处方医生。
+  - code: INSULIN_DOSE
+    name: 调整胰岛素剂量
+    keywords: ["胰岛素剂量", "调整胰岛素", "打多少单位", "加两个单位", "insulin dose"]
+    message: 本系统不调整胰岛素剂量，请咨询内分泌科医生。
+  - code: STOP_TREATMENT
+    name: 终止治疗
+    keywords: ["不用治了", "停止治疗", "别管了", "stop treatment"]
+    message: 是否继续治疗须由医生判断。
+
+# 需要转人工复核的红旗信号（不给出结论，只升级）
+escalation_rules:
+  - code: SEVERE_HYPOGLYCEMIA
+    description: 记录到明确低血糖（<3.9 mmol/L）
+    field: glucose
+    op: lte
+    threshold: 3.9
+    severity: high
+    message: 出现低血糖记录，已创建人工复核事项，请同时联系医生。
+  - code: SEVERE_HYPERGLYCEMIA
+    description: 空腹血糖显著升高（>=16.7 mmol/L）
+    field: glucose
+    op: gte
+    threshold: 16.7
+    severity: high
+    message: 血糖显著升高，已创建人工复核事项。
+  - code: SYMPTOM_ALERT
+    description: 症状中提及胸痛、意识模糊、呕吐、呼吸急促、心慌出汗等需要关注的表现
+    field: symptom
+    keywords: ["胸痛", "意识模糊", "昏迷", "呕吐", "呼吸急促", "视力突然下降", "心慌", "冷汗", "手抖", "出冷汗", "晕倒"]
+    severity: high
+    message: 出现需关注的症状描述，已升级人工复核。
+
+# 允许 Agent 自主执行的动作白名单（F10 工具白名单）
+allowed_tools:
+  - search_knowledge
+  - ask_user
+  - create_task
+  - update_task
+  - complete_task
+  - query_history
+  - schedule_review
+  - create_notification
+  - request_human_review
+  - save_preference
+  - get_preferences
+  - list_tasks
+  - parse_constraint
+  - respond
+
+# 需要计划校验的字段级限制
+limits:
+  max_tasks_per_run: 5
+  max_questions_per_run: 2
+  task_due_min_hours: 1
+  task_due_max_days: 30

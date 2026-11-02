@@ -1,0 +1,27 @@
+{
+  "id": "S08",
+  "title": "知识包无相关资料时拒绝臆测并记录 NO_EVIDENCE",
+  "features": ["F24", "F26"],
+  "allow_rejections": true,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P107",
+        "name": "场景八（虚构）",
+        "age": 50,
+        "duration_years": 4,
+        "goals": ["稳定"],
+        "constraints": []
+      }
+    },
+    {
+      "action": "run_agent",
+      "message": "量子纠缠和超导材料能谱是什么",
+      "expect": {
+        "run.intent": "knowledge_question",
+        "rejections_include": ["NO_EVIDENCE"]
+      }
+    }
+  ]
+}

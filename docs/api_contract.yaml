@@ -1,0 +1,780 @@
+openapi: 3.0.3
+info:
+  title: 糖衡智管 Agent API
+  version: 0.1.0
+  description: |
+    单 Agent 稳定期 2 型糖尿病健康管理演示系统。
+    本契约由成员 A 维护；C 按此契约接入前端，B 按此契约做接口测试。
+    安全边界：不诊断、不开处方、不改药；所有患者均为合成虚构数据。
+    Agent 运行记录必须带 llm_mode（mock / real），前端不得把 mock 结果标注为真实模型结果。
+servers:
+  - url: http://127.0.0.1:8000/api
+    description: 本地演示
+tags:
+  - name: system
+  - name: patients
+  - name: records
+  - name: state
+  - name: events
+  - name: agent
+  - name: tasks
+  - name: questions
+  - name: reviews
+  - name: preferences
+  - name: knowledge
+  - name: notifications
+  - name: automation
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: 健康检查（数据库 + 运行模式）
+      responses:
+        "200":
+          description: 服务状态
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string }
+                  time: { type: string }
+                  llm_mode: { type: string, enum: [mock, real] }
+                  database:
+                    type: object
+                    properties:
+                      ok: { type: boolean }
+                      path: { type: string }
+                      error: { type: string, nullable: true }
+                  disclaimer: { type: string }
+  /version:
+    get:
+      tags: [system]
+      summary: 版本信息
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  version: { type: string }
+  /system/mode:
+    get:
+      tags: [system]
+      summary: 当前 mock / real 模式
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  llm_mode: { type: string }
+                  model: { type: string }
+                  ok: { type: boolean }
+                  error: { type: string }
+  /system/audit:
+    get:
+      tags: [system]
+      summary: 安全与审计日志
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 100 }
+      responses:
+        "200":
+          description: OK
+
+  /patients:
+    get:
+      tags: [patients]
+      summary: 演示患者列表（F01）
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Patient" }
+    post:
+      tags: [patients]
+      summary: 新建合成患者（F01/F02）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatientCreate" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Patient" }
+  /patients/{patient_id}:
+    get:
+      tags: [patients]
+      summary: 患者档案 + 完整性（F02）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Patient" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patients/{patient_id}/state:
+    get:
+      tags: [state]
+      summary: 状态快照（聚合/趋势/缺失字段/未处理事件）（F04）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PatientState" }
+  /patients/{patient_id}/state/history:
+    get:
+      tags: [state]
+      summary: 历史状态快照版本
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200": { description: OK }
+
+  /patients/{patient_id}/records:
+    get:
+      tags: [records]
+      summary: 健康记录列表（F03）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: kind
+          schema: { type: string }
+        - in: query
+          name: days
+          schema: { type: integer, default: 30 }
+      responses:
+        "200":
+          description: OK
+    post:
+      tags: [records]
+      summary: 录入记录并自动触发 Agent（F03/F06）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecordCreate" }
+      responses:
+        "201":
+          description: 已保存；automation 字段为自动触发结果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  record: { $ref: "#/components/schemas/HealthRecord" }
+                  automation:
+                    nullable: true
+                    type: object
+                    properties:
+                      events_created:
+                        type: array
+                        items: { $ref: "#/components/schemas/Event" }
+                      runs:
+                        type: array
+                        items: { $ref: "#/components/schemas/AgentRunResult" }
+        "422": { $ref: "#/components/responses/Invalid" }
+
+  /patients/{patient_id}/records/import:
+    post:
+      tags: [records]
+      summary: CSV / JSON 回放导入（F03）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                csv_text: { type: string }
+                json_rows:
+                  type: array
+                  items: { type: object }
+                trigger_agent: { type: boolean, default: true }
+      responses:
+        "200":
+          description: 导入摘要（imported / duplicates / failed / errors）
+
+  /patients/{patient_id}/events:
+    get:
+      tags: [events]
+      summary: 事件列表（F05）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: status
+          schema: { type: string, enum: [open, handled, merged, dismissed] }
+      responses:
+        "200": { description: OK }
+  /patients/{patient_id}/events/scan:
+    post:
+      tags: [events]
+      summary: 手动事件检测（演示/调试用）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200": { description: OK }
+
+  /patients/{patient_id}/agent/runs:
+    post:
+      tags: [agent]
+      summary: 运行 Agent（F08）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, nullable: true }
+                event_ids:
+                  type: array
+                  items: { type: string }
+                trigger_type: { type: string, default: user_request }
+      responses:
+        "200":
+          description: 运行结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentRunResult" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { description: 模型或工具异常（不伪装成功） }
+  /patients/{patient_id}/runs:
+    get:
+      tags: [agent]
+      summary: 运行列表（F14）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      responses:
+        "200": { description: OK }
+  /runs/{run_id}:
+    get:
+      tags: [agent]
+      summary: 运行轨迹（步骤、工具、证据、任务、复评）（F14）
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /patients/{patient_id}/tasks:
+    get:
+      tags: [tasks]
+      summary: 任务列表（F11）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, done, missed, cancelled] }
+        - in: query
+          name: task_type
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+  /tasks/{task_id}:
+    get:
+      tags: [tasks]
+      summary: 任务 + 版本历史（F11/F23）
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /tasks/{task_id}/complete:
+    post:
+      tags: [tasks]
+      summary: 完成任务并触发复评（F12）
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                changed_by: { type: string, default: patient }
+                note: { type: string, nullable: true }
+                run_agent: { type: boolean, default: true }
+      responses:
+        "200": { description: OK }
+        "422": { $ref: "#/components/responses/Invalid" }
+  /tasks/{task_id}/reschedule:
+    post:
+      tags: [tasks]
+      summary: 调整任务时间（F23，保留版本）
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [due_at]
+              properties:
+                due_at: { type: string, format: date-time }
+                reason: { type: string }
+                changed_by: { type: string, default: patient }
+      responses:
+        "200": { description: OK }
+        "422": { $ref: "#/components/responses/Invalid" }
+  /tasks/{task_id}/versions:
+    get:
+      tags: [tasks]
+      summary: 计划版本历史（F23）
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+
+  /patients/{patient_id}/questions:
+    get:
+      tags: [questions]
+      summary: 待答复/已回答问题（F21）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: status
+          schema: { type: string, enum: [waiting, answered, expired, cancelled] }
+      responses:
+        "200": { description: OK }
+  /questions/{question_id}/answer:
+    post:
+      tags: [questions]
+      summary: 回答问题并恢复执行（F21）
+      parameters:
+        - in: path
+          name: question_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answer_text: { type: string, nullable: true }
+                answer_value: { nullable: true }
+                option: { type: string, nullable: true }
+                trigger_agent: { type: boolean, default: true }
+      responses:
+        "200":
+          description: 答复 + 恢复执行结果（recorded / run）
+        "422": { $ref: "#/components/responses/Invalid" }
+
+  /patients/{patient_id}/reviews:
+    get:
+      tags: [reviews]
+      summary: 复评列表（F12）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: status
+          schema: { type: string, enum: [scheduled, completed, pending_human] }
+      responses:
+        "200": { description: OK }
+  /reviews/{review_id}/resolve:
+    post:
+      tags: [reviews]
+      summary: 人工复核结案（F13）
+      parameters:
+        - in: path
+          name: review_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string }
+                note: { type: string }
+      responses:
+        "200": { description: OK }
+
+  /patients/{patient_id}/preferences:
+    get:
+      tags: [preferences]
+      summary: 有效偏好（F25）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: include_history
+          schema: { type: boolean, default: false }
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [preferences]
+      summary: 保存偏好（覆盖旧值并重排可调整任务）（F25）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, value]
+              properties:
+                kind:
+                  type: string
+                  enum: [preferred_time_window, task_obstacle, contact_window, reminder_channel, note]
+                value: { type: string }
+                source: { type: string, default: patient_confirmed }
+      responses:
+        "200": { description: OK }
+        "422": { $ref: "#/components/responses/Invalid" }
+  /patients/{patient_id}/preferences/{kind}:
+    delete:
+      tags: [preferences]
+      summary: 清除偏好（F25）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: path
+          name: kind
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+
+  /knowledge:
+    get:
+      tags: [knowledge]
+      summary: 知识包清单（F24）
+      responses:
+        "200": { description: OK }
+  /knowledge/reindex:
+    post:
+      tags: [knowledge]
+      summary: 重建知识索引（F24）
+      responses:
+        "200": { description: OK }
+  /knowledge/search:
+    get:
+      tags: [knowledge]
+      summary: 检索并返回可定位出处；无结果时 found=false（F24）
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string }
+        - in: query
+          name: top_k
+          schema: { type: integer, default: 4 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KnowledgeSearch" }
+
+  /patients/{patient_id}/notifications:
+    get:
+      tags: [notifications]
+      summary: 站内待办提醒（F16）
+      parameters:
+        - $ref: "#/components/parameters/PatientId"
+        - in: query
+          name: status
+          schema: { type: string, enum: [unread, read] }
+      responses:
+        "200": { description: OK }
+  /notifications/{notification_id}/read:
+    post:
+      tags: [notifications]
+      summary: 标记已读（F16）
+      parameters:
+        - in: path
+          name: notification_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+
+  /automation/tick:
+    post:
+      tags: [automation]
+      summary: 推进演示时钟并执行到期作业（F07）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                advance_seconds: { type: integer, nullable: true }
+                limit: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: 处理结果（processed / expired_questions / pending_jobs）
+  /automation/jobs:
+    get:
+      tags: [automation]
+      summary: 调度作业列表（F07）
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        "200": { description: OK }
+  /automation/clock:
+    post:
+      tags: [automation]
+      summary: 设置演示时钟（测试可复现）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                advance_seconds: { type: integer, default: 0 }
+                reset: { type: boolean, default: false }
+      responses:
+        "200": { description: OK }
+
+  /admin/reset:
+    post:
+      tags: [system]
+      summary: 演示重置（清空业务表并重新写入演示患者，仅本机演示）
+      parameters:
+        - in: query
+          name: seed
+          schema: { type: boolean, default: true }
+      responses:
+        "200": { description: OK }
+
+components:
+  parameters:
+    PatientId:
+      in: path
+      name: patient_id
+      required: true
+      schema: { type: string, example: P001 }
+  responses:
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+    Invalid:
+      description: 输入不合法
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail: { type: string }
+  schemas:
+    Patient:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        age: { type: integer, nullable: true }
+        sex: { type: string, nullable: true }
+        diabetes_type: { type: string }
+        duration_years: { type: number, nullable: true }
+        complications:
+          type: array
+          items: { type: string }
+        goals:
+          type: array
+          items: { type: string }
+        constraints:
+          type: array
+          items: { type: string }
+        baseline: { type: object }
+        is_synthetic: { type: boolean }
+        created_at: { type: string }
+        updated_at: { type: string }
+        profile:
+          type: object
+          properties:
+            complete: { type: boolean }
+            missing:
+              type: array
+              items: { type: string }
+    PatientCreate:
+      type: object
+      required: [name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        age: { type: integer }
+        sex: { type: string }
+        diabetes_type: { type: string, default: T2DM }
+        duration_years: { type: number }
+        complications: { type: array, items: { type: string } }
+        goals: { type: array, items: { type: string } }
+        constraints: { type: array, items: { type: string } }
+        baseline: { type: object }
+        is_synthetic: { type: boolean, default: true }
+    HealthRecord:
+      type: object
+      properties:
+        id: { type: integer }
+        patient_id: { type: string }
+        kind:
+          type: string
+          enum: [fasting_glucose, postprandial_glucose, steps, weight, medication_taken, symptom, meal, bp]
+        label: { type: string }
+        value: { type: number, nullable: true }
+        unit: { type: string }
+        recorded_at: { type: string }
+        source: { type: string }
+        note: { type: string, nullable: true }
+        payload: { type: object }
+        duplicate: { type: boolean }
+    RecordCreate:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [fasting_glucose, postprandial_glucose, steps, weight, medication_taken, symptom, meal, bp]
+        value: { type: number, nullable: true }
+        unit: { type: string, nullable: true }
+        recorded_at: { type: string, nullable: true }
+        note: { type: string, nullable: true }
+        payload: { type: object }
+        trigger_agent: { type: boolean, default: true }
+    PatientState:
+      type: object
+      properties:
+        patient: { $ref: "#/components/schemas/Patient" }
+        profile_complete: { type: boolean }
+        missing_fields:
+          type: array
+          items: { type: string }
+        trend: { type: object }
+        aggregates: { type: object }
+        latest: { type: object }
+        open_events:
+          type: array
+          items: { $ref: "#/components/schemas/Event" }
+        open_tasks:
+          type: array
+          items: { type: object }
+        pending_questions:
+          type: array
+          items: { type: object }
+        preferences:
+          type: array
+          items: { type: object }
+        unread_notifications: { type: integer }
+        generated_at: { type: string }
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        patient_id: { type: string }
+        code: { type: string }
+        severity: { type: string, enum: [high, medium, low] }
+        status: { type: string }
+        message: { type: string }
+        evidence: { type: object }
+        detected_at: { type: string }
+    AgentRunResult:
+      type: object
+      properties:
+        run_id: { type: string, example: RUN-1234567890ab }
+        patient_id: { type: string }
+        status: { type: string, enum: [completed, waiting_user, blocked, failed, running] }
+        llm_mode: { type: string, enum: [mock, real] }
+        model: { type: string }
+        intent:
+          type: string
+          enum: [event_response, check_in, knowledge_question, negotiate_plan, unsafe_request, patient_request, escalation]
+        reasoning: { type: array, items: { type: string } }
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              tool: { type: string }
+              ok: { type: boolean }
+              result: { type: object }
+        responses: { type: array, items: { type: string } }
+        evidence: { type: array, items: { type: object } }
+        rejections:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              message: { type: string }
+        waiting_user: { type: boolean }
+        priority_order: { type: array, items: { type: string } }
+    KnowledgeSearch:
+      type: object
+      properties:
+        query: { type: string }
+        found: { type: boolean }
+        note: { type: string, nullable: true }
+        hits:
+          type: array
+          items:
+            type: object
+            properties:
+              doc_id: { type: string }
+              title: { type: string }
+              publisher: { type: string }
+              version: { type: string }
+              source_url: { type: string }
+              anchor: { type: string }
+              heading: { type: string }
+              quote: { type: string }
+              score: { type: number }

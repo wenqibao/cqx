@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diabetes-agent"
+version = "0.1.0"
+description = "糖衡智管 - 单 Agent 稳定期 2 型糖尿病健康管理演示系统（参赛作品，非临床软件）"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary-Demo" }
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn>=0.32,<0.33",
+    "pydantic>=2.9,<3",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.3",
+]
+
+[project.scripts]
+diabetes-agent = "cli.main:main"
+
+[tool.setuptools]
+packages = [
+    "backend",
+    "backend.app",
+    "backend.app.api",
+    "backend.app.schemas",
+    "backend.app.db",
+    "backend.app.services",
+    "backend.app.events",
+    "backend.app.automation",
+    "backend.app.agent",
+    "backend.app.planning",
+    "backend.app.tasks",
+    "backend.app.reviews",
+    "backend.app.safety",
+    "backend.app.questioning",
+    "backend.app.knowledge",
+    "backend.app.memory",
+    "backend.app.audit",
+    "cli",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --basetemp=.pytest_tmp"
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "mock_mode: 使用确定性策略规划器（无真实模型调用）",
+    "real_llm: 需要真实模型端点与密钥，默认跳过",
+]
+
+

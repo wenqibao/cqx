@@ -1,0 +1,46 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.pytest_tmp/
+build/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# ---- 本地依赖引导目录（本机离线安装产物，不进仓库）----
+vendor/
+wheels/
+.tmp/
+
+# ---- 运行时数据 ----
+*.db
+*.sqlite
+*.sqlite3
+data/runtime/
+logs/
+*.log
+
+# ---- 配置与密钥 ----
+.env
+.env.local
+*.local.env
+
+# ---- 演示/评测输出 ----
+evaluation/reports/*.json
+evaluation/reports/*.log
+
+# ---- 编辑器/系统 ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ---- 与本项目无关的大体积外部数据集（勿提交）----
+cgmacros-1.0.0/
+

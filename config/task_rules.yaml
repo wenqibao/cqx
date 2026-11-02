@@ -1,0 +1,79 @@
+# 任务模板与优先级策略（F09 个性化规划 / F22 多事件排序）
+version: 1
+
+# 事件 -> 候选任务模板；planner 会按患者病史、缺失信息与偏好做选择
+templates:
+  GLUCOSE_RISING:
+    - task_type: confirm_medication
+      title: 核实近 3 天服药执行情况
+      description: 请核对是否按时服药，并记录一次服药确认。
+      priority: 60
+      due_hours: 24
+      required_fields: [medication_taken]
+      knowledge_query: 连续血糖记录 意义
+    - task_type: record_glucose
+      title: 补录 2 次空腹血糖
+      description: 在明天早餐前补录空腹血糖，用于判断趋势是否持续。
+      priority: 55
+      due_hours: 36
+      required_fields: []
+  GLUCOSE_VARIABILITY:
+    - task_type: record_glucose
+      title: 连续 3 天记录空腹血糖
+      description: 固定时间记录空腹血糖，帮助判断波动是否与饮食、用药时间相关。
+      priority: 55
+      due_hours: 48
+  HYPOGLYCEMIA_RECORD:
+    - task_type: review_hypoglycemia
+      title: 人工复核低血糖记录
+      description: 低血糖记录需由专业人员复核，系统不做处置建议。
+      priority: 95
+      due_hours: 12
+      review_branch: human_review
+  HYPERGLYCEMIA_RECORD:
+    - task_type: review_hyperglycemia
+      title: 人工复核显著高血糖
+      description: 血糖显著升高需由专业人员复核，系统不做处置建议。
+      priority: 95
+      due_hours: 12
+      review_branch: human_review
+  LOW_ACTIVITY:
+    - task_type: record_activity
+      title: 补录近 3 天步数
+      description: 补录步数后重新评估活动量变化。
+      priority: 40
+      due_hours: 48
+      required_fields: [steps]
+  MEDICATION_NONADHERENCE:
+    - task_type: confirm_medication
+      title: 核对漏服情况
+      description: 请确认最近两次未确认服药的原因（忘记/外出/不适）。
+      priority: 70
+      due_hours: 24
+      required_fields: [medication_taken]
+  WEIGHT_GAIN:
+    - task_type: record_weight
+      title: 复测体重并记录
+      description: 同一时间、同一条件下复测体重。
+      priority: 30
+      due_hours: 72
+  REVIEW_DUE:
+    - task_type: review_followup
+      title: 完成到期健康复评
+      description: 回顾近期记录、任务完成情况与偏好，给出下一步计划。
+      priority: 50
+      due_hours: 12
+
+# 事件严重度 -> 基础排序权重
+severity_weight:
+  high: 100
+  medium: 60
+  low: 30
+
+# 同一患者同类任务在多少小时内视为重复（去重窗口）
+dedupe_window_hours: 72
+# 允许合并的任务类型（多事件合并，F22）
+mergeable_task_types:
+  - confirm_medication
+  - record_glucose
+  - record_activity

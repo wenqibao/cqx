@@ -1,0 +1,41 @@
+{
+  "id": "S03",
+  "title": "多个事件并发时合并同类任务并按优先级排序",
+  "features": ["F22", "F09", "F11", "F25"],
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P102",
+        "name": "场景三（虚构）",
+        "age": 56,
+        "duration_years": 7,
+        "goals": ["血糖稳定", "每天走 6000 步"],
+        "constraints": []
+      }
+    },
+    { "action": "record", "kind": "fasting_glucose", "value": 7.1, "hours_ago": 96, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 7.9, "hours_ago": 72, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 8.6, "hours_ago": 48, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 9.3, "hours_ago": 20, "trigger": false },
+    { "action": "record", "kind": "medication_taken", "value": 0, "hours_ago": 44, "trigger": false },
+    { "action": "record", "kind": "medication_taken", "value": 0, "hours_ago": 18, "trigger": false },
+    { "action": "record", "kind": "steps", "value": 1800, "hours_ago": 40, "trigger": false },
+    { "action": "record", "kind": "steps", "value": 1600, "hours_ago": 30, "trigger": false },
+    { "action": "record", "kind": "steps", "value": 1500, "hours_ago": 8, "trigger": false },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.intent": "event_response",
+        "events_include": ["GLUCOSE_RISING", "MEDICATION_NONADHERENCE", "LOW_ACTIVITY"],
+        "tasks_min": 2
+      }
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.patient.id": "P102"
+      }
+    }
+  ]
+}

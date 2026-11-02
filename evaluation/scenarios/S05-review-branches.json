@@ -1,0 +1,24 @@
+{
+  "id": "S05",
+  "title": "复评三分支：完成任务正常关闭，到期未完成进入数据缺失分支",
+  "features": ["F12", "F07", "F11"],
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P104",
+        "name": "场景五（虚构）",
+        "age": 60,
+        "duration_years": 9,
+        "goals": ["按时记录"],
+        "constraints": []
+      }
+    },
+    { "action": "record", "kind": "fasting_glucose", "value": 7.0, "hours_ago": 60, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 8.0, "hours_ago": 36, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 9.2, "hours_ago": 12, "trigger": false },
+    { "action": "run_agent", "expect": { "tasks_min": 1 } },
+    { "action": "complete_task", "task_type": "record_glucose", "expect": { "review_branches_include": ["CLOSED"] } },
+    { "action": "tick", "advance_seconds": 259200, "expect": { "review_branches_include": ["CLOSED", "MISSING_DATA"] } }
+  ]
+}

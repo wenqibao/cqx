@@ -1,0 +1,33 @@
+{
+  "id": "S01",
+  "title": "录入健康数据后无需点击即自动触发 Agent 并创建任务",
+  "features": ["F03", "F05", "F06", "F08", "F09", "F10", "F11", "F14"],
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P100",
+        "name": "场景一（虚构）",
+        "age": 58,
+        "duration_years": 8,
+        "goals": ["空腹血糖稳定"],
+        "constraints": ["早餐前服药"]
+      }
+    },
+    { "action": "record", "kind": "fasting_glucose", "value": 7.0, "hours_ago": 96, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 7.7, "hours_ago": 72, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 8.3, "hours_ago": 48, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 8.9, "hours_ago": 24, "trigger": false },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.6,
+      "hours_ago": 0,
+      "expect": {
+        "events_include": ["GLUCOSE_RISING"],
+        "tasks_min": 1,
+        "run.status": "waiting_user"
+      }
+    }
+  ]
+}

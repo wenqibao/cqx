@@ -1,0 +1,39 @@
+{
+  "id": "S02",
+  "title": "信息缺失时 Agent 主动提问，患者回答后恢复同一管理流程",
+  "features": ["F21", "F08", "F09"],
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P101",
+        "name": "场景二（虚构）",
+        "age": 62,
+        "duration_years": 10,
+        "goals": ["减少漏服"],
+        "constraints": ["早餐后服药"]
+      }
+    },
+    { "action": "record", "kind": "fasting_glucose", "value": 7.2, "hours_ago": 72, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 8.0, "hours_ago": 48, "trigger": false },
+    { "action": "record", "kind": "fasting_glucose", "value": 8.8, "hours_ago": 24, "trigger": false },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.status": "waiting_user",
+        "run.intent": "event_response",
+        "waiting_questions_min": 1,
+        "tasks_min": 1
+      }
+    },
+    {
+      "action": "answer",
+      "text": "已按时完成",
+      "expect": {
+        "resume.recorded.kind": "medication_taken",
+        "resume.uncertain": false,
+        "run.status": "completed"
+      }
+    }
+  ]
+}

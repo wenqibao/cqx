@@ -1,0 +1,25 @@
+{
+  "patient": {
+    "id": "P002",
+    "name": "李秀英（虚构）",
+    "age": 66,
+    "sex": "女",
+    "diabetes_type": "T2DM",
+    "duration_years": 12,
+    "complications": ["早期糖尿病肾病"],
+    "goals": ["避免低血糖", "按时复诊"],
+    "constraints": ["晚上要照顾孙子，19:00 后不方便操作手机"],
+    "baseline": { "height_cm": 158, "weight_kg": 61.5 }
+  },
+  "records": [
+    { "kind": "fasting_glucose", "value": 5.2, "recorded_at_offset_hours": -120 },
+    { "kind": "fasting_glucose", "value": 4.8, "recorded_at_offset_hours": -96 },
+    { "kind": "fasting_glucose", "value": 3.6, "recorded_at_offset_hours": -48 },
+    { "kind": "fasting_glucose", "value": 4.1, "recorded_at_offset_hours": -20 },
+    { "kind": "symptom", "value": null, "recorded_at_offset_hours": -48, "payload": { "text": "早上心慌出汗，手抖" } },
+    { "kind": "steps", "value": 5200, "recorded_at_offset_hours": -48 },
+    { "kind": "steps", "value": 6100, "recorded_at_offset_hours": -20 },
+    { "kind": "medication_taken", "value": 1, "recorded_at_offset_hours": -20 }
+  ],
+  "notes": "低血糖记录 + 症状，用于演示安全门与人工复核分支（F13/F12）。"
+}

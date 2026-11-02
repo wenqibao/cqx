@@ -1,0 +1,27 @@
+{
+  "id": "S07",
+  "title": "知识问答必须引用可定位来源",
+  "features": ["F24", "F26"],
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P106",
+        "name": "场景七（虚构）",
+        "age": 52,
+        "duration_years": 5,
+        "goals": ["理解管理要点"],
+        "constraints": []
+      }
+    },
+    {
+      "action": "run_agent",
+      "message": "为什么需要连续记录血糖",
+      "expect": {
+        "run.intent": "knowledge_question",
+        "run.evidence.0.doc_id": "KD-001",
+        "run.rejections": []
+      }
+    }
+  ]
+}

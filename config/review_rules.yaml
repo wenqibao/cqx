@@ -1,0 +1,30 @@
+# 复评规则（F12 三分支）与自动调度（F07）
+version: 1
+
+# 任务创建后多久安排一次复评
+default_review_delay_hours: 48
+
+# 复评三分支判定顺序（先安全，后数据，最后关闭）
+branches:
+  - name: HUMAN_REVIEW
+    when: event_severity_high OR red_flag_present OR task_type_is_review
+    description: 高风险或人工复核类任务直接进入人工复核，不自动关闭。
+  - name: MISSING_DATA
+    when: any_required_field_missing OR record_count_below_threshold
+    description: 关键数据缺失时创建补录任务，并安排下一次复评。
+  - name: CLOSED
+    when: all_required_fields_present AND task_completed
+    description: 数据齐备且任务完成，正常关闭并记录结论。
+
+# 数据充分性阈值
+data_sufficiency:
+  glucose_min_points_7d: 2
+  steps_min_days_3d: 2
+
+# 到期调度
+scheduler:
+  poll_seconds: 30
+  max_attempts: 3
+  retry_delay_seconds: 60
+  # 到期后仍未完成的任务：视为 MISSING_DATA 分支
+  overdue_grace_hours: 0

@@ -6,8 +6,9 @@ import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
-from backend.app.config import safety_rules, task_rules
+from backend.app.config import task_rules
 from backend.app.db.connection import iso, now, parse_ts
+from backend.app.safety import gate as safety_gate
 
 SEVERITY_WEIGHT = {"high": 100, "medium": 60, "low": 30}
 KNOWN_HISTORY_BOOST = {"T2DM": 0}
@@ -20,12 +21,10 @@ TIME_RE = re.compile(r"(?P<h>[01]?\d|2[0-3])\s*[:：]\s*(?P<m>[0-5]\d)")
 def detect_intent(message: str | None, has_events: bool) -> str:
     msg = (message or "").strip()
     if msg:
-        verdict = safety_rules()
-        lowered = msg.lower()
-        for rule in verdict.get("forbidden_intents", []):
-            for kw in rule.get("keywords", []):
-                if kw.lower() in lowered:
-                    return "unsafe_request"
+        # 安全判定只保留一个真相来源：与执行前校验共用 safety.gate.check_text
+        # （关键词 + 表达变体 + 免责声明上下文），避免两套规则漂移（BUG-B24-001）。
+        if not safety_gate.check_text(msg)["allowed"]:
+            return "unsafe_request"
         if any(h in msg for h in NEGOTIATION_HINTS):
             return "negotiate_plan"
         if any(h in msg for h in QUESTION_HINTS):
@@ -297,6 +296,28 @@ def build_negotiation_plan(
     patient_id = state["patient"]["id"]
     task_type = constraint.get("task_type")
     hours = constraint.get("target_hour")
+    # 纵深防御：即使上游安全门被绕过，协商路径也绝不针对被禁止的医疗动作产出改期/改内容计划
+    verdict = safety_gate.check_text(message)
+    if not verdict["allowed"]:
+        return {
+            "intent": "unsafe_request",
+            "reasoning_summary": [f"协商内容命中安全门（{verdict['code']}），拒绝任何医疗相关调整"],
+            "actions": [
+                {
+                    "tool": "respond",
+                    "args": {
+                        "patient_id": patient_id,
+                        "text": verdict["message"] or "本系统不调整任何药物或胰岛素方案，请咨询医生。",
+                        "citations": [],
+                    },
+                    "requires_evidence": False,
+                    "reason": "安全门拦截协商中的医疗动作",
+                }
+            ],
+            "events": [],
+            "priority_order": [],
+            "constraint": constraint,
+        }
     actions: list[dict[str, Any]] = [
         {"tool": "parse_constraint", "args": {"message": message}, "requires_evidence": False, "reason": "解析时间约束"}
     ]

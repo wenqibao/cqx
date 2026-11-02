@@ -1,11 +1,16 @@
 """F13 安全门：禁止医疗动作拦截、工具白名单、红旗信号升级、审计写入。"""
 from __future__ import annotations
 
+import re
 import sqlite3
 from typing import Any
 
 from backend.app.config import safety_rules
 from backend.app.db.connection import dumps, iso, now
+
+# 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
+DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不负责", "不得", "禁止", "无需", "不承诺")
+DISCLAIMER_WINDOW = 24
 
 
 class SafetyViolation(Exception):
@@ -16,13 +21,36 @@ class SafetyViolation(Exception):
         self.detail = detail or {}
 
 
+def _is_disclaimer(text: str, position: int) -> bool:
+    window = text[max(0, position - DISCLAIMER_WINDOW) : position]
+    return any(marker in window for marker in DISCLAIMER_MARKERS)
+
+
+def _match_pattern(text: str, patterns: list[str]) -> tuple[int, str] | None:
+    for pattern in patterns:
+        try:
+            m = re.search(pattern, text)
+        except re.error:  # 配置写错不应让安全门整体失效
+            continue
+        if m and not _is_disclaimer(text, m.start()):
+            return m.start(), m.group(0)
+    return None
+
+
 def check_text(text: str) -> dict[str, Any]:
-    """检查患者输入/模型输出中是否包含被禁止的医疗动作意图。"""
+    """检查患者输入/模型输出中是否包含被禁止的医疗动作意图。
+
+    两层识别：
+    1) forbidden_intents.keywords —— 固定说法（"停药""开药"…）；
+    2) intent_patterns —— "药物对象 + 剂量/用法变化"的表达变体
+       （如"把胰岛素改成早上多打两单位"），避免只靠关键词漏拦。
+    """
     cfg = safety_rules()
     lowered = (text or "").lower()
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
-            if kw.lower() in lowered:
+            position = lowered.find(kw.lower())
+            if position >= 0 and not _is_disclaimer(lowered, position):
                 return {
                     "allowed": False,
                     "code": rule["code"],
@@ -30,6 +58,19 @@ def check_text(text: str) -> dict[str, Any]:
                     "message": rule.get("message", ""),
                     "matched": kw,
                 }
+    for rule in cfg.get("intent_patterns", []):
+        terms = [str(t).lower() for t in (rule.get("terms") or [])]
+        if terms and not any(term in lowered for term in terms):
+            continue
+        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])])
+        if hit:
+            return {
+                "allowed": False,
+                "code": rule["code"],
+                "name": rule.get("name", rule["code"]),
+                "message": rule.get("message", ""),
+                "matched": hit[1],
+            }
     return {"allowed": True, "code": None, "message": "", "matched": None}
 
 

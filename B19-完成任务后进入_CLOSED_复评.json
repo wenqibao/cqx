@@ -1,0 +1,75 @@
+{
+  "id": "B19",
+  "title": "完成任务后进入 CLOSED 复评",
+  "features": [
+    "F11",
+    "F12",
+    "F14"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P218",
+        "name": "B 验收 P218",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 96,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.7,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.3,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.9,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.6,
+      "hours_ago": 0,
+      "trigger": false
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "tasks_min": 1
+      }
+    },
+    {
+      "action": "complete_task",
+      "task_type": "record_glucose",
+      "expect": {
+        "review_branches_include": [
+          "CLOSED"
+        ]
+      }
+    }
+  ]
+}

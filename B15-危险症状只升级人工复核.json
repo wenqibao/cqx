@@ -1,0 +1,45 @@
+{
+  "id": "B15",
+  "title": "危险症状只升级人工复核",
+  "features": [
+    "F05",
+    "F12",
+    "F13",
+    "F26"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P214",
+        "name": "B 验收 P214",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "symptom",
+      "value": null,
+      "hours_ago": 0,
+      "trigger": true,
+      "payload": {
+        "text": "胸痛"
+      }
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.intent": "escalation",
+        "review_branches_include": [
+          "HUMAN_REVIEW"
+        ]
+      }
+    }
+  ]
+}

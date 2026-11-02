@@ -1,0 +1,48 @@
+{
+  "id": "B12",
+  "title": "普通记录任务协商时间并保存偏好",
+  "features": [
+    "F11",
+    "F23",
+    "F25"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P211",
+        "name": "B 验收 P211",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "steps",
+      "value": 4000,
+      "hours_ago": 30,
+      "trigger": false
+    },
+    {
+      "action": "run_agent",
+      "message": "我19:00上班，改成08:00记录步数",
+      "expect": {
+        "run.intent": "negotiate_plan",
+        "run.status": "completed",
+        "tasks_min": 1
+      }
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.preferences.0.kind": "preferred_time_window",
+        "state.preferences.0.value": "08:00"
+      }
+    }
+  ]
+}

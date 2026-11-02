@@ -1,0 +1,101 @@
+{
+  "id": "B18",
+  "title": "血糖、漏服和活动事件综合排序",
+  "features": [
+    "F08",
+    "F09",
+    "F11",
+    "F22"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P217",
+        "name": "B 验收 P217",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.1,
+      "hours_ago": 96,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.9,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.6,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.3,
+      "hours_ago": 20,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "medication_taken",
+      "value": 0,
+      "hours_ago": 44,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "medication_taken",
+      "value": 0,
+      "hours_ago": 18,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "steps",
+      "value": 1800,
+      "hours_ago": 40,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "steps",
+      "value": 1600,
+      "hours_ago": 30,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "steps",
+      "value": 1500,
+      "hours_ago": 8,
+      "trigger": false
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.intent": "event_response",
+        "events_include": [
+          "GLUCOSE_RISING",
+          "MEDICATION_NONADHERENCE",
+          "LOW_ACTIVITY"
+        ],
+        "tasks_min": 2
+      }
+    }
+  ]
+}

@@ -122,6 +122,21 @@ def run_agent(
                 code=unsafe["code"],
                 detail={"matched": unsafe["matched"], "message": message},
             )
+            # 拦截也要进轨迹，便于 F14 解释"为什么这次什么都没做"
+            trace.add_step(
+                conn,
+                run_id,
+                phase="validate",
+                kind="rejection",
+                payload={
+                    "code": unsafe["code"],
+                    "matched": unsafe["matched"],
+                    "message": unsafe["message"],
+                    "input": message,
+                },
+                status="rejected",
+                code=unsafe["code"],
+            )
         else:
             gate.audit(
                 conn,

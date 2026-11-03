@@ -105,9 +105,14 @@
 ## F13 安全门与人工升级 ｜ 已实现
 
 - 需求：不执行改药、诊断等禁止动作；创建待复核事项。
-- 实现：`safety/gate.py`（禁止意图关键词、工具白名单、红旗信号、审计）；
+- 实现：`safety/gate.py` 两层识别——① 禁止意图关键词（固定说法）；② `config/safety_rules.yaml`
+  的 `intent_patterns`（"药物对象 + 剂量/用法变化"的表达变体，含中文数字与"多打/加量/改成…打"等），
+  并对"本系统不提供…"这类免责声明做引用豁免；意图识别（`planning/planner.detect_intent`）
+  复用同一判定，协商路径另有纵深防御。工具白名单、红旗信号与审计同层实现。
   `request_human_review` 工具幂等（同一患者同一理由只有一条待处理）。
-- 验证：`tests/unit/test_safety.py`、`test_forbidden_request_blocked_and_audited`、场景 `S09`。
+- 验证：`tests/unit/test_safety.py`、`tests/unit/test_safety_variants.py`、
+  `tests/integration/test_safety_b24.py`、`test_forbidden_request_blocked_and_audited`、场景 `S09`；
+  BUG-B24-001（`请把胰岛素改成早上多打两单位`）已纳入回归。
 
 ## F14 决策解释及运行追踪 ｜ 已实现
 

@@ -47,7 +47,7 @@
 | --- | --- | --- |
 | `config/event_rules.yaml` | 8 条事件检测规则（阈值/窗口/严重度） | `backend/app/events/detector.py` |
 | `config/task_rules.yaml` | 事件→任务模板、优先级权重、去重窗口、可合并任务类型 | `backend/app/planning/planner.py`、`backend/app/tasks/service.py` |
-| `config/safety_rules.yaml` | 禁止意图关键词、红旗信号、工具白名单、动作上限 | `backend/app/safety/gate.py`、`backend/app/safety/validators.py` |
+| `config/safety_rules.yaml` | 禁止意图关键词 + 表达变体规则（`intent_patterns`）、红旗信号、工具白名单、动作上限 | `backend/app/safety/gate.py`、`backend/app/safety/validators.py` |
 | `config/review_rules.yaml` | 复评延迟、三分支条件、数据充分性阈值、调度重试 | `backend/app/reviews/service.py`、`backend/app/automation/scheduler.py` |
 | `knowledge/INDEX.yaml` | 知识包清单与检索参数（top_k、min_score） | `backend/app/knowledge/index.py`、`search.py` |
 | `.env`（不入库） | 运行模式、模型端点、数据库路径、前端地址 | `backend/app/config.py` |
@@ -132,7 +132,7 @@
 | F10 真实工具调用 | `agent/tools.py`（14 个工具） | 每次 run 的 `agent_steps` 均有 tool_call/tool_result |
 | F11 健康任务管理 | `tasks/service.py` | `tests/integration/test_agent_flow.py` |
 | F12 动态复评三分支 | `reviews/service.py` | `test_task_completion_leads_to_closed_review`、`test_review_missing_data_branch` |
-| F13 安全门与人工升级 | `safety/gate.py` | `tests/unit/test_safety.py`、`test_forbidden_request_blocked_and_audited` |
+| F13 安全门与人工升级 | `safety/gate.py`（关键词 + 表达变体两层识别） | `tests/unit/test_safety.py`、`tests/unit/test_safety_variants.py`、`tests/integration/test_safety_b24.py`、`test_forbidden_request_blocked_and_audited` |
 | F14 决策解释与追踪 | `audit/trace.py` | `python -m cli.main trace RUN_ID` |
 | F15 Web 客户端（前端） | 后端接口由 A 提供，页面由 C 实现 | `docs/api_contract.yaml` |
 | F16 站内待办提醒 | `services/notifications.py` | `GET /api/patients/{id}/notifications` |
@@ -188,11 +188,14 @@ python scripts/run_scenarios.py     # 9 个固定场景，生成 evaluation/repo
 | `docs/data_dictionary.md` | 数据表字段、拒绝码 |
 | `docs/test_plan.md` | 测试计划骨架（B 接管） |
 | `docs/handover_to_b.md` | A→B 交接清单与验证重点 |
+| `docs/bugfix_BUG-B24-001.md` | P0 缺陷根因、修复范围、前后对比与 B 的复验清单 |
 | `docs/demo_script.md` | 5 段演示脚本（C 录屏用） |
-| `docs/reference/plan_extracted.txt` | 参赛计划书 PDF 的文本抽取（仅作需求参考，非项目文档） |
 | `evaluation/README.md` | 场景文件格式与预期维护规则 |
 | `frontend/README.md` | C 的前端接入约定（Mock/真实模式） |
 | `presentations/README.md`、`media/README.md` | C 的材料与视频目录约定 |
+
+> 参赛计划书原件（PDF）与本地抽取文本 `docs/reference/plan_extracted.txt` 仅在本地保留，
+> 已由 `.gitignore` 排除，不进入仓库。
 
 ## 10. 已知缺陷与限制
 

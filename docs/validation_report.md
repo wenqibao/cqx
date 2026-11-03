@@ -2,7 +2,7 @@
 
 ## 输入版本（修复后复验）
 
-- 验证基线：合并后 `main`（commit `f062e98`，A 的 BUG-B24-001 安全门修复）与 `qa/tests-b-preflight`（B 的场景、文档与复验测试）的合并树，合并 commit `d3c0729`。
+- 验证基线：`main` 的 `f062e98`（A 的 BUG-B24-001 安全门修复）与 `qa/tests-b-preflight` 的 `c3173c6`（B 的场景、文档与复验测试，含场景归位）的合并树；归位前的合并 commit 为 `d3c0729`，归位提交为 `c3173c6`。
 - `f062e98` 应用的文件：`backend/app/safety/gate.py`、`backend/app/planning/planner.py`、`backend/app/agent/orchestrator.py`、`config/safety_rules.yaml`、`docs/PROJECT_FILE_MAP.md`、`docs/mvp_spec.md`、`docs/bugfix_BUG-B24-001.md`，新增测试 `tests/unit/test_safety_variants.py`、`tests/integration/test_safety_b24.py`。
 - B 验证副本：未修改任何场景 `expect`。
 - Python：3.13.5
@@ -20,12 +20,15 @@ python scripts/run_scenarios.py --report evaluation/reports/b-full-scenario-repo
 python -m pytest --disable-warnings -rA
 ```
 
+> 运行前提：先执行 `python -m pip install -e ".[dev]"`。未安装 fastapi 时 `tests/api` 的 10 项会报 `ModuleNotFoundError`（环境缺依赖，非代码缺陷）。
+
 ## 修复后复验结果
 
 - `B24`：PASS，修复后为 `unsafe_request / blocked`，不再进入 `negotiate_plan / waiting_user`。
 - `S09`、`B13`、`B14`：全部 PASS。
 - 全量场景：33/33 PASS，0 FAIL，`llm_mode=mock`。
-- 全量 pytest：118 passed，0 failed，0 error（collected 118 items；A 116 + B 2）。
+- 全量 pytest：142 passed，0 failed，0 error（collected 142 items；A 116 + B 2 + 24 个场景 e2e 参数化用例）。
+  说明：场景归位到 `evaluation/scenarios/` 后，`tests/e2e/test_demo_scenarios.py` 会为 33 个场景各生成一个参数化用例，比归位前多 24 个；归位前同一棵树为 118 passed。
 - 安全副作用：B24 未创建任务、问题或复评；禁止医疗动作实际执行数为 0；拒绝记录写入审计。
 - 真实模型：NOT RUN；本机未提供真实厂商模型端点和密钥。
 
@@ -79,5 +82,6 @@ FAIL 1
 
 ## 基线说明（复现口径）
 
-- 118 passed 是「合并后主干」（`main` + `qa/tests-b-preflight`，合并 commit `d3c0729`）的真实结果。
-- 若在 `qa/tests-b-preflight` 上单独运行（不含 A 的 `f062e98` 代码），pytest 为 83 passed + 1 failed：失败项是 B 的复验测试 `tests/integration/test_b_reverification.py`，因它验证的是 `f062e98` 修复后的安全行为，而分支本身不含该修复——此为预期，不表示缺陷。
+- 142 passed 是「合并后树」（`main` 的 `f062e98` + `qa/tests-b-preflight` 的 `c3173c6`）的真实结果；其中 24 个用例来自场景归位后的 e2e 参数化。
+- 场景归位前（合并 commit `d3c0729`，场景仍在仓库根目录）同一棵树为 118 passed（collected 118）；差异只来自场景数量，不涉及源代码。
+- 若在合并 `f062e98` 之前的 B 分支（`05976a6`）上单独运行，pytest 为 83 passed + 1 failed：失败项是 B 的复验测试 `tests/integration/test_b_reverification.py`，因它验证的是 `f062e98` 修复后的安全行为，而该分支基线不含此提交——此为预期，不表示缺陷。

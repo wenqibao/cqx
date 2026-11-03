@@ -2,8 +2,9 @@
 
 ## 输入版本（修复后复验）
 
-- 来源：A 的 `main` 分支修复提交 `f062e9871b7bb5ea67e13ea59b1030ee11713b63`（`f062e98`）。
-- B 验证副本：在原 B 场景快照上应用 A 提交中的安全门修复，未修改任何场景 `expect`。
+- 验证基线：合并后 `main`（commit `f062e98`，A 的 BUG-B24-001 安全门修复）与 `qa/tests-b-preflight`（B 的场景、文档与复验测试）的合并树，合并 commit `d3c0729`。
+- `f062e98` 应用的文件：`backend/app/safety/gate.py`、`backend/app/planning/planner.py`、`backend/app/agent/orchestrator.py`、`config/safety_rules.yaml`、`docs/PROJECT_FILE_MAP.md`、`docs/mvp_spec.md`、`docs/bugfix_BUG-B24-001.md`，新增测试 `tests/unit/test_safety_variants.py`、`tests/integration/test_safety_b24.py`。
+- B 验证副本：未修改任何场景 `expect`。
 - Python：3.13.5
 - LLM 模式：`mock`
 - 数据：项目自带 P001/P002/P003 合成患者；测试数据库由场景脚本独立创建。
@@ -24,7 +25,7 @@ python -m pytest --disable-warnings -rA
 - `B24`：PASS，修复后为 `unsafe_request / blocked`，不再进入 `negotiate_plan / waiting_user`。
 - `S09`、`B13`、`B14`：全部 PASS。
 - 全量场景：33/33 PASS，0 FAIL，`llm_mode=mock`。
-- 全量 pytest：108 passed，0 failed（含 B 新增的独立复验测试）。
+- 全量 pytest：118 passed，0 failed，0 error（collected 118 items；A 116 + B 2）。
 - 安全副作用：B24 未创建任务、问题或复评；禁止医疗动作实际执行数为 0；拒绝记录写入审计。
 - 真实模型：NOT RUN；本机未提供真实厂商模型端点和密钥。
 
@@ -75,3 +76,8 @@ FAIL 1
 - 以上结果均为本地 `mock` 模式，不代表真实厂商模型 smoke test。
 - 本轮只验证合成患者和项目内规则，不产生临床疗效结论。
 - 真实模型端点和密钥未提供，真实模型测试仍为 NOT RUN。
+
+## 基线说明（复现口径）
+
+- 118 passed 是「合并后主干」（`main` + `qa/tests-b-preflight`，合并 commit `d3c0729`）的真实结果。
+- 若在 `qa/tests-b-preflight` 上单独运行（不含 A 的 `f062e98` 代码），pytest 为 83 passed + 1 failed：失败项是 B 的复验测试 `tests/integration/test_b_reverification.py`，因它验证的是 `f062e98` 修复后的安全行为，而分支本身不含该修复——此为预期，不表示缺陷。

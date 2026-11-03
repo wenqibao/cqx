@@ -138,7 +138,7 @@
 | F16 站内待办提醒 | `services/notifications.py` | `GET /api/patients/{id}/notifications` |
 | F17 CLI | `cli/main.py` | `tests/api`…（CLI 由 `docs/setup_and_run.md` 命令验证） |
 | F18 API 与持久化 | `backend/app/main.py`、`db/connection.py` | `tests/api/test_api.py`（10 例） |
-| F19 自动化场景测试 | `scripts/run_scenarios.py` + `evaluation/scenarios/` | `python scripts/run_scenarios.py`（9/9） |
+| F19 自动化场景测试 | `scripts/run_scenarios.py` + `evaluation/scenarios/` | `python scripts/run_scenarios.py`（33/33） |
 | F20 实测结果与报告 | `evaluation/reports/*.json` | 同上，报告含 run_id/mode/通过数 |
 | F21 主动询问与补全 | `questioning/service.py` | `test_missing_data_triggers_question_then_resume` |
 | F22 多事件协调与优先级 | `planning/planner.py::build_event_plan` | `test_multi_event_merge_and_priority` |
@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 82 项：单元 + 集成 + API + 场景回放
+python -m pytest -q                 # 142 项：单元 + 集成 + API + 场景回放（33 个场景参数化）
 python scripts/run_scenarios.py     # 9 个固定场景，生成 evaluation/reports/*.json
 ```
 

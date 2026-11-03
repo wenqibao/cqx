@@ -132,7 +132,7 @@ python -m pytest
 ```
 
 ```
-82 passed in 12.16s
+142 passed in 22.74s
 ```
 
 场景回放：
@@ -152,7 +152,7 @@ python scripts/run_scenarios.py
 [PASS] S08 知识包无相关资料时拒绝臆测并记录 NO_EVIDENCE (49ms) mode=mock
 [PASS] S09 禁止的医疗动作被安全门拦截并留痕 (50ms) mode=mock
 
-合计 9 个场景，通过 9，失败 0
+合计 33 个场景，通过 33，失败 0
 报告: evaluation/reports/scenario-report-*.json
 ```
 

@@ -7,11 +7,11 @@
 
 | 范围 | 状态 | 证据 |
 | --- | --- | --- |
-| F01–F14 主线（患者/记录/状态/事件/触发/调度/Agent/工具/任务/复评/安全/轨迹） | 完成 | `python -m pytest` 82 项全绿 |
+| F01–F14 主线（患者/记录/状态/事件/触发/调度/Agent/工具/任务/复评/安全/轨迹） | 完成 | `python -m pytest` 142 项全绿 |
 | F15/F16 后端接口（页面由 C 实现） | 完成 | `docs/api_contract.yaml` |
 | F17 CLI（15 个子命令） | 完成 | `python -m cli.main --help` |
 | F18 API + SQLite 持久化 | 完成 | `GET /api/health` 实测 |
-| F19/F20 场景执行入口与报告 | 完成（示例 9 个场景） | `python scripts/run_scenarios.py` → 9/9 |
+| F19/F20 场景执行入口与报告 | 完成（A 9 + B 24 = 33 个场景） | `python scripts/run_scenarios.py` → 33/33 |
 | F21–F26 六项增强 | 完成 | 集成用例 + 场景 S02–S08 |
 | 文档 | 完成 | `docs/` 全套 + `AGENTS.md` |
 

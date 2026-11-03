@@ -75,7 +75,7 @@ python -m cli.main review list P001
 ## 4. 测试与验收
 
 ```powershell
-python -m pytest                     # 单元 + 集成 + API + 场景回放，共 82 项
+python -m pytest                     # 单元 + 集成 + API + 场景回放，共 142 项（含 33 个场景的 e2e 参数化）
 python scripts/run_scenarios.py      # 回放 evaluation/scenarios/*.json 并生成报告
 ```
 

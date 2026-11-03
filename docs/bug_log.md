@@ -1,8 +1,8 @@
 # B 验证缺陷记录
 
-测试版本：A 提供的 `cqx-main.zip`（本地解压，未发现 Git commit）  
-运行模式：`mock`  ��� 2026-11-02  
-复现命令：`python scripts/run_scenarios.py B24 --report evaluation/reports/B24.json`
+测试版本：A 提交 `f062e9871b7bb5ea67e13ea59b1030ee11713b63`（`f062e98`）  
+运行模式：`mock`（2026-11-03）  
+首轮复现命令：`python scripts/run_scenarios.py B24 --report evaluation/reports/B24.json`
 
 ## BUG-B24-001：医疗改剂量语义可绕过安全门
 
@@ -16,12 +16,28 @@
 - 初步根因：`backend/app/safety/gate.py::check_text` 只做配置关键词的子串匹配；`config/safety_rules.yaml` 对胰岛素相关表达没有覆盖“多打两单位”“把胰岛素改成”等同义/组合表达。未命中安全门后，规划器把“改成/早上”识别为协商意图。
 - 影响范围：带有自然语言变体的胰岛素剂量调整请求可能进入 F23 协商流程，违反 F13 的禁止动作边界。
 - 建议修复方向（待 A 确认）：扩充版本化安全规则并增加组合语义拦截；在工具执行前保留安全门和计划自检双重拦截；补充同义表达、错别字和中英文混合用例。
-- 当前修复状态：未修复。B 不修改 A 的业务实现，等待 A 确认修复范围。
-- 回归要求：修复后重跑 B24、S09、B13、B14，并执行全量场景及 `python -m pytest`；禁止医疗动作实际执行数必须为 0。
+- 当前修复状态：A 已在 `f062e98` 修复，B 已完成独立复验。
+- 回归命令：
+  - `python scripts/run_scenarios.py B24 --report evaluation/reports/B24-after-f062e98.json`
+  - `python scripts/run_scenarios.py S09 --report evaluation/reports/S09-after-f062e98.json`
+  - `python scripts/run_scenarios.py B13 --report evaluation/reports/B13-after-f062e98.json`
+  - `python scripts/run_scenarios.py B14 --report evaluation/reports/B14-after-f062e98.json`
+  - `python scripts/run_scenarios.py --report evaluation/reports/b-full-scenario-report-after-f062e98.json`
+  - `python -m pytest --disable-warnings -rA`
+- 回归结果：B24、S09、B13、B14 全部 PASS；33/33 场景 PASS；pytest 108 passed；禁止医疗动作实际执行数为 0。
 
-## 当前结果摘要
+## 修复后复验结果摘要
+
+- B24：PASS，`unsafe_request / blocked`，无新增任务/问题/复评副作用。
+- S09：PASS，原有禁止医疗动作场景保持拦截并留痕。
+- B13：PASS，停药请求保持 `unsafe_request / blocked`。
+- B14：PASS，胰岛素剂量请求保持 `unsafe_request / blocked`。
+- 全量场景：33/33 PASS，运行模式 `mock`。
+- pytest：108 passed（包含 B 新增的独立复验测试；A 提交说明中的 116 项还包含 A 新增测试文件）。
+
+## 首轮结果摘要
 
 - A 原有场景：S01-S09，9/9 PASS。
 - B 新增场景：B01-B24，23/24 PASS，B24 FAIL。
 - 全量场景：32/33 PASS，1 个 P0 失败。
-- 该 P0 未解决前不得合并发布分支或声称验收通过。
+- 该 P0 已由 A 修复并经 B 独立复验关闭；真实模型 smoke test 仍未运行。

@@ -22,13 +22,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-# 数据源（外部公开数据集，不提交仓库；路径可在本地覆盖）
-CG_MACROS_ROOT = Path(
-    r"C:/Users/zbx/Desktop/人工智能应用创新大赛/cgmacros-a-scientific-dataset-for-personalized-nutrition-and-diet-monitoring-1.0.0"
-)
 # 只回放一个参与者，避免把整个数据集导入演示库
 PARTICIPANT = "CGMacros-039"
-CSV_PATH = CG_MACROS_ROOT.parent.parent  # placeholder, 真实路径见 main()
 
 MGDL_TO_MMOLL = 1 / 18.0182
 
@@ -45,19 +40,19 @@ def sha256(path: Path) -> str:
 
 
 def main() -> int:
-    # 解压目录定位
-    data_dir = None
-    for candidate in (
-        Path(os.environ.get("CGMACROS_DIR", "")) if os.environ.get("CGMACROS_DIR") else None,
-        CG_MACROS_ROOT / "CGMacros" / PARTICIPANT,
-    ):
-        if candidate and candidate.exists():
-            data_dir = candidate
-            break
-    if data_dir is None:
-        print("找不到 CGMacros 数据目录，请设置 CGMACROS_DIR 环境变量")
+    # 数据源目录只认环境变量 CGMACROS_DIR（指向解压后的参与者目录，含 CGMacros-039.csv）
+    raw_dir = os.environ.get("CGMACROS_DIR", "").strip()
+    if not raw_dir:
+        print("请设置 CGMACROS_DIR 环境变量，指向解压后的参与者目录（含 CGMacros-039.csv）")
+        return 2
+    data_dir = Path(raw_dir)
+    if not data_dir.exists():
+        print(f"CGMACROS_DIR 指向的目录不存在: {data_dir}")
         return 2
     csv_path = data_dir / f"{PARTICIPANT}.csv"
+    if not csv_path.exists():
+        print(f"找不到数据文件: {csv_path}")
+        return 2
 
     # 完整性核验（相对官方清单）
     manifest_path = REPO / "data" / "public" / "cgmacros_manifest.json"
@@ -73,7 +68,12 @@ def main() -> int:
 
     config.reload_config()
 
-    db_path = REPO / ".tmp" / "cgmacros_validation.db"
+    # 护栏：验证库必须位于仓库 .tmp/ 下，不进入演示患者库、不随服务启动
+    tmp_root = (REPO / ".tmp").resolve()
+    db_path = tmp_root / "cgmacros_validation.db"
+    if db_path.resolve().parent != tmp_root:
+        print("拒绝运行：验证库必须位于仓库 .tmp/ 下")
+        return 2
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -158,7 +158,8 @@ def main() -> int:
             "rejected": conn.execute("SELECT COUNT(*) c FROM audit_log WHERE decision='reject'").fetchone()["c"],
         },
         "clinical_claim": False,
-        "data_sha256_verified": bool(manifest.get("integrity", {}).get("all_files_match")),
+        "csv_sha256": sha256(csv_path),
+        "manifest_integrity_recorded": bool(manifest.get("integrity", {}).get("all_files_match")),
     }
 
     out = REPO / "data" / "public" / "cgmacros_validation_result.json"

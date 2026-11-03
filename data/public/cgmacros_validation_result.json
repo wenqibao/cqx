@@ -31,7 +31,7 @@
     "min": 3.27,
     "max": 17.82,
     "last": 6.45,
-    "last_at": "2026-11-03T10:35:14Z"
+    "last_at": "2026-11-03T11:00:58Z"
   },
   "trend": "falling",
   "missing_fields": [
@@ -42,7 +42,7 @@
     "medication_taken"
   ],
   "agent_replay": {
-    "run_id": "RUN-5b7542b08b37",
+    "run_id": "RUN-84043269e5ca",
     "status": "completed",
     "intent": "escalation",
     "actions": [
@@ -55,5 +55,6 @@
     "rejected": 0
   },
   "clinical_claim": false,
-  "data_sha256_verified": true
+  "csv_sha256": "acd3d25dceb167e6741280c9385a45375b67f40c2932e3b585b27f2695a8a43a",
+  "manifest_integrity_recorded": true
 }

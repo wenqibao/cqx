@@ -1,7 +1,7 @@
 # 糖衡智管 F01-F26 功能验收矩阵（角色 B）
 
 版本：B-final-2026-11-03
-状态：**验收完成** —— 基于合并后主干（merge `d3c0729`，main `f062e98` + qa `c3173c6`），142 项 pytest 全绿 + 33 个场景（S01-S09 / B01-B24）全 PASS + CGMacros 真实数据验证。
+状态：**验收完成** —— 基于 main（HEAD `73c548b`）+ 本批 qa commit（`eb64d7d` CGMacros / `82748ec` 验收矩阵），142 项 pytest 全绿 + 33 个场景（S01-S09 / B01-B24）全 PASS + CGMacros 真实数据验证。
 验证原则：场景 Expected 先于程序执行确定；以下状态均来自真实运行结果，未根据程序输出倒改预期。
 
 > 场景命名说明：`CASE-001~037` 为 B 早期设计规格（SPEC_ONLY），实际落地执行时统一为 `S01-S09`（A 示例）+ `B01-B24`（B 扩充）共 33 个，内容等价覆盖 F01-F26。CGMacros 验证另见 `docs/public_validation_dataset.md`。

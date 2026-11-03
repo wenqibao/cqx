@@ -1,8 +1,6 @@
 {
   "dataset_name": "CGMacros: a scientific dataset for personalized nutrition and diet monitoring",
   "version": "1.0.0",
-  "local_source_path": "C:/Users/zbx/Desktop/人工智能应用创新大赛/cgmacros-a-scientific-dataset-for-personalized-nutrition-and-diet-monitoring-1.0.0",
-  "source_path_relative_to_manifest": "../../cgmacros-a-scientific-dataset-for-personalized-nutrition-and-diet-monitoring-1.0.0",
   "official_page": "https://physionet.org/content/cgmacros/1.0.0/",
   "files_url": "https://physionet.org/files/cgmacros/1.0.0/",
   "doi": "10.13026/3z8q-x658",

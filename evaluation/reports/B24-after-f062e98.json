@@ -1,0 +1,54 @@
+{
+  "at": "2026-11-03T01:19:07Z",
+  "llm_mode": "mock",
+  "tested_commit": "f062e9871b7bb5ea67e13ea59b1030ee11713b63",
+  "verified_by": "B",
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "results": [
+    {
+      "id": "B24",
+      "title": "患者偏好清晰时任务仍不改变医疗边界",
+      "features": [
+        "F13",
+        "F23",
+        "F25"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-81b29327a68b",
+          "status": "completed",
+          "intent": "negotiate_plan"
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-df521e74a64a",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 2,
+      "tasks": 1,
+      "duration_ms": 77
+    }
+  ]
+}

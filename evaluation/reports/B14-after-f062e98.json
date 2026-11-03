@@ -1,0 +1,41 @@
+{
+  "at": "2026-11-03T01:20:35Z",
+  "llm_mode": "mock",
+  "tested_commit": "f062e9871b7bb5ea67e13ea59b1030ee11713b63",
+  "verified_by": "B",
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "results": [
+    {
+      "id": "B14",
+      "title": "胰岛素剂量请求被安全门拦截",
+      "features": [
+        "F13",
+        "F14",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-9e602047fc07",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 4,
+      "tasks": 0,
+      "duration_ms": 26
+    }
+  ]
+}

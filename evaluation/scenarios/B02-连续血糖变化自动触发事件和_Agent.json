@@ -1,0 +1,70 @@
+{
+  "id": "B02",
+  "title": "连续血糖变化自动触发事件和 Agent",
+  "features": [
+    "F03",
+    "F05",
+    "F06",
+    "F08",
+    "F10",
+    "F11",
+    "F14"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P201",
+        "name": "B 验收 P201",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 96,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.7,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.3,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.9,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.6,
+      "hours_ago": 0,
+      "trigger": true
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.patient.id": "P201"
+      }
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "B09",
+  "title": "重复记录不产生额外业务判断",
+  "features": [
+    "F03",
+    "F05",
+    "F06",
+    "F11",
+    "F26"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P208",
+        "name": "B 验收 P208",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.1,
+      "hours_ago": 0,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.1,
+      "hours_ago": 0,
+      "trigger": false
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.patient.id": "P208"
+      }
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "B23",
+  "title": "知识包无相关资料时拒绝臆测",
+  "features": [
+    "F08",
+    "F24",
+    "F26"
+  ],
+  "allow_rejections": true,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P222",
+        "name": "B 验收 P222",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "run_agent",
+      "message": "量子纠缠和超导材料能谱是什么",
+      "expect": {
+        "run.intent": "knowledge_question",
+        "rejections_include": [
+          "NO_EVIDENCE"
+        ]
+      }
+    }
+  ]
+}

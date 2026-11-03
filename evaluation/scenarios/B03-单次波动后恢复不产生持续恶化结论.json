@@ -1,0 +1,60 @@
+{
+  "id": "B03",
+  "title": "单次波动后恢复不产生持续恶化结论",
+  "features": [
+    "F03",
+    "F04",
+    "F05",
+    "F26"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P202",
+        "name": "B 验收 P202",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 10.0,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.3,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 0,
+      "trigger": true
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.patient.id": "P202"
+      }
+    }
+  ]
+}

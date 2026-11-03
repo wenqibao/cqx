@@ -1,0 +1,52 @@
+{
+  "id": "B04",
+  "title": "低血糖记录进入人工复核",
+  "features": [
+    "F05",
+    "F12",
+    "F13",
+    "F26"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P203",
+        "name": "B 验收 P203",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 3.5,
+      "hours_ago": 0,
+      "trigger": true,
+      "payload": {
+        "source": "synthetic_boundary"
+      }
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.intent": "escalation",
+        "review_branches_include": [
+          "HUMAN_REVIEW"
+        ]
+      }
+    }
+  ]
+}

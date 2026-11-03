@@ -1,0 +1,49 @@
+{
+  "id": "B08",
+  "title": "体重变化按版本化规则检测",
+  "features": [
+    "F03",
+    "F05",
+    "F08",
+    "F11"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P207",
+        "name": "B 验收 P207",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "weight",
+      "value": 70.0,
+      "hours_ago": 240,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "weight",
+      "value": 72.5,
+      "hours_ago": 0,
+      "trigger": true
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "events_include": [
+          "WEIGHT_GAIN"
+        ],
+        "tasks_min": 1
+      }
+    }
+  ]
+}

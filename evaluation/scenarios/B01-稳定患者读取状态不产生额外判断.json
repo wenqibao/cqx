@@ -1,0 +1,38 @@
+{
+  "id": "B01",
+  "title": "稳定患者读取状态不产生额外判断",
+  "features": [
+    "F01",
+    "F02",
+    "F04"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P200",
+        "name": "B 验收 P200",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "state",
+      "expect": {
+        "state.patient.id": "P200"
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "B16",
+  "title": "知识回答必须带可追溯来源",
+  "features": [
+    "F08",
+    "F14",
+    "F24"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P215",
+        "name": "B 验收 P215",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "run_agent",
+      "message": "为什么需要连续记录血糖",
+      "expect": {
+        "run.intent": "knowledge_question",
+        "run.evidence.0.doc_id": "KD-001"
+      }
+    }
+  ]
+}

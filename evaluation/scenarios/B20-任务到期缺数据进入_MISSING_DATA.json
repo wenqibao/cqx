@@ -1,0 +1,75 @@
+{
+  "id": "B20",
+  "title": "任务到期缺数据进入 MISSING_DATA",
+  "features": [
+    "F07",
+    "F11",
+    "F12"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P219",
+        "name": "B 验收 P219",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 96,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.7,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.3,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.9,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.6,
+      "hours_ago": 0,
+      "trigger": false
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "tasks_min": 1
+      }
+    },
+    {
+      "action": "tick",
+      "advance_seconds": 259200,
+      "expect": {
+        "review_branches_include": [
+          "MISSING_DATA"
+        ]
+      }
+    }
+  ]
+}

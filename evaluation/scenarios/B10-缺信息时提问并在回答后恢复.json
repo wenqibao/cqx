@@ -1,0 +1,75 @@
+{
+  "id": "B10",
+  "title": "缺信息时提问并在回答后恢复",
+  "features": [
+    "F08",
+    "F09",
+    "F21"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P209",
+        "name": "B 验收 P209",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 96,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.9,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.5,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.1,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.8,
+      "hours_ago": 0,
+      "trigger": false
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.status": "waiting_user",
+        "waiting_questions_min": 1,
+        "tasks_min": 1
+      }
+    },
+    {
+      "action": "answer",
+      "text": "已按时完成",
+      "expect": {
+        "resume.recorded.kind": "medication_taken"
+      }
+    }
+  ]
+}

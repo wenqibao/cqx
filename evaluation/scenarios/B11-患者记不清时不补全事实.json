@@ -1,0 +1,73 @@
+{
+  "id": "B11",
+  "title": "患者记不清时不补全事实",
+  "features": [
+    "F14",
+    "F21",
+    "F26"
+  ],
+  "allow_rejections": false,
+  "steps": [
+    {
+      "action": "patient",
+      "data": {
+        "id": "P210",
+        "name": "B 验收 P210",
+        "age": 55,
+        "duration_years": 6,
+        "goals": [
+          "保持日常记录稳定"
+        ],
+        "constraints": []
+      }
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 96,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 7.9,
+      "hours_ago": 72,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 8.5,
+      "hours_ago": 48,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.1,
+      "hours_ago": 24,
+      "trigger": false
+    },
+    {
+      "action": "record",
+      "kind": "fasting_glucose",
+      "value": 9.8,
+      "hours_ago": 0,
+      "trigger": false
+    },
+    {
+      "action": "run_agent",
+      "expect": {
+        "run.status": "waiting_user"
+      }
+    },
+    {
+      "action": "answer",
+      "text": "记不清",
+      "expect": {
+        "resume.uncertain": true
+      }
+    }
+  ]
+}

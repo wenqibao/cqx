@@ -10,10 +10,10 @@
 | 单元测试 | `tests/unit/` | 42 例（记录 9、事件 6、状态 4、安全 13、知识 4、模型适配器 6） | A 提供，B 可补 |
 | 集成测试 | `tests/integration/` | 19 例（触发、Agent 闭环、提问恢复、三分支、调度幂等、协商、证据、real 模式 stub 端到端） | A 提供，B 校验 |
 | API 测试 | `tests/api/` | 10 例（health、患者、记录、触发、任务、提问、偏好、调度、审计） | A 提供，B 扩展 |
-| 场景回放 | `evaluation/scenarios/` | 9 个（S01–S09） | **B 扩充到 ≥30** |
+| 场景回放 | `evaluation/scenarios/` | 33 个（S01–S09、B01–B24） | **B 已扩充到 ≥30** |
 | e2e | `tests/e2e/` | 11 例（回放全部场景 + 合成数据校验） | B 维护 |
 
-合计 `pytest` 收集 82 项，本次全部通过。
+首轮基线为 `pytest` 收集 82 项；修复后复验副本含 B 独立复验测试，共 108 项全部通过。
 
 执行：
 
@@ -81,3 +81,12 @@ python scripts/run_scenarios.py
 3. 任务去重窗口 `dedupe_window_hours=72`：跨窗口的同类任务可能重复 —— 需构造 72h 边界场景。
 4. 偏好调整只作用于非医疗任务；若实现漂移误改类药物相关任务，属于 P0。
 5. SQLite 并发写：需要至少一次"多请求并发写入"的压力场景。
+
+## 7. BUG-B24-001 修复后复验记录
+
+- 被测版本：A commit `f062e98`。
+- 定向回归：`B24`、`S09`、`B13`、`B14` 全部 PASS。
+- 全量场景：`S01–S09 + B01–B24`，共 33/33 PASS（`mock`）。
+- pytest：108 passed，0 failed（本地 B 验证副本，含 `tests/integration/test_b_reverification.py`）。
+- 发布闸门：禁止医疗动作实际执行数为 0；P0 `BUG-B24-001` 已由 A 修复并经 B 独立复验关闭。
+- 真实模型：NOT RUN，不能用 Mock 结果替代真实模型 smoke test。

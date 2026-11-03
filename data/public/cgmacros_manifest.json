@@ -1,0 +1,27 @@
+{
+  "dataset_name": "CGMacros: a scientific dataset for personalized nutrition and diet monitoring",
+  "version": "1.0.0",
+  "local_source_path": "C:/Users/zbx/Desktop/人工智能应用创新大赛/cgmacros-a-scientific-dataset-for-personalized-nutrition-and-diet-monitoring-1.0.0",
+  "source_path_relative_to_manifest": "../../cgmacros-a-scientific-dataset-for-personalized-nutrition-and-diet-monitoring-1.0.0",
+  "official_page": "https://physionet.org/content/cgmacros/1.0.0/",
+  "files_url": "https://physionet.org/files/cgmacros/1.0.0/",
+  "doi": "10.13026/3z8q-x658",
+  "license": "Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International",
+  "license_source": "https://physionet.org/content/cgmacros/1.0.0/",
+  "access_policy": "Anyone can access the files subject to the stated license",
+  "integrity": {
+    "verified_against": "SHA256SUMS.txt",
+    "all_files_match": true
+  },
+  "sha256": {
+    "CGMacros_dateshifted365.zip": "05c8b0e6f1a2757050aced55ce4bf6ab2ac9b30f2fd8ca193056812d9c621d4d",
+    "DataDictionary.pdf": "f161ff8df4bd95efa79d3daa8aba5eab754df287ab0f4dfc74bce156f6862c1a",
+    "DataDictionary_Bio.csv": "2d5b4c27873284ddbf218df51172b69ffa9caf6e97a3a122977b7a2761da4c61",
+    "DataDictionary_CGMacros-00X.csv": "db7bf114d61b90fc5de43fed5e5cd6ba33af37e900a706e1b5747d7b0ffac3f8",
+    "DataDictionary_Gut_Health_Test.csv": "fbc7555aacb93b2fb107b65db8d4a3d88d3546e7818fe5378fd2840cdceeb1b0",
+    "DataDictionary_Microbes.csv": "eb75be859489f59f6b81c3f8d29c307f078498655b4ae0878e1aa49a57d61f76",
+    "LICENSE.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "validation_role": "Auxiliary import, replay, missing-data and schema validation only; not clinical efficacy evidence",
+  "synthetic_data_policy": "Do not insert hand-written answers, medication confirmations or task labels into the official data copy"
+}

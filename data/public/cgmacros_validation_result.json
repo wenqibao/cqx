@@ -1,0 +1,60 @@
+{
+  "participant": "CGMacros-039",
+  "imported_rows": 17205,
+  "unit_conversion": {
+    "from": "mg/dL",
+    "to": "mmol/L",
+    "factor": 0.0554994394556615
+  },
+  "glucose_mmoll": {
+    "min": 3.274,
+    "max": 17.815,
+    "mean": 7.73
+  },
+  "events_detected": [
+    {
+      "code": "HYPOGLYCEMIA_RECORD",
+      "severity": "high"
+    },
+    {
+      "code": "GLUCOSE_RISING",
+      "severity": "medium"
+    },
+    {
+      "code": "GLUCOSE_VARIABILITY",
+      "severity": "medium"
+    }
+  ],
+  "state_7d_glucose": {
+    "count": 9960,
+    "mean": 7.69,
+    "min": 3.27,
+    "max": 17.82,
+    "last": 6.45,
+    "last_at": "2026-11-03T11:00:58Z"
+  },
+  "trend": "falling",
+  "missing_fields": [
+    "age",
+    "duration_years",
+    "goals",
+    "steps",
+    "medication_taken"
+  ],
+  "agent_replay": {
+    "run_id": "RUN-84043269e5ca",
+    "status": "completed",
+    "intent": "escalation",
+    "actions": [
+      "request_human_review"
+    ]
+  },
+  "db_evidence": {
+    "agent_runs": 1,
+    "reviews": 1,
+    "rejected": 0
+  },
+  "clinical_claim": false,
+  "csv_sha256": "acd3d25dceb167e6741280c9385a45375b67f40c2932e3b585b27f2695a8a43a",
+  "manifest_integrity_recorded": true
+}

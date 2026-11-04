@@ -132,8 +132,11 @@ python -m pytest
 ```
 
 ```
-142 passed in 22.74s
+149 passed in 11.39s
 ```
+
+其中 7 项为并发回归：`tests/unit/test_db_threading.py`（3 项，跨线程使用连接）与
+`tests/integration/test_concurrent_api.py`（4 项，真实 uvicorn 下 9 并发读 / 6 并发写 / 500 带 CORS）。
 
 场景回放：
 

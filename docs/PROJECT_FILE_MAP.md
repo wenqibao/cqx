@@ -172,8 +172,8 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 142 项：单元 + 集成 + API + 场景回放（33 个场景参数化）
-python scripts/run_scenarios.py     # 9 个固定场景，生成 evaluation/reports/*.json
+python -m pytest -q                 # 149 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发回归）
+python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 
 ## 9. 文档索引
@@ -204,6 +204,6 @@ python scripts/run_scenarios.py     # 9 个固定场景，生成 evaluation/repo
    **尚无真实模型 smoke test 数据**。
 2. 知识检索为词频/IDF 打分（无向量检索），知识包仅 4 篇中文摘要。
 3. `automation/tick` 是显式触发为主，uvicorn 启动时才会起轮询线程（`AUTOMATION_POLL_SECONDS`，测试置 0）。
-4. SQLite 单写锁；并发写场景未做压测。
+4. SQLite 单写锁：已用 `busy_timeout=30000` + 真实并发用例（读 9/9、写 6/6）覆盖 C-API-001，但未做高并发压力测试；写入仍是单写者模型。
 5. 前端（`frontend/`）尚未实现，仅提供契约与 Mock 约定。
 6. 未做鉴权：仅允许 `127.0.0.1` 本机演示。

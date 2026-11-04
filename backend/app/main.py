@@ -9,8 +9,9 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from backend.app import __version__
 from backend.app.api import routes_agent, routes_ops, routes_patients
@@ -54,13 +55,31 @@ def create_app() -> FastAPI:
         description=DESCRIPTION,
         lifespan=lifespan,
     )
+    allowed_origins = [settings().frontend_origin, "http://localhost:5173", "http://127.0.0.1:5173"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings().frontend_origin, "http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # 兜底 500 处理器：Starlette 的 ServerErrorMiddleware 位于 CORS 之外，
+    # 未捕获异常返回的 500 不带 CORS 头，浏览器会显示成"CORS 失败"（C-API-001 的次生现象）。
+    # 这里显式回填该请求来源的 CORS 头，并返回结构化错误而不是空正文。
+    @app.exception_handler(Exception)
+    async def unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
+        headers: dict[str, str] = {}
+        origin = request.headers.get("origin")
+        if origin and origin in allowed_origins:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Vary"] = "Origin"
+            headers["Access-Control-Allow-Credentials"] = "true"
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "internal server error", "error": type(exc).__name__, "path": request.url.path},
+            headers=headers,
+        )
 
     @app.get("/api/health", tags=["system"], summary="真实健康检查（含数据库与模式）")
     def health() -> dict[str, Any]:

@@ -34,10 +34,17 @@ def parse_ts(value: str | None) -> datetime | None:
 def connect(db_path: Path | str | None = None) -> sqlite3.Connection:
     path = Path(db_path) if db_path else settings().db_path
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=30.0, isolation_level=None)
+    # check_same_thread=False：FastAPI 会把同步依赖（get_conn）与同步路由分别交给
+    # 线程池的不同线程执行，连接必然跨线程；每个请求持有独立连接，同一连接上的
+    # 使用是"依赖进入 → 路由 → 依赖退出"的串行过程，因此关闭线程绑定是安全的。
+    # 这是 C-API-001（并发 GET 触发 ProgrammingError）的修复点。
+    conn = sqlite3.connect(path, timeout=30.0, isolation_level=None, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
+    # 并发写时等待锁而不是立刻抛 "database is locked"
+    conn.execute("PRAGMA busy_timeout = 30000")
+    conn.execute("PRAGMA synchronous = NORMAL")
     init_db(conn)
     return conn
 

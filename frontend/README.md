@@ -2,6 +2,8 @@
 
 React + Vite + TypeScript + Ant Design + ECharts + React Router。默认真实 HTTP，基地址 http://127.0.0.1:8000/api。基线 main `e1674e2101bc7d1111191737626ad818aab75fda`，分支 feature/frontend-c-integration。本阶段仅修改 frontend/。
 
+2026-11-04 更新：本地已合入团队最新 main `c5f787f`；149项后端测试、33场景、11项前端单测、4项浏览器测试通过，C-API-001并发9/9复验通过。当前仍为后端mock规划器，未验证真实厂商模型。完整同步状态、真实模型接入检查和优化优先级见 [最新复验](docs/LATEST_REVIEW.md)。远端main尚未包含完整前端，前端在本功能分支；本地合并尚未push。
+
 ## Windows 安装与启动
 
 Node.js 24 / 推荐 npm 12（旧 npm 10 初次解析新版可选peer失败，升级后按锁文件复现）。在仓库根目录：
@@ -61,6 +63,6 @@ E2E使用已安装的Google Chrome，自动启动/复用5180前端，连接8000�
 
 ## 已知限制
 
-真实ASGI并发读取触发后端SQLite跨线程异常（9次请求8次500）。前端HttpAdapter串行排队后闭环通过；该缓解仅覆盖当前客户端，不能修复后端或多标签页并发。需A修复、B复验，见docs/BACKEND_ISSUES.md。主包约1.72MB，有构建体积提示，生产拆包尚未优化。
+旧基线e1674e2存在真实ASGI并发读取跨线程异常；团队main的4c801dd已修复，当前本地9/9并发读取、并发写回归复验通过。旧问题记录与原始日志保留在docs/BACKEND_ISSUES.md，最新状态见docs/LATEST_REVIEW.md。客户端暂保留串行队列；真实模型接入前需处理前端15秒与模型单轮30秒的超时差异。主包约1.72MB，有构建体积提示，生产拆包尚未优化。
 
 普通Git拉取因私有仓库终端认证失败；已通过已授权GitHub API获取并校验143个blob、完整树，恢复完全相同SHA的原始浅检出。未宣称常规git fetch成功，未push/合并main。原D:\cqx独立Mock成果保留，新检出在D:\cqx-current。

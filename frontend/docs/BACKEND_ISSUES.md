@@ -1,5 +1,7 @@
 # A/B 联调问题
 
+2026-11-04 状态更新：已同步main c5f787f（含4c801dd修复），本机149项后端测试及原始9并发GET全部通过。C-API-001的下文为旧基线历史记录，当前不再列为未修复；本轮证据及真实模型接入待办见 [LATEST_REVIEW.md](LATEST_REVIEW.md)。终端常规fetch本轮仍卡住，已取消并按GitHub API精确SHA同步，不代表凭据问题已验证解决。
+
 ## C-API-001：ASGI 并发 GET 导致 SQLite 跨线程异常
 
 基线 e1674e2101bc7d1111191737626ad818aab75fda；Python3.13.5、FastAPI0.115.14、Starlette0.46.2、AnyIO4.7.0；标准uvicorn真实演示库。未改后端。

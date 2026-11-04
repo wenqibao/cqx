@@ -9,6 +9,7 @@ tool calling 产生。两种模式都会把 llm_mode 写入 agent_runs，禁止�
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from typing import Any
 
@@ -470,14 +471,50 @@ def _result(
     }
 
 
+# 声称已执行的句式：模型措辞多变，固定短语会漏；同一分句含否定词时不算声称。
+_CLAIM_PATTERNS = {
+    "create_task": (
+        r"(?:已|已经|已为你|已帮你|已经帮你|已经为你|给你|帮你)[^，。；！？\n]{0,10}(?:创建|新建|建立|生成|添加|安排|设置|建好|建了|设好)"
+        r"[^，。；！？\n]{0,10}(?:任务|提醒|复评)",
+        r"(?:任务|提醒|复评)[^，。；！？\n]{0,4}(?:已|已经)?[^，。；！？\n]{0,4}(?:创建|新建|建立|生成)",
+    ),
+    "update_task": (
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:调整|修改|改期|改到|推迟|提前|更新|挪到)[^，。；！？\n]{0,10}(?:任务|时间|计划)",
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:改到|调整到|改期到|推迟到|提前到)",
+        r"(?:任务|计划)[^，。；！？\n]{0,4}(?:已|已经)[^，。；！？\n]{0,2}(?:调整|修改|改期|更新)",
+    ),
+    "complete_task": (
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:完成|标记完成|关闭)[^，。；！？\n]{0,10}任务",
+        r"任务[^，。；！？\n]{0,4}(?:已|已经)[^，。；！？\n]{0,2}(?:完成|关闭)",
+    ),
+    "save_preference": (
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:保存|记录|更新)[^，。；！？\n]{0,10}偏好",
+        r"偏好[^，。；！？\n]{0,4}(?:已|已经)[^，。；！？\n]{0,2}(?:保存|记录|更新)",
+    ),
+}
+_CLAIM_NEGATIONS = ("不能", "无法", "未能", "没有", "尚未", "不会", "不需要", "无需")
+
+
+def _claimed_state_changes(text: str) -> set[str]:
+    """返回文本中声称已执行的工具集合；同一分句内有否定词时不算声称。"""
+    claimed: set[str] = set()
+    for tool, patterns in _CLAIM_PATTERNS.items():
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                start = max(text.rfind(mark, 0, match.start()) for mark in "，。；！？\n") + 1
+                if any(neg in text[start:match.start()] for neg in _CLAIM_NEGATIONS):
+                    continue
+                claimed.add(tool)
+                break
+    return claimed
+
+
 def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed):
     """自由文本与 respond 工具使用相同安全/证据门，操作声明必须有成功工具支撑。"""
     action = {"tool": "respond", "args": {"text": text}, "requires_evidence": intent == "knowledge_question"}
     checked = validators.validate_plan(conn, patient_id=patient_id, plan={"actions": [action]}, evidence=evidence)
-    claims = {"create_task": ("已创建", "已新建"), "update_task": ("已调整", "已修改", "已改期"),
-              "complete_task": ("已完成任务", "已标记完成"), "save_preference": ("已保存偏好",)}
-    for tool, phrases in claims.items():
-        if any(p in text for p in phrases) and not any(e.get("ok") and e["tool"] == tool for e in executed):
+    for tool in _claimed_state_changes(text):
+        if not any(e.get("ok") and e.get("tool") == tool for e in executed):
             checked["rejections"].append({"code": validators.POSTCHECK_MISMATCH, "message": "回答声称的业务变更没有成功工具支持", "tool": tool})
     return checked["rejections"]
 

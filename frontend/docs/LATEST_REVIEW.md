@@ -1,48 +1,76 @@
-# 最新团队版本本地集成复验（2026-11-04）
+# 糖衡智管最新复验报告：DeepSeek 接入准备版
 
-## 同步结果
+更新时间：2026-11-04（北京时间）。用户已确定DeepSeek API并已获取Key，不再进行供应商选型。
 
-目录 D:\cqx-current，当前分支 feature/frontend-c-integration。
-远端 main c5f787f8fe9f02df6ec1507890b12fcbdcd02112；远端前端分支 2cd7dc44e2986dfda055b04931b0c9c7dcca0ebd。
-本地集成提交 939c8b7cb2ea741e5ad98d08c47381af6bef923b，将最新 main 合入前端分支，无源码冲突，保留 A 的全部修复。未 push，未合并远端 main。
+## 1. 当前结论
 
-**分支差异**：远端 main 目前 frontend/ 只有 README；完整前端在 feature/frontend-c-integration。其他成员复现完整程序必须取得两部分合并后的分支，不能认为普通 clone main 已含前端。
+**下一工作批次立即进入DeepSeek真实API联调，不等待第二阶段页面。**先完成协议/耗时适配，再执行真实上游、Agent和浏览器三层联调；B验收通过后，将团队演示配置默认切到real。
 
-本地 Git CLI fetch 仍卡住，已取消；改用授权 GitHub API 取得最新引用、10 个变化 blob、完整树及 3 个提交，逐对象验证精确 SHA 后导入 Git，恢复真实历史到原浅检出边界。浏览器登录状态不等于终端凭据可用；没有读出或输出凭据。
+用户已在本机完成配置，并授权当前代理联调。**本次首次真实DeepSeek最小调用已通过**；项目内Agent工具调用、业务落库和浏览器real闭环尚未验证，尚无DeepSeek Agent run_id。
 
-## 本轮实际验证
+本次重生成重新检查了远端引用、源码、配置字段存在性和HTTP状态，并执行一次真实DeepSeek最小调用；完整回归结果引用同日上一轮机器证据，未重复运行未受文档变化影响的测试。
 
-- python -m pytest -o addopts='' -q --basetemp=frontend/.runtime/latest-pytest --junitxml=frontend/.runtime/latest-pytest.xml：149 passed。
-- python scripts/run_scenarios.py --report frontend/.runtime/latest-scenarios.json：33/33 PASS。
-- npm run build：exit 0；仍有主包约1.72MB的体积警告。
-- vitest run：11 passed，0 failed。
-- Playwright 全部4项：4 passed，0 failed；使用新的独立演示库，真实 FastAPI HTTP，不是前端模拟。
-- 原始9并发GET：9/9 HTTP200、CORS正确；新增并发写回归也在149项内通过。C-API-001本机复验通过。
-- system/mode：mock / deterministic-planner；system/audit：forbidden_executed=0。
-- 真实保存 record 28，同一响应创建3个事件/3次自动运行，run_id `RUN-c0421acc9b93`，无额外Agent POST；任务完成后重新GET核对done。
+## 2. 版本与分支
 
-本轮机器证据保存在本目录。最初docs/evidence和INTEGRATION_REPORT属于e1674e2基线的历史记录，不能当成本轮当前状态。
-Web http://127.0.0.1:5180，API http://127.0.0.1:8000/api；运行库为frontend/.runtime/review-20261104-1430.db，未提交。
+| 项目 | 核对结果 |
+|---|---|
+| 工作目录/分支 | D:\cqx-current；feature/frontend-c-integration |
+| 报告更新前本地HEAD | fa4a9cc，包含集成提交939c8b7 |
+| 再次核对的远端main | c5f787f8fe9f02df6ec1507890b12fcbdcd02112 |
+| 再次核对的远端前端分支 | 2cd7dc44e2986dfda055b04931b0c9c7dcca0ebd |
+| 本地完整版本 | 最新main后端与完整前端已合并；A/B源码与main一致 |
+| 待办 | main尚只有前端README，完整前端在功能分支；本地集成和报告未push |
 
-## 真实模型接入时机与验收
+上轮终端fetch卡住后已取消，通过授权GitHub API逐对象核对SHA同步；本次通过该连接重新核对引用，没有声称常规fetch成功。此前D:\cqx为旧独立展示目录。
 
-现在可以进入小范围厂商模型联调；无需等F21/F23等页面完成。A负责后端模型配置/适配，B负责真实模式回归，C验证页面显示与实际保存。
-当前配置仍是mock；既有real-mode stub测试不证明任何真实厂商调用。
+## 3. 验证状态
 
-推荐先评估阿里云百炼qwen-plus的非思考模式：有OpenAI兼容接口及Function Calling；只是选型建议，尚未对本仓库实测。实际可用模型/地域/endpoint以控制台为准；建议通过小样本后固定可用快照。
-官方依据：https://help.aliyun.com/zh/model-studio/qwen-plus 、https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope 。
+| 检查 | 结果 | 证据与边界 |
+|---|---|---|
+| 后端回归 | 149项通过 | 同日上一轮pytest，含7项新增并发回归 |
+| 场景 | 33/33通过 | 上轮独立脚本；mock模式 |
+| 前端单测 | 11项通过 | 上轮Vitest原始报告 |
+| 浏览器闭环 | 4项通过 | 上轮2026-11-04 15:50北京时间；真实FastAPI HTTP，后端mock规划器 |
+| 构建 | 通过 | 上轮TypeScript+Vite；主包约1.72MB，体积警告仍在 |
+| C-API-001 | 本机复验通过 | 9并发GET全200，6并发写回归通过；不代表高并发压测 |
+| 本次health/mode/audit | 全部HTTP200 | 当前mock/deterministic-planner；禁止动作执行数0 |
+| 本次Key存在性 | 已配置 | 用户本机设置；未输出或保存密钥值 |
+| DeepSeek真实上游最小调用 | PASS | HTTP200，返回deepseek-flash与OK；详见下一节 |
+| 平台Agent及浏览器real闭环 | NOT RUN | 尚无DeepSeek Agent run_id、真实工具执行/落库证据 |
 
-A配置AGENT_LLM_MODE=real、AGENT_LLM_BASE_URL、AGENT_LLM_API_KEY、AGENT_LLM_MODEL；密钥只放后端本地环境或根.env，禁止进入VITE_*或Git。配置后重启后端。
-验收至少包含：真实上游请求成功及用量/响应证据、真实tool_calls、run_id与model_name、任务/数据落库、错误时不回退mock；随后验证缺信息提问、证据回答、拒绝越权、超时/限流。不能只看health的real标签就宣布接入成功。
+上轮保存record 28，同一响应创建3事件/3自动运行，`RUN-c0421acc9b93`；完成任务后重新GET核对done，没有额外Agent POST。**该run属于mock规划器，不能当作DeepSeek调用证据。**
 
-## 优先优化与待A/B核对
+- [上轮机器证据](reviews/2026-11-04-main-c5f787f/)：XML、场景、浏览器、单测、构建及业务响应。
+- [本次准备状态快照](reviews/2026-11-04-deepseek/readiness.json)：时间、配置存在性、运行HTTP状态和payload检查。
+- [首次DeepSeek真实调用证据](reviews/2026-11-04-deepseek/upstream-probe.json)：北京时间2026-11-04 16:10:01，官方api.deepseek.com，deepseek-flash，显式thinking disabled；HTTP200，返回OK；0.911秒，输入8/输出1/总计9 tokens，响应ID `b9ab0d2d-68dd-438f-84a6-060ec1081fd1`。仅一次最小请求，无tools或数据库写入，不代表Agent端到端通过或性能统计。
 
-1. **接入前处理耗时（A/C）**：HttpAdapter默认15秒超时，LLM单轮30秒、最多3轮；记录接口同步触发Agent。前端可能先报超时而后端仍继续落库。需对齐超时或设计后台运行状态查询，避免误导重试/重复写入；检查模型调用期间是否长期持有写锁。未用真实模型复现耗时，仅源码核对。
-2. **证据送入模型（A/B）**：_run_real_llm的search_knowledge分支记录了实际evidence，但tool消息只回传ok和hits数量；需验证并提供所需片段及出处，才能证明真实回答使用检索证据。Mock场景通过不能替代该验证。
-3. **自由文本安全（A/B）**：工具动作经过validators；response.content会直接append到responses。需核对独立输出安全校验，添加真实模式/对抗stub回归，避免只验证工具安全。此为源码风险审查，未宣称已复现真实模型违规。
-4. **第二阶段体验（C）**：先补F21问题回答/恢复，再做F23任务协商、F24证据可定位展示、F25偏好、复评状态与完整演示；当前这些仅有后端能力或只读结果。
-5. **录入与执行反馈（C）**：症状/血压/饮食用专用字段替代要求用户输入JSON；保存响应用摘要卡展示记录、事件、运行，原始JSON折叠保留；任务完成与复评同样摘要化。
-6. **读取与体积（C）**：后端并发已修复，可在回归保护下调整全局串行队列，让健康检查不被长运行堵住；页面按路由拆包，再优化当前大包。先保证真实闭环，性能优化排后。
-7. **统一团队交付（A/B/C）**：评审并发布合并后的完整分支，根README/文件地图与修复报告状态需更新；当前部分文档仍写前端未实现、等待B复验或148项，与最新149项及本次验证口径不一致。
+## 4. 已确定的DeepSeek接入方案
 
-本轮没有新增第二阶段业务功能，也没有修改A/B源码；backend/tests/docs的本地更新来自团队main原提交。
+已使用DeepSeek官方OpenAI Chat Completions兼容API完成首次真实连通；首轮使用 **deepseek-flash，显式关闭思考模式**。本机配置的官方地址和模型已由这次响应核对。
+
+官方当前列出deepseek-flash与deepseek-v4-pro，均支持Tool Calls。本阶段不依赖升级高级模型；记录首次实际返回版本以便复现。[官方模型信息](https://api-docs.deepseek.com/quick_start/pricing/)
+
+关键兼容差异：官方当前默认启用思考模式；非思考请求须发送 `"thinking":{"type":"disabled"}`。当前OpenAICompatLLM没有该字段，LLMResponse及编排器重建的assistant消息也没有保留reasoning_content。官方要求思考模式多轮工具请求回传reasoning_content，否则可能返回400。**仅填写四个env不能证明现代码兼容多轮DeepSeek。**
+
+首轮由A修改适配层，显式关闭思考模式，沿用现有非流式工具循环。未来启用思考模式时另行补全协议回传与回归，前端不展示内部思考文本。
+依据：[非思考Tool Calls](https://api-docs.deepseek.com/guides/tool_calls/)、[Thinking Mode](https://api-docs.deepseek.com/guides/thinking_mode/)。最小探针已显式传入非思考字段；项目适配层仍未实现该字段，多轮工具兼容尚待验证。
+
+## 5. 接入前必须处理
+
+| 项目 | 当前事实及下一动作 | 负责人 |
+|---|---|---|
+| 模型协议 | 显式发送非思考选项，验证多轮工具；保留脱敏模型、请求标识、用量与耗时 | A修改；当前代理联调；B复验 |
+| 耗时与写入状态 | 前端15秒，模型单轮30秒且最多3轮；需分开读写超时与健康检查，超时先读状态核对，不自动重发写入 | A/C |
+| 证据与文本安全 | search_knowledge给模型回传ok与命中数量，需补受控片段/出处；工具有校验，content直接进入responses，需输出安全回归 | A/B |
+
+以上兼容与安全项属于源码/文档审查，未宣称已经复现真实模型失败或违规输出。
+
+## 6. 正式启用real的验收条件
+
+1. 真实DeepSeek响应成功，保存实际模型、用量、耗时及请求标识（若提供），证据脱敏。
+2. 至少一次真实模型tool_calls经本系统执行并落库；真实run_id、轨迹和任务/问题/复评相互核对。
+3. 浏览器录入由后端自动触发，任务完成后重新读取状态，不用额外运行接口冒充自动触发。
+4. 证据问答、缺信息恢复、安全拒绝、患者隔离、超时/限流处理通过，禁止动作0。
+5. 失败不静默退回mock，不显示虚假成功；B确认后发布整合分支与说明。
+
+第1项中的最小上游连通、模型/用量/耗时证据已取得，其余正式启用条件尚未满足。正在运行的平台仍返回mock，未在工具循环未验收时切换。下一步顺序、配置与交接以 [DeepSeek执行计划](DEEPSEEK_NEXT_PLAN.md) 为准。

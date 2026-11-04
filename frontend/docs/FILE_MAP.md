@@ -6,8 +6,10 @@
 - `frontend/.gitignore`
 - `frontend/.light/handoff/S02-real-integration.md`
 - `frontend/.light/handoff/S03-main-sync-review.md`
+- `frontend/.light/handoff/S04-deepseek-decision.md`
 - `frontend/docs/API_PAGE_MAP.md`
 - `frontend/docs/BACKEND_ISSUES.md`
+- `frontend/docs/DEEPSEEK_NEXT_PLAN.md`
 - `frontend/docs/evidence/backend-offline.png`
 - `frontend/docs/evidence/backend-pytest.log`
 - `frontend/docs/evidence/backend-pytest.xml`
@@ -32,6 +34,8 @@
 - `frontend/docs/FILE_MAP.md`
 - `frontend/docs/INTEGRATION_REPORT.md`
 - `frontend/docs/LATEST_REVIEW.md`
+- `frontend/docs/reviews/2026-11-04-deepseek/readiness.json`
+- `frontend/docs/reviews/2026-11-04-deepseek/upstream-probe.json`
 - `frontend/docs/reviews/2026-11-04-main-c5f787f/latest-browser-results.json`
 - `frontend/docs/reviews/2026-11-04-main-c5f787f/latest-build.txt`
 - `frontend/docs/reviews/2026-11-04-main-c5f787f/latest-probe.json`

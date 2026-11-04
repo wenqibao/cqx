@@ -1,0 +1,54 @@
+{
+  "checked_at": "2026-11-04T16:11:22.065085+08:00",
+  "local_head": "fa4a9ccff9b2a3cdaab0ff01f7b5fe22defefd43",
+  "branch": "feature/frontend-c-integration",
+  "remote_main": "c5f787f8fe9f02df6ec1507890b12fcbdcd02112",
+  "remote_frontend": "2cd7dc44e2986dfda055b04931b0c9c7dcca0ebd",
+  "config": {
+    "llm_mode": "real",
+    "base_url_configured": true,
+    "api_key_configured": true,
+    "model_configured": true,
+    "root_dotenv_exists": true
+  },
+  "http_checks": [
+    {
+      "path": "/api/health",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "llm_mode": "mock",
+        "version": "0.1.0"
+      }
+    },
+    {
+      "path": "/api/system/mode",
+      "status": 200,
+      "body": {
+        "llm_mode": "mock",
+        "model": "deterministic-planner",
+        "ok": true
+      }
+    },
+    {
+      "path": "/api/system/audit",
+      "status": 200,
+      "body": {
+        "forbidden_executed": 0
+      }
+    }
+  ],
+  "adapter_payload": {
+    "has_explicit_thinking": false,
+    "current_temperature": 0
+  },
+  "provider_called_by_this_configuration_check": false,
+  "upstream_minimal_call_verified": true,
+  "platform_real_e2e_verification": "NOT_RUN",
+  "decision": {
+    "provider": "DeepSeek",
+    "initial_model": "deepseek-flash",
+    "thinking": "disabled, pending adapter implementation",
+    "executor": "current agent after user local configuration"
+  }
+}

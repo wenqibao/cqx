@@ -4,6 +4,8 @@ React + Vite + TypeScript + Ant Design + ECharts + React Router。默认真实 H
 
 2026-11-04 更新：本地已合入团队最新 main `c5f787f`；149项后端测试、33场景、11项前端单测、4项浏览器测试通过，C-API-001并发9/9复验通过。当前仍为后端mock规划器，未验证真实厂商模型。完整同步状态、真实模型接入检查和优化优先级见 [最新复验](docs/LATEST_REVIEW.md)。远端main尚未包含完整前端，前端在本功能分支；本地合并尚未push。
 
+模型决策已更新为DeepSeek：用户已本机配置Key，当前代理完成首次真实上游最小调用（deepseek-flash，非思考，HTTP200）。平台Agent/浏览器real闭环尚未通过，仍需适配层显式thinking选项及耗时处理。配置、执行顺序与验收以 [DeepSeek下一步计划](docs/DEEPSEEK_NEXT_PLAN.md) 为准。
+
 ## Windows 安装与启动
 
 Node.js 24 / 推荐 npm 12（旧 npm 10 初次解析新版可选peer失败，升级后按锁文件复现）。在仓库根目录：

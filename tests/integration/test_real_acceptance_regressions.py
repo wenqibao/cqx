@@ -195,3 +195,19 @@ def test_answer_resume_includes_original_question_and_uncertainty(conn, monkeypa
     assert '今天是否按原处方服药' in model.requests[0]['user']
     assert '不确定' in model.requests[0]['user']
     assert resumed['recorded'] is None
+
+
+def test_preference_tool_advertises_actual_backend_enums():
+    from backend.app.agent.llm import tool_schemas
+    from backend.app.memory.preferences import ALLOWED_KINDS,ALLOWED_SOURCES
+    schema=next(t for t in tool_schemas() if t['name']=='save_preference')['parameters']['properties']
+    assert set(schema['kind']['enum'])==ALLOWED_KINDS
+    assert set(schema['source']['enum'])==ALLOWED_SOURCES
+
+
+def test_updated_task_is_associated_with_run_trace(conn):
+    patient(conn)
+    task,_=tasks.create_task(conn,'DS1',task_type='record_activity',title='记录步数')
+    model=ScriptedLLM(call('update_task',{'task_id':task['id'],'due_at':iso(now(conn)+timedelta(days=1))}),LLMResponse(content='已调整记录时间。'))
+    result=run_agent(conn,'DS1',trigger_type='user_request',message='请调整记录时间',llm=model)
+    assert task['id'] in {t['id'] for t in trace(conn,result['run_id'])['tasks']}

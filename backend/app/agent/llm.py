@@ -185,6 +185,11 @@ def tool_schemas() -> list[dict[str, Any]]:
                 props[param]["items"] = {"type": "string"}
             if not optional:
                 required.append(param)
+        if name == "save_preference":
+            from backend.app.memory.preferences import ALLOWED_KINDS, ALLOWED_SOURCES
+
+            props["kind"]["enum"] = sorted(ALLOWED_KINDS)
+            props["source"]["enum"] = sorted(ALLOWED_SOURCES)
         schemas.append(
             {
                 "name": name,

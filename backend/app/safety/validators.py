@@ -107,6 +107,11 @@ def validate_plan(
         if invalid:
             rejections.append({"code": MISSING_REQUIRED_DATA, "message": f"工具参数缺失或类型错误: {', '.join(invalid)}", "index": idx, "tool": tool})
             continue
+        if tool == "save_preference":
+            from backend.app.memory.preferences import ALLOWED_KINDS, ALLOWED_SOURCES
+
+            if args.get("kind") not in ALLOWED_KINDS or args.get("source") not in ALLOWED_SOURCES:
+                rejections.append({"code": MISSING_REQUIRED_DATA, "message": "偏好类型或来源不在已支持枚举内", "index": idx, "tool": tool})
         if args.get("patient_id") is not None and args["patient_id"] != patient_id:
             rejections.append({"code": FORBIDDEN_ACTION, "message": "禁止访问其他患者", "index": idx, "tool": tool})
             continue

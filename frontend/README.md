@@ -1,49 +1,66 @@
-# frontend/ —— 成员 C 独立开发的 Web 客户端
+# 糖衡智管：成员 C 第一阶段真实 API 客户端
 
-后端（A）已完成并稳定，**接口以 [`docs/api_contract.yaml`](../docs/api_contract.yaml) 为准**。
-本目录当前只有说明文件，页面代码由 C 使用 React + Vite + TypeScript 实现。
+React + Vite + TypeScript + Ant Design + ECharts + React Router。默认真实 HTTP，基地址 http://127.0.0.1:8000/api。基线 main `e1674e2101bc7d1111191737626ad818aab75fda`，分支 feature/frontend-c-integration。本阶段仅修改 frontend/。
 
-## 1. 启动后端（A 提供）
+## Windows 安装与启动
+
+Node.js 24 / 推荐 npm 12（旧 npm 10 初次解析新版可选peer失败，升级后按锁文件复现）。在仓库根目录：
 
 ```powershell
+python -m pip install -e ".[dev]"
+# 新建专用合成库，勿对其他成员的库执行重置
+$env:DIABETES_DB_PATH="$PWD/frontend/.runtime/integration.db"
+$env:AGENT_LLM_MODE="mock"
+$env:FRONTEND_ORIGIN="http://127.0.0.1:5180"
 python scripts/reset_demo.py
-python -m cli.main serve --port 8000
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-- 基地址：`http://127.0.0.1:8000/api`
-- 健康检查：`GET /api/health`（返回 `llm_mode`，前端必须显示当前是 mock 还是 real）
-- 交互式文档：`http://127.0.0.1:8000/docs`
-- 已配置 CORS：`http://127.0.0.1:5173`、`http://localhost:5173`（可在 `.env` 用 `FRONTEND_ORIGIN` 覆盖）
+另开终端：
 
-## 2. 开发顺序（先 Mock 后真实）
+```powershell
+cd frontend
+npm install
+npm run dev -- --port 5180 --strictPort
+```
 
-1. 按契约实现 `src/api/client.ts`，只允许这一层发起 HTTP 调用。
-2. 先接 `MockAdapter`（数据可写死，但**必须显式标注"模拟演示"**）。
-3. 后端联调时切换 `HttpAdapter`，逐功能验证；真实模式下**不得渲染假数据**。
-4. 页面里不得计算医学判断、不得虚构 Agent 决策或任务。
+打开 http://127.0.0.1:5180。默认 npm run dev 使用5173，后端默认允许5173；本次验证5180需上面的FRONTEND_ORIGIN。所有服务仅绑定本机。
 
-## 3. 需要覆盖的交互（对应 F15/F16）
+## 环境变量与模式
 
-| 区域 | 必需功能 | 依赖接口 |
-| --- | --- | --- |
-| 患者与数据 | 选择合成患者、查看状态/趋势、录入或导入记录 | `GET/POST /patients`、`GET /patients/{id}/state`、`POST /patients/{id}/records` |
-| Agent 主动执行 | 展示自动触发、运行状态、创建的任务、错误与日志（不能靠按钮假造自动执行） | `POST /patients/{id}/records` 的 `automation`、`GET /runs/{run_id}` |
-| 主动提问 F21 | 展示问题、提交回答、显示 `waiting_user` 与恢复状态 | `GET /patients/{id}/questions`、`POST /questions/{id}/answer` |
-| 多事件与决策 F22/F24/F26 | 事件汇总、任务优先级、选择依据、资料引用、不确定性提示 | `GET /patients/{id}/events`、`GET /runs/{run_id}` 的 `evidence`/`rejections` |
-| 任务与重规划 F23/F25 | 查看任务、确认完成、申请改时间、确认新计划、查看偏好 | `GET /patients/{id}/tasks`、`POST /tasks/{id}/complete`、`POST /tasks/{id}/reschedule`、`GET/POST /patients/{id}/preferences` |
-| 复评与轨迹 F12/F14 | 展示 `CLOSED`/`MISSING_DATA`/`HUMAN_REVIEW`、`run_id`、工具与数据库结果 | `GET /patients/{id}/reviews`、`GET /runs/{run_id}` |
+复制 .env.example 为 .env.local 后重启Vite：
 
-## 4. 重要约定
+```env
+VITE_API_MODE=http
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
 
-1. **演示时钟**：页面上的"推进时间"调用 `POST /automation/tick`（带 `advance_seconds`），
-   并在界面上明确显示这是演示时钟，不是真实时间流逝。
-2. **模式标识**：`/api/system/mode` 与 `/api/health` 返回的 `llm_mode` 必须常驻显示；
-   mock 时标注"确定性策略（未调用模型）"。
-3. **占位数据**：Mock 模式必须在页面顶部显示"模拟演示数据"，禁止与真实接口混用。
-4. **不要做**：注册登录、医生工作台、HIS 对接、移动端 App、诊断/处方/改药入口。
+HTTP数据全部来自A的真实服务，失败不会回退Mock。后端llm_mode=mock表示确定性规划器未调用模型，但工具与SQLite实际运行；前端VITE_API_MODE=mock则显示“前端模拟数据”，只提供空数据传输桩、不执行假写入。顶部常驻患者、连接状态、后端模式与合成数据标识，健康状态每15秒检查。
 
-## 5. 验收
+## 使用路径
 
-- `npm run build` 成功；
-- 真实 API 模式下可完成：录入 → 自动触发 → 回答提问 → 改任务时间 → 查看复评与轨迹；
-- 断网/后端未启动时给出明确错误提示，而不是静默展示假数据。
+- `/` 健康总览：选择P001/P002/P003，读取档案、最新值、近7天图表、缺失字段、事件、待回答问题与未完成任务。不计算医学判断。
+- `/records` 健康数据：支持RecordCreate全部8种kind。服药确认用1/0；症状payload需text；血压需systolic/diastolic。时间输入由本地转换UTC，留空使用后端演示时钟。保存只调用records，trigger_agent=true；原样显示record/automation及run_id跳转。事件去重时runs可为空，不冒充自动触发。
+- `/tasks` 健康任务：查看状态、优先级、截止时间、来源，展开完整字段。标记完成需确认，complete发送changed_by=patient、run_agent=false，后端仍执行复评；重新读取任务并显示实际reviews响应。
+- `/runs` Agent轨迹：运行列表或run_id查询；抽屉展示真实阶段、工具输入/返回、拒绝码、证据、关联任务与原始运行结果。不同患者运行归属校验不通过时拒绝展示。
+
+主动回答、协商、偏好写入与动态复评操作属于第二阶段，本次未实现，不宣称完整F01–F26前端验收。
+
+## 检查
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+```
+
+E2E使用已安装的Google Chrome，自动启动/复用5180前端，连接8000后端。闭环测试严格要求本次录入产生新事件和run_id，**必须先初始化专用演示库**；重复运行会受后端事件去重影响，不能拿历史运行凑结果。不要对共享库执行reset。
+
+结果见docs/INTEGRATION_REPORT.md、docs/evidence/。A/B回归需NO_PROXY=127.0.0.1,localhost，避免系统代理拦截本地模型stub；真实厂商模型未测试。
+
+## 已知限制
+
+真实ASGI并发读取触发后端SQLite跨线程异常（9次请求8次500）。前端HttpAdapter串行排队后闭环通过；该缓解仅覆盖当前客户端，不能修复后端或多标签页并发。需A修复、B复验，见docs/BACKEND_ISSUES.md。主包约1.72MB，有构建体积提示，生产拆包尚未优化。
+
+普通Git拉取因私有仓库终端认证失败；已通过已授权GitHub API获取并校验143个blob、完整树，恢复完全相同SHA的原始浅检出。未宣称常规git fetch成功，未push/合并main。原D:\cqx独立Mock成果保留，新检出在D:\cqx-current。

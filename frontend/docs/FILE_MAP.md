@@ -1,0 +1,52 @@
+# C 实际文件地图
+
+仅frontend/；主工程地图由A维护。忽略依赖、构建和测试缓存。
+
+- `frontend/.env.example`
+- `frontend/.gitignore`
+- `frontend/.light/handoff/S02-real-integration.md`
+- `frontend/README.md`
+- `frontend/docs/API_PAGE_MAP.md`
+- `frontend/docs/BACKEND_ISSUES.md`
+- `frontend/docs/FILE_MAP.md`
+- `frontend/docs/INTEGRATION_REPORT.md`
+- `frontend/docs/evidence/backend-offline.png`
+- `frontend/docs/evidence/backend-pytest.log`
+- `frontend/docs/evidence/backend-pytest.xml`
+- `frontend/docs/evidence/browser-results.json`
+- `frontend/docs/evidence/build.log`
+- `frontend/docs/evidence/cli-health.log`
+- `frontend/docs/evidence/concurrent-reads.json`
+- `frontend/docs/evidence/final-health-audit.json`
+- `frontend/docs/evidence/laptop-1366.png`
+- `frontend/docs/evidence/overview-1440.png`
+- `frontend/docs/evidence/real-api.json`
+- `frontend/docs/evidence/record-types-api.json`
+- `frontend/docs/evidence/record-types-results.json`
+- `frontend/docs/evidence/records-1440.png`
+- `frontend/docs/evidence/runs-1440.png`
+- `frontend/docs/evidence/scenarios.json`
+- `frontend/docs/evidence/server.log`
+- `frontend/docs/evidence/tasks-1440.png`
+- `frontend/docs/evidence/tasks-completed-1440.png`
+- `frontend/docs/evidence/trace-1440.png`
+- `frontend/docs/evidence/unit-results.json`
+- `frontend/e2e/real-api.spec.ts`
+- `frontend/e2e/record-types.spec.ts`
+- `frontend/index.html`
+- `frontend/package-lock.json`
+- `frontend/package.json`
+- `frontend/playwright.config.ts`
+- `frontend/scripts/capture.mjs`
+- `frontend/scripts/probe_concurrency.py`
+- `frontend/scripts/report.py`
+- `frontend/src/api/client.ts`
+- `frontend/src/api/httpAdapter.test.ts`
+- `frontend/src/api/httpAdapter.ts`
+- `frontend/src/api/mockAdapter.ts`
+- `frontend/src/api/types.ts`
+- `frontend/src/main.tsx`
+- `frontend/src/ui/App.tsx`
+- `frontend/src/ui/style.css`
+- `frontend/tsconfig.json`
+- `frontend/vite.config.ts`

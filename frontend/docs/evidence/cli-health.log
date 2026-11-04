@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "db": "D:\\cqx-current\\frontend\\.runtime\\integration.db",
+  "llm_mode": "mock",
+  "patients": 3
+}

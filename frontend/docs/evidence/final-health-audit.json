@@ -1,0 +1,369 @@
+[
+  {
+    "path": "/health",
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "service": "diabetes-agent",
+      "version": "0.1.0",
+      "time": "2026-11-04T03:02:18Z",
+      "database": {
+        "ok": true,
+        "path": "D:\\cqx-current\\frontend\\.runtime\\integration.db",
+        "error": null
+      },
+      "llm_mode": "mock",
+      "disclaimer": "演示作品，不提供诊断或用药建议；患者均为合成虚构数据。"
+    }
+  },
+  {
+    "path": "/patients",
+    "status": 200,
+    "body": {
+      "count": 3,
+      "items": [
+        {
+          "id": "P001",
+          "name": "张伟（虚构）",
+          "age": 58,
+          "sex": "男",
+          "diabetes_type": "T2DM",
+          "duration_years": 8.0,
+          "complications": [
+            "高血压"
+          ],
+          "goals": [
+            "空腹血糖尽量控制稳定",
+            "每天走够 6000 步"
+          ],
+          "constraints": [
+            "早餐前服用降压药"
+          ],
+          "baseline": {
+            "height_cm": 172,
+            "weight_kg": 78.0
+          },
+          "is_synthetic": true,
+          "created_at": "2026-11-04T02:48:49Z",
+          "updated_at": "2026-11-04T02:48:49Z"
+        },
+        {
+          "id": "P002",
+          "name": "李秀英（虚构）",
+          "age": 66,
+          "sex": "女",
+          "diabetes_type": "T2DM",
+          "duration_years": 12.0,
+          "complications": [
+            "早期糖尿病肾病"
+          ],
+          "goals": [
+            "避免低血糖",
+            "按时复诊"
+          ],
+          "constraints": [
+            "晚上要照顾孙子，19:00 后不方便操作手机"
+          ],
+          "baseline": {
+            "height_cm": 158,
+            "weight_kg": 61.5
+          },
+          "is_synthetic": true,
+          "created_at": "2026-11-04T02:48:49Z",
+          "updated_at": "2026-11-04T02:48:49Z"
+        },
+        {
+          "id": "P003",
+          "name": "王强（虚构）",
+          "age": 45,
+          "sex": "男",
+          "diabetes_type": "T2DM",
+          "duration_years": 3.0,
+          "complications": [],
+          "goals": [
+            "减重 5kg",
+            "每周运动 3 次"
+          ],
+          "constraints": [
+            "工作日 09:00-18:00 上班，白天不方便接电话"
+          ],
+          "baseline": {
+            "height_cm": 176,
+            "weight_kg": 84.0
+          },
+          "is_synthetic": true,
+          "created_at": "2026-11-04T02:48:49Z",
+          "updated_at": "2026-11-04T02:48:49Z"
+        }
+      ]
+    }
+  },
+  {
+    "path": "/patients/P001/state",
+    "status": 200,
+    "body": {
+      "patient": {
+        "id": "P001",
+        "name": "张伟（虚构）",
+        "age": 58,
+        "sex": "男",
+        "diabetes_type": "T2DM",
+        "duration_years": 8.0,
+        "complications": [
+          "高血压"
+        ],
+        "goals": [
+          "空腹血糖尽量控制稳定",
+          "每天走够 6000 步"
+        ],
+        "constraints": [
+          "早餐前服用降压药"
+        ],
+        "baseline": {
+          "height_cm": 172,
+          "weight_kg": 78.0
+        },
+        "is_synthetic": true,
+        "created_at": "2026-11-04T02:48:49Z",
+        "updated_at": "2026-11-04T02:48:49Z"
+      },
+      "profile_complete": true,
+      "missing_fields": [],
+      "trend": {
+        "fasting_glucose_7d": "rising"
+      },
+      "aggregates": {
+        "7d": {
+          "fasting_glucose": {
+            "count": 7,
+            "mean": 8.46,
+            "min": 7.2,
+            "max": 9.61,
+            "last": 9.61,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "postprandial_glucose": {
+            "count": 0
+          },
+          "steps": {
+            "count": 3,
+            "mean": 2366.67,
+            "min": 1900.0,
+            "max": 2800.0,
+            "last": 1900.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "weight": {
+            "count": 0
+          },
+          "medication_taken": {
+            "count": 3,
+            "mean": 0.33,
+            "min": 0.0,
+            "max": 1.0,
+            "last": 1.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          }
+        },
+        "3d": {
+          "fasting_glucose": {
+            "count": 3,
+            "mean": 9.24,
+            "min": 8.9,
+            "max": 9.61,
+            "last": 9.61,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "postprandial_glucose": {
+            "count": 0
+          },
+          "steps": {
+            "count": 3,
+            "mean": 2366.67,
+            "min": 1900.0,
+            "max": 2800.0,
+            "last": 1900.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "weight": {
+            "count": 0
+          },
+          "medication_taken": {
+            "count": 3,
+            "mean": 0.33,
+            "min": 0.0,
+            "max": 1.0,
+            "last": 1.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          }
+        },
+        "14d": {
+          "fasting_glucose": {
+            "count": 7,
+            "mean": 8.46,
+            "min": 7.2,
+            "max": 9.61,
+            "last": 9.61,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "postprandial_glucose": {
+            "count": 0
+          },
+          "steps": {
+            "count": 3,
+            "mean": 2366.67,
+            "min": 1900.0,
+            "max": 2800.0,
+            "last": 1900.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "weight": {
+            "count": 1,
+            "mean": 78.0,
+            "min": 78.0,
+            "max": 78.0,
+            "last": 78.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          },
+          "medication_taken": {
+            "count": 3,
+            "mean": 0.33,
+            "min": 0.0,
+            "max": 1.0,
+            "last": 1.0,
+            "last_at": "2026-11-03T18:56:00Z"
+          }
+        }
+      },
+      "latest": {
+        "weight": {
+          "value": 78.0,
+          "unit": "kg",
+          "recorded_at": "2026-10-25T02:48:49Z",
+          "payload": {}
+        },
+        "fasting_glucose": {
+          "value": 9.61,
+          "unit": "mmol/L",
+          "recorded_at": "2026-11-03T18:56:00Z",
+          "payload": {}
+        },
+        "steps": {
+          "value": 1900.0,
+          "unit": "步",
+          "recorded_at": "2026-11-03T14:48:49Z",
+          "payload": {}
+        },
+        "medication_taken": {
+          "value": 1.0,
+          "unit": "",
+          "recorded_at": "2026-11-03T14:48:49Z",
+          "payload": {}
+        }
+      },
+      "open_events": [],
+      "open_tasks": [
+        {
+          "id": "TSK-3ebe0a68e327",
+          "task_type": "record_glucose",
+          "title": "补录 2 次空腹血糖",
+          "status": "pending",
+          "priority": 61,
+          "due_at": "2026-11-05T14:49:05Z",
+          "required_fields": [],
+          "event_id": "EVT-20e608a4f2e7",
+          "version": 1
+        },
+        {
+          "id": "TSK-b59ed6180a06",
+          "task_type": "record_activity",
+          "title": "补录近 3 天步数",
+          "status": "pending",
+          "priority": 43,
+          "due_at": "2026-11-06T02:49:05Z",
+          "required_fields": [
+            "steps"
+          ],
+          "event_id": "EVT-f0db6da00d30",
+          "version": 1
+        }
+      ],
+      "pending_questions": [],
+      "preferences": [],
+      "unread_notifications": 3,
+      "record_counts": {
+        "3d": 9,
+        "7d": 13,
+        "14d": 14
+      },
+      "generated_at": "2026-11-04T03:02:18Z"
+    }
+  },
+  {
+    "path": "/system/audit",
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "id": 4,
+          "ts": "2026-11-04T03:00:41Z",
+          "patient_id": "P003",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "LOW_ACTIVITY",
+          "detail": "{\"event_id\": \"EVT-3a49c3eb814e\", \"severity\": \"low\"}"
+        },
+        {
+          "id": 3,
+          "ts": "2026-11-04T02:49:05Z",
+          "patient_id": "P001",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "LOW_ACTIVITY",
+          "detail": "{\"event_id\": \"EVT-f0db6da00d30\", \"severity\": \"low\"}"
+        },
+        {
+          "id": 2,
+          "ts": "2026-11-04T02:49:05Z",
+          "patient_id": "P001",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "MEDICATION_NONADHERENCE",
+          "detail": "{\"event_id\": \"EVT-41dfadd79a9e\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 1,
+          "ts": "2026-11-04T02:49:05Z",
+          "patient_id": "P001",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-20e608a4f2e7\", \"severity\": \"medium\"}"
+        }
+      ],
+      "forbidden_executed": 0,
+      "rejection_codes": [
+        "NO_EVIDENCE",
+        "FORBIDDEN_ACTION",
+        "TOOL_NOT_ALLOWED",
+        "TOO_MANY_ACTIONS",
+        "INVALID_DUE",
+        "DUPLICATE_TASK",
+        "MISSING_REQUIRED_DATA",
+        "TASK_NOT_FOUND",
+        "TOOL_EXECUTION_FAILED",
+        "POSTCHECK_MISMATCH",
+        "UNSAFE_CLAIM",
+        "UNKNOWN_TOOL"
+      ]
+    }
+  }
+]

@@ -1,0 +1,65 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/state",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/tasks",
+    "status": 200,
+    "body": "{\"patient_id\":\"P001\",\"count\":3,\"items\":[{\"id\":\"TSK-3ebe0a68e327\",\"patient_id\":\"P001\",\"task_type\":\"record_glucose\",\"title\":\"补录 2 次空腹血糖\",\"description\":\"在明天早餐前补录空腹血糖，用于判断趋势是否持续。\",\"status\":\"pending\",\"priority\":61,\"due_at\":\"2026-11-05T14:49:05Z\",\"event_id\":\"EVT-20e608a4f2e7\",\"source_run_id\":\"RUN-427667729e53\",\"version\":1,\"required_fields\":[],\"meta\":{\"event_code\":\"GLUCOSE_RISING\",\"event_ids\":[\"EVT-20e60",
+    "cors": "http://127.0.0.1:5180"
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/runs",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/state",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/tasks",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/runs",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/state",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/tasks",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  },
+  {
+    "method": "GET",
+    "path": "/api/patients/P001/runs",
+    "status": 500,
+    "body": "Internal Server Error",
+    "cors": null
+  }
+]

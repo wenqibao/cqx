@@ -1,0 +1,918 @@
+INFO:     Started server process [22996]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:49950 - "GET /api/patients/P002/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "OPTIONS /api/patients/P001/records HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "POST /api/patients/P001/records HTTP/1.1" 201 Created
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49950 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "GET /api/runs/RUN-427667729e53 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49950 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49966 - "OPTIONS /api/tasks/TSK-c371b472c713/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49969 - "POST /api/tasks/TSK-c371b472c713/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49969 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49969 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49950 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49969 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49969 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49950 - "GET /api/patients/P002/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P002/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P002/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P002/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P002/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/records?days=7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49996 - "GET /api/patients/P001/runs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50148 - "GET /api/patients/P001/runs HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_agent.py", line 51, in list_runs
+    items = trace.list_runs(conn, patient_id)
+  File "D:\cqx-current\backend\app\audit\trace.py", line 42, in list_runs
+    rows = conn.execute(
+           ~~~~~~~~~~~~^
+        "SELECT * FROM agent_runs WHERE patient_id=? ORDER BY started_at DESC LIMIT ?", (patient_id, limit)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ).fetchall()
+    ^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 19744 and this is thread id 23756.
+INFO:     127.0.0.1:50149 - "GET /api/patients/P001/tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50146 - "GET /api/patients/P001/runs HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 290, in app
+    async with AsyncExitStack() as async_exit_stack:
+               ~~~~~~~~~~~~~~^^
+  File "D:\Anaconda\Lib\contextlib.py", line 768, in __aexit__
+    raise exc
+  File "D:\Anaconda\Lib\contextlib.py", line 751, in __aexit__
+    cb_suppress = await cb(*exc_details)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\contextlib.py", line 221, in __aexit__
+    await anext(self.gen)
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 37, in contextmanager_in_threadpool
+    await anyio.to_thread.run_sync(
+        cm.__exit__, None, None, None, limiter=exit_limiter
+    )
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\Anaconda\Lib\contextlib.py", line 148, in __exit__
+    next(self.gen)
+    ~~~~^^^^^^^^^^
+  File "D:\cqx-current\backend\app\api\deps.py", line 18, in get_conn
+    conn.close()
+    ~~~~~~~~~~^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 19256 and this is thread id 22988.
+INFO:     127.0.0.1:50150 - "GET /api/patients/P001/tasks HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\cqx-current\backend\app\api\deps.py", line 16, in get_conn
+    yield conn
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 27, in contextmanager_in_threadpool
+    yield await run_in_threadpool(cm.__enter__)
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_agent.py", line 70, in list_tasks
+    items = tasks.list_tasks(conn, patient_id, status=status, task_type=task_type)
+  File "D:\cqx-current\backend\app\tasks\service.py", line 54, in list_tasks
+    get_patient(conn, patient_id)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "D:\cqx-current\backend\app\services\patients.py", line 93, in get_patient
+    patient = get_patient_or_none(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 88, in get_patient_or_none
+    row = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 19724 and this is thread id 24504.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 290, in app
+    async with AsyncExitStack() as async_exit_stack:
+               ~~~~~~~~~~~~~~^^
+  File "D:\Anaconda\Lib\contextlib.py", line 768, in __aexit__
+    raise exc
+  File "D:\Anaconda\Lib\contextlib.py", line 751, in __aexit__
+    cb_suppress = await cb(*exc_details)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\contextlib.py", line 235, in __aexit__
+    await self.gen.athrow(value)
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 30, in contextmanager_in_threadpool
+    await anyio.to_thread.run_sync(
+        cm.__exit__, type(e), e, e.__traceback__, limiter=exit_limiter
+    )
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\Anaconda\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "D:\cqx-current\backend\app\api\deps.py", line 18, in get_conn
+    conn.close()
+    ~~~~~~~~~~^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 19724 and this is thread id 2184.
+INFO:     127.0.0.1:50151 - "GET /api/patients/P001/state HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\cqx-current\backend\app\api\deps.py", line 16, in get_conn
+    yield conn
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 27, in contextmanager_in_threadpool
+    yield await run_in_threadpool(cm.__enter__)
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_patients.py", line 47, in get_state
+    return state_service.build_state(conn, patient_id)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "D:\cqx-current\backend\app\services\state.py", line 49, in build_state
+    patient = get_patient(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 93, in get_patient
+    patient = get_patient_or_none(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 88, in get_patient_or_none
+    row = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 2184 and this is thread id 16580.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+INFO:     127.0.0.1:50147 - "GET /api/patients/P001/tasks HTTP/1.1" 500 Internal Server Error
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 290, in app
+    async with AsyncExitStack() as async_exit_stack:
+               ~~~~~~~~~~~~~~^^
+  File "D:\Anaconda\Lib\contextlib.py", line 768, in __aexit__
+    raise exc
+  File "D:\Anaconda\Lib\contextlib.py", line 751, in __aexit__
+    cb_suppress = await cb(*exc_details)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\contextlib.py", line 235, in __aexit__
+    await self.gen.athrow(value)
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 30, in contextmanager_in_threadpool
+    await anyio.to_thread.run_sync(
+        cm.__exit__, type(e), e, e.__traceback__, limiter=exit_limiter
+    )
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\Anaconda\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "D:\cqx-current\backend\app\api\deps.py", line 18, in get_conn
+    conn.close()
+    ~~~~~~~~~~^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 2184 and this is thread id 19724.
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\cqx-current\backend\app\api\deps.py", line 16, in get_conn
+    yield conn
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 27, in contextmanager_in_threadpool
+    yield await run_in_threadpool(cm.__enter__)
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_agent.py", line 70, in list_tasks
+    items = tasks.list_tasks(conn, patient_id, status=status, task_type=task_type)
+  File "D:\cqx-current\backend\app\tasks\service.py", line 54, in list_tasks
+    get_patient(conn, patient_id)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "D:\cqx-current\backend\app\services\patients.py", line 93, in get_patient
+    patient = get_patient_or_none(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 88, in get_patient_or_none
+    row = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 24504 and this is thread id 19724.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 290, in app
+    async with AsyncExitStack() as async_exit_stack:
+               ~~~~~~~~~~~~~~^^
+  File "D:\Anaconda\Lib\contextlib.py", line 768, in __aexit__
+    raise exc
+  File "D:\Anaconda\Lib\contextlib.py", line 751, in __aexit__
+    cb_suppress = await cb(*exc_details)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\contextlib.py", line 235, in __aexit__
+    await self.gen.athrow(value)
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 30, in contextmanager_in_threadpool
+    await anyio.to_thread.run_sync(
+        cm.__exit__, type(e), e, e.__traceback__, limiter=exit_limiter
+    )
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\Anaconda\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "D:\cqx-current\backend\app\api\deps.py", line 18, in get_conn
+    conn.close()
+    ~~~~~~~~~~^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 24504 and this is thread id 16580.
+INFO:     127.0.0.1:50145 - "GET /api/patients/P001/state HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\cqx-current\backend\app\api\deps.py", line 16, in get_conn
+    yield conn
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 27, in contextmanager_in_threadpool
+    yield await run_in_threadpool(cm.__enter__)
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_patients.py", line 47, in get_state
+    return state_service.build_state(conn, patient_id)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "D:\cqx-current\backend\app\services\state.py", line 49, in build_state
+    patient = get_patient(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 93, in get_patient
+    patient = get_patient_or_none(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 88, in get_patient_or_none
+    row = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 5992 and this is thread id 22988.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 290, in app
+    async with AsyncExitStack() as async_exit_stack:
+               ~~~~~~~~~~~~~~^^
+  File "D:\Anaconda\Lib\contextlib.py", line 768, in __aexit__
+    raise exc
+  File "D:\Anaconda\Lib\contextlib.py", line 751, in __aexit__
+    cb_suppress = await cb(*exc_details)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\contextlib.py", line 235, in __aexit__
+    await self.gen.athrow(value)
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 30, in contextmanager_in_threadpool
+    await anyio.to_thread.run_sync(
+        cm.__exit__, type(e), e, e.__traceback__, limiter=exit_limiter
+    )
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\Anaconda\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "D:\cqx-current\backend\app\api\deps.py", line 18, in get_conn
+    conn.close()
+    ~~~~~~~~~~^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 5992 and this is thread id 24504.
+INFO:     127.0.0.1:50144 - "GET /api/patients/P001/runs HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_agent.py", line 51, in list_runs
+    items = trace.list_runs(conn, patient_id)
+  File "D:\cqx-current\backend\app\audit\trace.py", line 42, in list_runs
+    rows = conn.execute(
+           ~~~~~~~~~~~~^
+        "SELECT * FROM agent_runs WHERE patient_id=? ORDER BY started_at DESC LIMIT ?", (patient_id, limit)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ).fetchall()
+    ^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 22988 and this is thread id 5992.
+INFO:     127.0.0.1:50152 - "GET /api/patients/P001/state HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "D:\cqx-current\backend\app\api\deps.py", line 16, in get_conn
+    yield conn
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 27, in contextmanager_in_threadpool
+    yield await run_in_threadpool(cm.__enter__)
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 214, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\starlette\concurrency.py", line 37, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\cqx-current\backend\app\api\routes_patients.py", line 47, in get_state
+    return state_service.build_state(conn, patient_id)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "D:\cqx-current\backend\app\services\state.py", line 49, in build_state
+    patient = get_patient(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 93, in get_patient
+    patient = get_patient_or_none(conn, patient_id)
+  File "D:\cqx-current\backend\app\services\patients.py", line 88, in get_patient_or_none
+    row = conn.execute("SELECT * FROM patients WHERE id = ?", (patient_id,)).fetchone()
+          ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 16580 and this is thread id 2184.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Anaconda\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 714, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 734, in app
+    await route.handle(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "D:\Anaconda\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "D:\Anaconda\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\fastapi\routing.py", line 290, in app
+    async with AsyncExitStack() as async_exit_stack:
+               ~~~~~~~~~~~~~~^^
+  File "D:\Anaconda\Lib\contextlib.py", line 768, in __aexit__
+    raise exc
+  File "D:\Anaconda\Lib\contextlib.py", line 751, in __aexit__
+    cb_suppress = await cb(*exc_details)
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\contextlib.py", line 235, in __aexit__
+    await self.gen.athrow(value)
+  File "D:\Anaconda\Lib\site-packages\fastapi\concurrency.py", line 30, in contextmanager_in_threadpool
+    await anyio.to_thread.run_sync(
+        cm.__exit__, type(e), e, e.__traceback__, limiter=exit_limiter
+    )
+  File "D:\Anaconda\Lib\site-packages\anyio\to_thread.py", line 56, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 2505, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "D:\Anaconda\Lib\site-packages\anyio\_backends\_asyncio.py", line 1005, in run
+    result = context.run(func, *args)
+  File "D:\Anaconda\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "D:\cqx-current\backend\app\api\deps.py", line 18, in get_conn
+    conn.close()
+    ~~~~~~~~~~^^
+sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread. The object was created in thread id 16580 and this is thread id 5992.

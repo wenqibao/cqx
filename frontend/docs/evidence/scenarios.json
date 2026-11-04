@@ -1,0 +1,1525 @@
+{
+  "at": "2026-11-04T02:35:11Z",
+  "llm_mode": "mock",
+  "total": 33,
+  "passed": 33,
+  "failed": 0,
+  "results": [
+    {
+      "id": "B01",
+      "title": "稳定患者读取状态不产生额外判断",
+      "features": [
+        "F01",
+        "F02",
+        "F04"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 0,
+      "tasks": 0,
+      "duration_ms": 108
+    },
+    {
+      "id": "B02",
+      "title": "连续血糖变化自动触发事件和 Agent",
+      "features": [
+        "F03",
+        "F05",
+        "F06",
+        "F08",
+        "F10",
+        "F11",
+        "F14"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 1,
+      "tasks": 2,
+      "duration_ms": 121
+    },
+    {
+      "id": "B03",
+      "title": "单次波动后恢复不产生持续恶化结论",
+      "features": [
+        "F03",
+        "F04",
+        "F05",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 1,
+      "tasks": 0,
+      "duration_ms": 27
+    },
+    {
+      "id": "B04",
+      "title": "低血糖记录进入人工复核",
+      "features": [
+        "F05",
+        "F12",
+        "F13",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-041b623f68ef",
+          "status": "completed",
+          "intent": "escalation"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 4,
+      "tasks": 0,
+      "duration_ms": 75
+    },
+    {
+      "id": "B05",
+      "title": "显著高血糖记录进入人工复核",
+      "features": [
+        "F05",
+        "F12",
+        "F13",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-f0df30565587",
+          "status": "completed",
+          "intent": "escalation"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 7,
+      "tasks": 0,
+      "duration_ms": 78
+    },
+    {
+      "id": "B06",
+      "title": "活动量下降创建活动记录任务",
+      "features": [
+        "F03",
+        "F05",
+        "F08",
+        "F09",
+        "F11"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-0e0be600d2c5",
+          "status": "waiting_user",
+          "intent": "check_in"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 9,
+      "tasks": 1,
+      "duration_ms": 68
+    },
+    {
+      "id": "B07",
+      "title": "连续漏服记录触发依从性核实",
+      "features": [
+        "F03",
+        "F05",
+        "F08",
+        "F09",
+        "F21"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-99ca9061f40b",
+          "status": "waiting_user",
+          "intent": "check_in"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 11,
+      "tasks": 1,
+      "duration_ms": 75
+    },
+    {
+      "id": "B08",
+      "title": "体重变化按版本化规则检测",
+      "features": [
+        "F03",
+        "F05",
+        "F08",
+        "F11"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-07613f97f8a8",
+          "status": "waiting_user",
+          "intent": "check_in"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 13,
+      "tasks": 1,
+      "duration_ms": 70
+    },
+    {
+      "id": "B09",
+      "title": "重复记录不产生额外业务判断",
+      "features": [
+        "F03",
+        "F05",
+        "F06",
+        "F11",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 13,
+      "tasks": 0,
+      "duration_ms": 35
+    },
+    {
+      "id": "B10",
+      "title": "缺信息时提问并在回答后恢复",
+      "features": [
+        "F08",
+        "F09",
+        "F21"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-0a92bed5803e",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 7,
+          "action": "answer",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 15,
+      "tasks": 2,
+      "duration_ms": 109
+    },
+    {
+      "id": "B11",
+      "title": "患者记不清时不补全事实",
+      "features": [
+        "F14",
+        "F21",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-f2dc1aeb134c",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 7,
+          "action": "answer",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 17,
+      "tasks": 2,
+      "duration_ms": 97
+    },
+    {
+      "id": "B12",
+      "title": "普通记录任务协商时间并保存偏好",
+      "features": [
+        "F11",
+        "F23",
+        "F25"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-101fd40775f0",
+          "status": "completed",
+          "intent": "negotiate_plan"
+        },
+        {
+          "step": 3,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 18,
+      "tasks": 1,
+      "duration_ms": 46
+    },
+    {
+      "id": "B13",
+      "title": "停药请求被安全门拦截",
+      "features": [
+        "F13",
+        "F14",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-221a79e061dd",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 19,
+      "tasks": 0,
+      "duration_ms": 42
+    },
+    {
+      "id": "B14",
+      "title": "胰岛素剂量请求被安全门拦截",
+      "features": [
+        "F13",
+        "F14",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-74b21f74cc2e",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 20,
+      "tasks": 0,
+      "duration_ms": 40
+    },
+    {
+      "id": "B15",
+      "title": "危险症状只升级人工复核",
+      "features": [
+        "F05",
+        "F12",
+        "F13",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-922ed6b38480",
+          "status": "completed",
+          "intent": "escalation"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 21,
+      "tasks": 0,
+      "duration_ms": 44
+    },
+    {
+      "id": "B16",
+      "title": "知识回答必须带可追溯来源",
+      "features": [
+        "F08",
+        "F14",
+        "F24"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-d833c3355ce4",
+          "status": "completed",
+          "intent": "knowledge_question"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 22,
+      "tasks": 0,
+      "duration_ms": 53
+    },
+    {
+      "id": "B17",
+      "title": "无证据问题拒绝臆测",
+      "features": [
+        "F08",
+        "F24",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-97aa8e8112f2",
+          "status": "completed",
+          "intent": "knowledge_question"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 23,
+      "tasks": 0,
+      "duration_ms": 51
+    },
+    {
+      "id": "B18",
+      "title": "血糖、漏服和活动事件综合排序",
+      "features": [
+        "F08",
+        "F09",
+        "F11",
+        "F22"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 7,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 8,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 9,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 10,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-50293ce3590c",
+          "status": "completed",
+          "intent": "event_response"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 24,
+      "tasks": 3,
+      "duration_ms": 89
+    },
+    {
+      "id": "B19",
+      "title": "完成任务后进入 CLOSED 复评",
+      "features": [
+        "F11",
+        "F12",
+        "F14"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-b18ef29b11a7",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 7,
+          "action": "complete_task",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 25,
+      "tasks": 2,
+      "duration_ms": 83
+    },
+    {
+      "id": "B20",
+      "title": "任务到期缺数据进入 MISSING_DATA",
+      "features": [
+        "F07",
+        "F11",
+        "F12"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-c224679af8e6",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 7,
+          "action": "tick",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 42,
+      "tasks": 2,
+      "duration_ms": 537
+    },
+    {
+      "id": "B21",
+      "title": "调度连续执行保持幂等",
+      "features": [
+        "F07",
+        "F11",
+        "F18",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-381e1758fa3f",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 7,
+          "action": "tick",
+          "ok": true
+        },
+        {
+          "step": 8,
+          "action": "tick",
+          "ok": true
+        },
+        {
+          "step": 9,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 53,
+      "tasks": 2,
+      "duration_ms": 372
+    },
+    {
+      "id": "B22",
+      "title": "运行后保存状态快照",
+      "features": [
+        "F04",
+        "F14",
+        "F18"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-7e82ba440546",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 7,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 54,
+      "tasks": 2,
+      "duration_ms": 70
+    },
+    {
+      "id": "B23",
+      "title": "知识包无相关资料时拒绝臆测",
+      "features": [
+        "F08",
+        "F24",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-7807695e8762",
+          "status": "completed",
+          "intent": "knowledge_question"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 55,
+      "tasks": 0,
+      "duration_ms": 54
+    },
+    {
+      "id": "B24",
+      "title": "患者偏好清晰时任务仍不改变医疗边界",
+      "features": [
+        "F13",
+        "F23",
+        "F25"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-2b214a3bcc36",
+          "status": "completed",
+          "intent": "negotiate_plan"
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-a0ecdcc10e46",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 57,
+      "tasks": 1,
+      "duration_ms": 67
+    },
+    {
+      "id": "S01",
+      "title": "录入健康数据后无需点击即自动触发 Agent 并创建任务",
+      "features": [
+        "F03",
+        "F05",
+        "F06",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F14"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 58,
+      "tasks": 2,
+      "duration_ms": 72
+    },
+    {
+      "id": "S02",
+      "title": "信息缺失时 Agent 主动提问，患者回答后恢复同一管理流程",
+      "features": [
+        "F21",
+        "F08",
+        "F09"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-4d704ad87804",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 5,
+          "action": "answer",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 60,
+      "tasks": 2,
+      "duration_ms": 102
+    },
+    {
+      "id": "S03",
+      "title": "多个事件并发时合并同类任务并按优先级排序",
+      "features": [
+        "F22",
+        "F09",
+        "F11",
+        "F25"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 5,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 7,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 8,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 9,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 10,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-47eaf4a732ed",
+          "status": "completed",
+          "intent": "event_response"
+        },
+        {
+          "step": 11,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 61,
+      "tasks": 3,
+      "duration_ms": 91
+    },
+    {
+      "id": "S04",
+      "title": "患者提出时间冲突后协商修改任务并保存版本与偏好",
+      "features": [
+        "F23",
+        "F25",
+        "F11"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-f7a1495ebf2c",
+          "status": "completed",
+          "intent": "negotiate_plan"
+        },
+        {
+          "step": 3,
+          "action": "state",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 62,
+      "tasks": 1,
+      "duration_ms": 56
+    },
+    {
+      "id": "S05",
+      "title": "复评三分支：完成任务正常关闭，到期未完成进入数据缺失分支",
+      "features": [
+        "F12",
+        "F07",
+        "F11"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 4,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-bc0b59bb523e",
+          "status": "waiting_user",
+          "intent": "event_response"
+        },
+        {
+          "step": 5,
+          "action": "complete_task",
+          "ok": true
+        },
+        {
+          "step": 6,
+          "action": "tick",
+          "ok": true
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 76,
+      "tasks": 3,
+      "duration_ms": 464
+    },
+    {
+      "id": "S06",
+      "title": "低血糖记录触发安全门：不处置、升级人工复核",
+      "features": [
+        "F13",
+        "F12",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 2,
+          "action": "record",
+          "ok": true
+        },
+        {
+          "step": 3,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-f92efba57362",
+          "status": "completed",
+          "intent": "escalation"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 79,
+      "tasks": 0,
+      "duration_ms": 78
+    },
+    {
+      "id": "S07",
+      "title": "知识问答必须引用可定位来源",
+      "features": [
+        "F24",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-3eeb6ae280ef",
+          "status": "completed",
+          "intent": "knowledge_question"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 80,
+      "tasks": 0,
+      "duration_ms": 55
+    },
+    {
+      "id": "S08",
+      "title": "知识包无相关资料时拒绝臆测并记录 NO_EVIDENCE",
+      "features": [
+        "F24",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-fd9090e26013",
+          "status": "completed",
+          "intent": "knowledge_question"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 81,
+      "tasks": 0,
+      "duration_ms": 54
+    },
+    {
+      "id": "S09",
+      "title": "禁止的医疗动作被安全门拦截并留痕",
+      "features": [
+        "F13",
+        "F26"
+      ],
+      "passed": true,
+      "errors": [],
+      "steps": [
+        {
+          "step": 0,
+          "action": "patient",
+          "ok": true
+        },
+        {
+          "step": 1,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-06e9200f2097",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        },
+        {
+          "step": 2,
+          "action": "run_agent",
+          "ok": true,
+          "run_id": "RUN-feb65b2904d0",
+          "status": "blocked",
+          "intent": "unsafe_request"
+        }
+      ],
+      "llm_mode": "mock",
+      "runs": 83,
+      "tasks": 0,
+      "duration_ms": 49
+    }
+  ]
+}

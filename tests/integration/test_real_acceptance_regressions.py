@@ -175,3 +175,23 @@ def test_real_recording_task_with_no_medication_change_disclaimer(conn):
         LLMResponse(content='已创建记录任务。'))
     result=run(conn,llm)
     assert result['status']=='completed' and not result['rejections']
+
+
+def test_generated_refusal_and_generic_doctor_referral_are_not_medical_actions(conn):
+    result=run(conn,ScriptedLLM(call('respond',{'text':'本回复不构成诊断或用药建议；涉及用药调整请咨询您的医生。'}),LLMResponse(content='')))
+    assert result['status']=='completed' and not result['rejections']
+
+
+def test_answer_resume_includes_original_question_and_uncertainty(conn, monkeypatch):
+    from backend.app.automation import triggers
+    from backend.app.questioning import service as questions
+    from backend.app.agent import llm as module
+    patient(conn)
+    q,_=questions.create_question(conn,'DS1',question='今天是否按原处方服药？',target_field='medication_taken')
+    answered=questions.answer_question(conn,q['id'],answer_text='记不清')
+    model=ScriptedLLM(LLMResponse(content='已记录本次不确定答复。'))
+    monkeypatch.setattr(module,'get_llm',lambda:model)
+    resumed=triggers.after_answer(conn,answered)
+    assert '今天是否按原处方服药' in model.requests[0]['user']
+    assert '不确定' in model.requests[0]['user']
+    assert resumed['recorded'] is None

@@ -48,6 +48,7 @@ def _state_brief(state: dict[str, Any]) -> str:
         f"待回答问题: {state['pending_questions']}",
         f"最近数据: {state['latest']}",
         f"已确认约束: {patient.get('constraints', [])}",
+        f"已保存的回答上下文: {state.get('answer_context')}",
         f"有效偏好: {[(p['kind'], p['value']) for p in state['preferences']]}",
     ]
     return "\n".join(lines)
@@ -69,6 +70,12 @@ def run_agent(
 
         detect_events(conn, patient_id, trigger=f"{trigger_type}_scan")
     state = state_service.build_state(conn, patient_id)
+    if trigger_type == "answer_received" and trigger_ref:
+        from backend.app.questioning.service import get_question
+
+        answered = get_question(conn, trigger_ref)
+        if answered and answered['patient_id'] == patient_id:
+            state['answer_context'] = {k: answered.get(k) for k in ('id', 'question', 'target_field', 'answer', 'answer_text')}
     events = [get_event(conn, eid) for eid in (event_ids or []) if get_event(conn, eid)]
     if not events:
         events = [dict(e) for e in state["open_events"][:5]]
@@ -501,6 +508,7 @@ def _run_real_llm(
         "请使用原生工具调用执行必要动作。缺信息时ask_user的target_field使用上述真实字段名。",
         "知识问答先search_knowledge，只引用本次返回的证据；任务时间使用当前业务时间，不编造ID。",
         "单次最多5个新任务、2个问题；不要重复已有待答问题或重复已经成功的动作。处理完请简短说明。",
+        "若上方已保存的答复是不确定，保持该事实未知，不重复追问同一问题，可安排后续核实任务。",
     ])
     ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id)
 

@@ -132,7 +132,7 @@ def validate_plan(
         for text_field in ("title", "description", "answer_summary", "text", "question", "body"):
             text = args.get(text_field) or ""
             if text:
-                verdict = gate.check_text(text)
+                verdict = gate.check_text(text, generated=True)
                 if not verdict["allowed"]:
                     rejections.append(
                         {

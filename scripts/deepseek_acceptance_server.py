@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,7 +31,8 @@ class AcceptanceBudget:
         with self.lock:
             if len(self.data['triggers']) >= 6:
                 raise RuntimeError("验收6次Agent业务触发预算已耗尽，禁止继续调用")
-            entry = {"number": len(self.data['triggers']) + 1, "scenario": scenario, "patient_id": patient_id, "trigger_type": trigger_type, "at": datetime.now(timezone.utc).isoformat(), "run_id": None}
+            entry = {"number": len(self.data['triggers']) + 1, "scenario": scenario, "patient_id": patient_id, "trigger_type": trigger_type, "at": datetime.now(timezone.utc).isoformat(), "run_id": None,
+                     "git_sha": subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()}
             self.data['triggers'].append(entry)
             self.save()
             return entry

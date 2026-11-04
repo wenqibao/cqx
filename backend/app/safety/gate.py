@@ -21,27 +21,35 @@ class SafetyViolation(Exception):
         self.detail = detail or {}
 
 
-def _is_disclaimer(text: str, position: int) -> bool:
+def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool:
     window = text[max(0, position - DISCLAIMER_WINDOW) : position]
     # 否定只作用于当前分句，不能用前一句免责声明掩盖后一句越权指令。
     window = re.split(r"[，。；;！!？?\n]|但是|然而", window)[-1]
+    if generated:
+        # 输出中的否定边界说明/无具体剂量的转介，不等于患者提出执行医疗动作。
+        if '能不能' not in window and re.search(r"(?:不构成|不作为|不会|不能|不应|不可)[^，。；]{0,10}$", window):
+            return True
+        right = re.split(r"[，。；;！!？?\n]", text[position:])[0]
+        if re.fullmatch(r"(?:涉及|任何|关于|有关)?(?:用药|药物|胰岛素|诊断|处方)(?:方案|剂量|调整|问题|事项)*(?:请|应|需)(?:咨询|联系)(?:您?的)?(?:处方)?医生", window + right):
+            return True
     return any(marker in window for marker in DISCLAIMER_MARKERS) or bool(
         re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window)
     )
 
 
-def _match_pattern(text: str, patterns: list[str]) -> tuple[int, str] | None:
+def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
-            m = re.search(pattern, text)
+            matches = list(re.finditer(pattern, text))
         except re.error:  # 配置写错不应让安全门整体失效
             continue
-        if m and not _is_disclaimer(text, m.start()):
-            return m.start(), m.group(0)
+        for m in matches:
+            if not _is_disclaimer(text, m.start(), generated=generated):
+                return m.start(), m.group(0)
     return None
 
 
-def check_text(text: str) -> dict[str, Any]:
+def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
     """检查患者输入/模型输出中是否包含被禁止的医疗动作意图。
 
     两层识别：
@@ -58,7 +66,7 @@ def check_text(text: str) -> dict[str, Any]:
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
             positions = [m.start() for m in re.finditer(re.escape(kw.lower()), lowered)]
-            if any(not _is_disclaimer(lowered, position) for position in positions):
+            if any(not _is_disclaimer(lowered, position, generated=generated) for position in positions):
                 return {
                     "allowed": False,
                     "code": rule["code"],
@@ -70,7 +78,7 @@ def check_text(text: str) -> dict[str, Any]:
         terms = [str(t).lower() for t in (rule.get("terms") or [])]
         if terms and not any(term in lowered for term in terms):
             continue
-        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])])
+        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])], generated=generated)
         if hit:
             return {
                 "allowed": False,
@@ -196,7 +204,7 @@ def forbidden_action_count(conn: sqlite3.Connection) -> int:
         call = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='tool_call' AND tool_name=? AND step_no<? ORDER BY step_no DESC LIMIT 1",
                             (row['run_id'], row['tool_name'], row['step_no'])).fetchone()
         args = loads(call['payload'], {}).get('args', {}) if call else {}
-        unsafe_text = any(not check_text(str(args.get(k) or ''))['allowed']
+        unsafe_text = any(not check_text(str(args.get(k) or ''), generated=True)['allowed']
                           for k in ('claim','title','description','text','question','body'))
         if not check_tool(row['tool_name']) or unsafe_text:
             count += 1

@@ -162,7 +162,7 @@ def validate_plan(
                 )
         citations = args.get("citations") or []
         if citations:
-            valid_refs = {str(e.get(k)) for e in evidence for k in ("id", "doc_id", "citation", "anchor") if e.get(k)}
+            valid_refs = {str(e.get(k)) for e in evidence for k in ("id", "doc_id", "chunk_id", "citation", "anchor") if e.get(k)}
             valid_refs.update(str(e.get("doc_id", "")) + str(e.get("anchor", "")) for e in evidence)
             if any(c not in valid_refs for c in citations):
                 rejections.append({"code": NO_EVIDENCE, "message": "引用不属于本次检索证据", "index": idx, "tool": tool})

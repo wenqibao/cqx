@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+import httpx
 
 import pytest
 
@@ -133,3 +134,36 @@ def test_rejection_count_is_not_forbidden_execution_count(conn):
 def test_empty_output_is_failed_but_pure_explanation_is_allowed(conn):
     result=run(conn,ScriptedLLM(LLMResponse(content="")))
     assert result['status']=='failed'
+
+
+def test_real_citation_chunk_and_explicit_non_diagnosis_are_allowed(conn):
+    llm=ScriptedLLM(call('search_knowledge',{'query':'连续血糖记录 意义'}),
+                    call('respond',{'text':'连续记录便于观察变化。这些为健康管理信息，不作诊断或治疗建议。',
+                                    'citations':['KD-001-C003']}),LLMResponse(content='请按已确认的安排记录。'))
+    result=run(conn,llm,'为什么需要连续记录血糖？')
+    assert result['status']=='completed' and not result['rejections']
+
+
+def test_disclaimer_cannot_hide_later_forbidden_instruction():
+    assert gate.check_text('这些为健康管理信息，不作诊断或治疗建议。')['allowed']
+    assert not gate.check_text('本系统不提供诊断。但我现在诊断为糖尿病。')['allowed']
+
+
+@pytest.mark.parametrize('status',[400,401,402,429,500,502,503])
+def test_provider_error_is_explicit_and_redacted(status):
+    dummy='dummy-secret-not-a-real-key'
+    client=OpenAICompatLLM('https://api.deepseek.com',dummy,'deepseek-flash',
+                          transport=httpx.MockTransport(lambda request:httpx.Response(status,text='upstream '+dummy)))
+    with pytest.raises(LLMRequestError) as exc:
+        client.plan_actions(system='s',user='u',tools=[])
+    assert str(status) in str(exc.value) and dummy not in str(exc.value)
+
+
+def test_provider_timeout_does_not_retry():
+    calls=[]
+    def transport(request):
+        calls.append(request)
+        raise httpx.ReadTimeout('controlled local timeout')
+    client=OpenAICompatLLM('https://api.deepseek.com','DUMMY','deepseek-flash',transport=httpx.MockTransport(transport))
+    with pytest.raises(LLMRequestError):client.plan_actions(system='s',user='u',tools=[])
+    assert len(calls)==1

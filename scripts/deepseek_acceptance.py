@@ -84,7 +84,7 @@ def collect(case):
     pid=f['patients']['R04' if case=='R05' else case.split('-')[0]]
     conn=connect(settings().db_path)
     try:
-        objects={table:[dict(r) for r in conn.execute(f'SELECT * FROM {table} WHERE patient_id=?',(pid,)).fetchall()] for table in ['patients','health_records','tasks','questions','reviews','agent_runs','evidence_items','audit_log','state_snapshots']}
+        objects={table:[dict(r) for r in conn.execute(f'SELECT * FROM {table} WHERE {"id" if table=="patients" else "patient_id"}=?',(pid,)).fetchall()] for table in ['patients','health_records','tasks','questions','reviews','agent_runs','evidence_items','audit_log','state_snapshots']}
     finally:conn.close()
     runs=request('GET',f'/patients/{pid}/runs')
     details=[request('GET','/runs/'+r['id'])['body'] for r in runs['body']['items']]

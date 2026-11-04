@@ -135,6 +135,7 @@ def record_evidence(
             {
                 "id": eid,
                 "doc_id": hit["doc_id"],
+                "chunk_id": hit["chunk_id"],
                 "title": hit["title"],
                 "publisher": hit["publisher"],
                 "anchor": hit["anchor"],
@@ -156,6 +157,7 @@ def evidence_for_run(conn: sqlite3.Connection, run_id: str) -> list[dict[str, An
         {
             "id": r["id"],
             "doc_id": r["doc_id"],
+            "chunk_id": r["chunk_id"],
             "title": r["title"],
             "publisher": r["publisher"],
             "source_url": r["source_url"],

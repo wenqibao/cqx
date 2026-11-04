@@ -102,8 +102,32 @@ def main():
 
     orchestrator.run_agent = counted_run
     llm.OpenAICompatLLM.plan_actions = counted_plan
+    from backend.app.main import app
+
+    async def captured_app(scope, receive, send):
+        case_path = ROOT / '.tmp/active-real-scenario.txt'
+        case = case_path.read_text(encoding='utf8').strip() if case_path.exists() else 'preflight'
+        capture = scope['type'] == 'http' and scope.get('method') == 'POST'
+        chunks = []
+        status = None
+
+        async def capture_send(event):
+            nonlocal status
+            if capture and event['type'] == 'http.response.start':
+                status = event['status']
+            if capture and event['type'] == 'http.response.body':
+                chunks.append(event.get('body', b''))
+                if not event.get('more_body', False):
+                    # 仅保存业务响应，不保存任何请求/响应头；客户端断连也保留真实保存结果。
+                    body = b''.join(chunks).decode('utf8').replace(cfg.llm_api_key, '[REDACTED]')
+                    target = ROOT / f'evaluation/reports/deepseek_capture_{case}_{len(budget.data["triggers"])}.json'
+                    target.write_text(json.dumps({'path': scope['path'], 'status': status, 'body': json.loads(body)}, ensure_ascii=False, indent=2), encoding='utf8')
+            await send(event)
+
+        await app(scope, receive, capture_send)
+
     print(json.dumps({'acceptance_db': str(expected), 'port': 8010, 'triggers_used': len(budget.data['triggers']), 'requests_used': len(budget.data['requests'])}))
-    uvicorn.run('backend.app.main:app', host='127.0.0.1', port=8010, log_level='info')
+    uvicorn.run(captured_app, host='127.0.0.1', port=8010, log_level='info', lifespan='on')
 
 
 if __name__ == '__main__':

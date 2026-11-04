@@ -23,7 +23,11 @@ class SafetyViolation(Exception):
 
 def _is_disclaimer(text: str, position: int) -> bool:
     window = text[max(0, position - DISCLAIMER_WINDOW) : position]
-    return any(marker in window for marker in DISCLAIMER_MARKERS)
+    # 否定只作用于当前分句，不能用前一句免责声明掩盖后一句越权指令。
+    window = re.split(r"[，。；;！!？?\n]|但是|然而", window)[-1]
+    return any(marker in window for marker in DISCLAIMER_MARKERS) or bool(
+        re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window)
+    )
 
 
 def _match_pattern(text: str, patterns: list[str]) -> tuple[int, str] | None:
@@ -53,8 +57,8 @@ def check_text(text: str) -> dict[str, Any]:
     lowered = (text or "").lower()
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
-            position = lowered.find(kw.lower())
-            if position >= 0 and not _is_disclaimer(lowered, position):
+            positions = [m.start() for m in re.finditer(re.escape(kw.lower()), lowered)]
+            if any(not _is_disclaimer(lowered, position) for position in positions):
                 return {
                     "allowed": False,
                     "code": rule["code"],

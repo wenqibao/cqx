@@ -167,3 +167,11 @@ def test_provider_timeout_does_not_retry():
     client=OpenAICompatLLM('https://api.deepseek.com','DUMMY','deepseek-flash',transport=httpx.MockTransport(transport))
     with pytest.raises(LLMRequestError):client.plan_actions(system='s',user='u',tools=[])
     assert len(calls)==1
+
+
+def test_real_recording_task_with_no_medication_change_disclaimer(conn):
+    llm=ScriptedLLM(call('create_task',{'patient_id':'DS1','task_type':'record_glucose',
+        'title':'继续记录空腹血糖','description':'本任务仅为记录与趋势观察，不涉及任何用药或剂量调整。'}),
+        LLMResponse(content='已创建记录任务。'))
+    result=run(conn,llm)
+    assert result['status']=='completed' and not result['rejections']

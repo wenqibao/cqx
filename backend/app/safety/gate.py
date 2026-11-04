@@ -9,7 +9,7 @@ from backend.app.config import safety_rules
 from backend.app.db.connection import dumps, iso, now
 
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
-DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不负责", "不得", "禁止", "无需", "不承诺")
+DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不涉及", "不负责", "不得", "禁止", "无需", "不承诺")
 DISCLAIMER_WINDOW = 24
 
 

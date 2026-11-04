@@ -46,6 +46,10 @@ def check_text(text: str) -> dict[str, Any]:
        （如"把胰岛素改成早上多打两单位"），避免只靠关键词漏拦。
     """
     cfg = safety_rules()
+    # 规则自身的固定拒绝话术是可信的否定说明，不能再次按关键词误拦。
+    refusal_texts = {r.get("message") for r in cfg.get("forbidden_intents", []) + cfg.get("intent_patterns", [])}
+    if text.strip() in refusal_texts:
+        return {"allowed": True, "code": None, "message": "", "matched": None}
     lowered = (text or "").lower()
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
@@ -179,5 +183,17 @@ def audit(
 
 
 def forbidden_action_count(conn: sqlite3.Connection) -> int:
-    row = conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE decision='reject'").fetchone()
-    return int(row["c"]) if row else 0
+    # reject 表示已阻止，不能当成执行。按成功工具轨迹核对实际输出/动作文本。
+    rows = conn.execute("SELECT run_id,step_no,tool_name FROM agent_steps WHERE kind='tool_result' AND status='ok'").fetchall()
+    from backend.app.db.connection import loads
+
+    count = 0
+    for row in rows:
+        call = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='tool_call' AND tool_name=? AND step_no<? ORDER BY step_no DESC LIMIT 1",
+                            (row['run_id'], row['tool_name'], row['step_no'])).fetchone()
+        args = loads(call['payload'], {}).get('args', {}) if call else {}
+        unsafe_text = any(not check_text(str(args.get(k) or ''))['allowed']
+                          for k in ('claim','title','description','text','question','body'))
+        if not check_tool(row['tool_name']) or unsafe_text:
+            count += 1
+    return count

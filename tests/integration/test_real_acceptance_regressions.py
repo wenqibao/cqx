@@ -1,0 +1,135 @@
+"""受控 real 路径回归；全部为本地 Stub，不冒充 DeepSeek 验收。"""
+from __future__ import annotations
+
+import json
+from datetime import timedelta
+
+import pytest
+
+from backend.app.agent.llm import LLMClient, LLMResponse, ToolCall, OpenAICompatLLM, LLMRequestError
+from backend.app.agent.orchestrator import run_agent
+from backend.app.audit.trace import trace
+from backend.app.db.connection import iso, now
+from backend.app.safety import gate
+from backend.app.services import patients
+from backend.app.tasks import service as tasks
+
+
+class ScriptedLLM(LLMClient):
+    mode = "real"
+    model_name = "LOCAL-STUB-NOT-DEEPSEEK"
+
+    def __init__(self, *responses):
+        self.responses = iter(responses)
+        self.requests = []
+
+    def plan_actions(self, **kwargs):
+        self.requests.append(kwargs)
+        response = next(self.responses, LLMResponse(content=""))
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+def patient(conn, pid="DS1"):
+    return patients.create_patient(conn, {"id": pid, "name": "合成验收患者", "age": 50,
+                                          "duration_years": 4, "goals": ["稳定记录"]})
+
+
+def call(name, args, ident="one"):
+    return LLMResponse(content="", tool_calls=[ToolCall(name, args, ident)])
+
+
+def run(conn, llm, message="请整理我的记录"):
+    patient(conn)
+    return run_agent(conn, "DS1", trigger_type="user_request", message=message, llm=llm)
+
+
+def test_deepseek_payload_disables_thinking():
+    client = OpenAICompatLLM("https://api.deepseek.com", "DUMMY", "deepseek-flash")
+    assert client._payload("s", "u", [])['thinking'] == {"type": "disabled"}
+
+
+def test_search_has_complete_trace_and_supplies_actual_quotes(conn):
+    llm = ScriptedLLM(call("search_knowledge", {"query": "连续血糖记录 意义"}),
+                      LLMResponse(content="连续记录帮助观察变化。"))
+    result = run(conn, llm, "为什么需要连续记录血糖？")
+    detail = trace(conn, result["run_id"])
+    assert {s['kind'] for s in detail['steps'] if s['tool_name']=='search_knowledge'} >= {'tool_call','tool_result'}
+    tool_message = next(m for m in llm.requests[1]['extra_messages'] if m['role']=='tool')
+    assert json.loads(tool_message['content'])['hits'][0]['quote']
+    assert result['evidence']
+    assert conn.execute('SELECT COUNT(*) FROM state_snapshots WHERE patient_id=?',('DS1',)).fetchone()[0] > 0
+
+
+def test_knowledge_text_without_evidence_is_not_success(conn):
+    result = run(conn, ScriptedLLM(LLMResponse(content="这是确定的健康结论。")), "为什么需要连续记录血糖？")
+    assert result['status'] != 'completed'
+    assert 'NO_EVIDENCE' in {r['code'] for r in result['rejections']}
+    assert all('确定的健康结论' not in x for x in result['responses'])
+
+
+@pytest.mark.parametrize('as_tool',[False,True])
+def test_generated_unsafe_text_is_blocked(conn, as_tool):
+    unsafe = "请把胰岛素改成早上多打两单位"
+    response = call('respond',{'text':unsafe}) if as_tool else LLMResponse(content=unsafe)
+    result = run(conn, ScriptedLLM(response,LLMResponse(content="")))
+    assert all(unsafe not in x for x in result['responses'])
+    assert result['rejections']
+
+
+def test_claimed_write_without_write_is_rejected(conn):
+    result = run(conn, ScriptedLLM(LLMResponse(content="已创建记录任务。")))
+    assert result['status'] != 'completed'
+    assert any(r['code']=='POSTCHECK_MISMATCH' for r in result['rejections'])
+    assert not conn.execute('SELECT * FROM tasks').fetchall()
+
+
+@pytest.mark.parametrize('tool',['complete_task','update_task','query_history'])
+def test_cross_patient_tool_arguments_never_execute(conn,tool):
+    patient(conn,'OTHER')
+    t,_=tasks.create_task(conn,'OTHER',task_type='record_activity',title='记录步数')
+    args={'patient_id':'OTHER'} if tool=='query_history' else {'task_id':t['id']}
+    if tool=='update_task':args['due_at']=iso(now(conn)+timedelta(days=1))
+    result=run(conn,ScriptedLLM(call(tool,args),LLMResponse(content="")))
+    assert result['rejections']
+    assert not any(x['tool']==tool and x['ok'] for x in result['actions'])
+    assert tasks.get_task(conn,t['id'])['version']==1
+
+
+def test_invalid_due_is_a_rejection_not_server_crash(conn):
+    llm=ScriptedLLM(call('create_task',{'patient_id':'DS1','task_type':'record_glucose','title':'记录血糖','due_at':'not-a-time'}),LLMResponse(content=""))
+    result=run(conn,llm)
+    assert 'INVALID_DUE' in {r['code'] for r in result['rejections']}
+    assert not conn.execute('SELECT * FROM tasks').fetchall()
+
+
+def test_question_limit_is_cumulative_across_rounds(conn):
+    llm=ScriptedLLM(*(call('ask_user',{'patient_id':'DS1','question':f'请补充信息{i}','target_field':f'f{i}'},str(i)) for i in range(3)))
+    result=run(conn,llm)
+    assert conn.execute('SELECT COUNT(*) FROM questions').fetchone()[0] == 2
+    assert 'TOO_MANY_ACTIONS' in {r['code'] for r in result['rejections']}
+
+
+@pytest.mark.parametrize('arguments',[[1,2],None,{'patient_id':['OTHER']}])
+def test_malformed_tool_arguments_are_rejected(conn,arguments):
+    result=run(conn,ScriptedLLM(call('query_history',arguments),LLMResponse(content="")))
+    assert result['rejections']
+
+
+def test_upstream_error_finishes_persisted_run(conn):
+    with pytest.raises(LLMRequestError):
+        run(conn,ScriptedLLM(LLMRequestError('upstream 429')))
+    row=conn.execute('SELECT status,finished_at FROM agent_runs').fetchone()
+    assert row['status']=='failed' and row['finished_at']
+
+
+def test_rejection_count_is_not_forbidden_execution_count(conn):
+    run(conn,ScriptedLLM(),"请把胰岛素改成早上多打两单位")
+    assert conn.execute("SELECT COUNT(*) FROM audit_log WHERE decision='reject'").fetchone()[0] > 0
+    assert gate.forbidden_action_count(conn)==0
+
+
+def test_empty_output_is_failed_but_pure_explanation_is_allowed(conn):
+    result=run(conn,ScriptedLLM(LLMResponse(content="")))
+    assert result['status']=='failed'

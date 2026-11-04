@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -102,6 +103,9 @@ class OpenAICompatLLM(LLMClient):
             "messages": messages,
             "temperature": 0,
         }
+        # DeepSeek 默认思考模式要求回传 reasoning_content；当前循环使用非思考协议。
+        if urlparse(self.base_url).hostname == "api.deepseek.com":
+            payload["thinking"] = {"type": "disabled"}
         if tools:
             payload["tools"] = [{"type": "function", "function": t} for t in tools]
             payload["tool_choice"] = "auto"
@@ -121,16 +125,20 @@ class OpenAICompatLLM(LLMClient):
             with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
                 resp = client.post(url, headers=headers, json=self._payload(system, user, tools, extra_messages))
         except httpx.HTTPError as exc:
-            raise LLMRequestError(f"模型请求失败: {exc}") from exc
+            raise LLMRequestError(f"模型请求失败: {str(exc).replace(self.api_key, '[REDACTED]')}") from exc
         if resp.status_code >= 400:
-            raise LLMRequestError(f"模型返回 {resp.status_code}: {resp.text[:300]}")
-        return self.parse_response(resp.json())
+            detail = resp.text.replace(self.api_key, "[REDACTED]")
+            raise LLMRequestError(f"模型返回 {resp.status_code}: {detail[:300]}")
+        try:
+            return self.parse_response(resp.json())
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise LLMRequestError("模型响应不是有效的工具调用结构") from exc
 
     @staticmethod
     def parse_response(data: dict[str, Any]) -> LLMResponse:
         try:
             message = data["choices"][0]["message"]
-        except (KeyError, IndexError) as exc:
+        except (KeyError, IndexError, TypeError) as exc:
             raise LLMRequestError(f"模型响应结构异常: {json.dumps(data)[:300]}") from exc
         calls: list[ToolCall] = []
         for item in message.get("tool_calls") or []:
@@ -138,7 +146,7 @@ class OpenAICompatLLM(LLMClient):
             raw_args = fn.get("arguments") or "{}"
             try:
                 args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
-            except ValueError:
+            except (ValueError, TypeError):
                 args = {"_raw": raw_args}
             calls.append(ToolCall(name=fn.get("name", ""), arguments=args, id=item.get("id", "")))
         return LLMResponse(content=message.get("content") or "", tool_calls=calls, raw=data)

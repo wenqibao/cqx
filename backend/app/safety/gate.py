@@ -11,6 +11,9 @@ from backend.app.db.connection import dumps, iso, now
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
 DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺")
 DISCLAIMER_WINDOW = 24
+# 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
+CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
+INSTRUCTION_LEADIN = re.compile(r"(?:建议|请|应|需要|可以|要|立即|马上|尽快|务必|宜)\s*$")
 
 
 class SafetyViolation(Exception):
@@ -32,9 +35,17 @@ def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool
         right = re.split(r"[，。；;！!？?\n]", text[position:])[0]
         if re.fullmatch(r"(?:涉及|任何|关于|有关)?(?:用药|药物|胰岛素|诊断|处方)(?:方案|剂量|调整|问题|事项)*(?:请|应|需)(?:咨询|联系)(?:您?的)?(?:处方)?医生", window + right):
             return True
-    return any(marker in window for marker in DISCLAIMER_MARKERS) or bool(
-        re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window)
-    )
+    covered = False
+    for marker in DISCLAIMER_MARKERS:
+        index = window.rfind(marker)
+        if index < 0:
+            continue
+        tail = window[index + len(marker) :]
+        # 免责后面紧跟"而是/只是…"或"建议/请…"→ 否定不覆盖本次命中，按真实指令处理
+        if any(cue in tail for cue in CONTRAST_CUES) or INSTRUCTION_LEADIN.search(tail):
+            continue
+        covered = True
+    return covered or bool(re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window))
 
 
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:

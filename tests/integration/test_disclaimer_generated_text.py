@@ -44,11 +44,37 @@ def test_real_changes_and_mixed_text_still_blocked(text):
     assert gate.check_text(text, generated=True)["allowed"] is False, text
 
 
-@pytest.mark.parametrize("text", ALLOWED_NEGATIONS)
-def test_patient_input_with_negation_marker_stays_strict(text):
-    """患者输入路径不放宽：同一句话里只要出现真正的调整指令仍要拦。"""
-    assert gate.check_text("请帮我" + text)["allowed"] in (True, False)  # 不应抛异常
-    assert gate.check_text("不含用药调整，但请把药停了")["allowed"] is False
+BYPASS_TEXTS = [
+    "本任务不含用药调整建议而是建议停药",
+    "不包括改药方案只是建议把药停了",
+    "无须调整用药建议停药观察一周",
+    "不含用药调整，但请把药停了",
+    "本系统不提供诊断，但我现在诊断为糖尿病",
+]
+
+
+@pytest.mark.parametrize("text", BYPASS_TEXTS)
+def test_same_clause_bypass_blocked_on_both_paths(text):
+    """A-REAL-02：免责声明后紧跟真实指令，generated 与患者输入都必须拦截。"""
+    assert gate.check_text(text, generated=True)["allowed"] is False, text
+    assert gate.check_text(text)["allowed"] is False, text
+
+
+@pytest.mark.parametrize("tool", ["create_task", "respond", "create_notification"])
+def test_generated_tool_text_cannot_bypass(conn, tool):
+    """三个会带自由文本的工具都必须经过同一安全门。"""
+    patients.create_patient(conn, {"id": "BYP", "name": "绕过", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    bad = "本任务不含用药调整建议而是建议停药"
+    if tool == "create_task":
+        args = {"patient_id": "BYP", "task_type": "record_glucose", "title": "补录", "description": bad,
+                "due_at": (now() + timedelta(days=1)).isoformat()}
+    elif tool == "respond":
+        args = {"patient_id": "BYP", "text": bad}
+    else:
+        args = {"patient_id": "BYP", "title": "提醒", "body": bad}
+    result = validators.validate_plan(conn, patient_id="BYP", plan={"actions": [{"tool": tool, "args": args}]}, state={})
+    assert result["ok"] is False
+    assert any(r["code"] == validators.FORBIDDEN_ACTION for r in result["rejections"]), result["rejections"]
 
 
 def test_create_task_with_disclaimer_is_allowed(conn):

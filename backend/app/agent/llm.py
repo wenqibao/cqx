@@ -189,7 +189,10 @@ def tool_schemas() -> list[dict[str, Any]]:
             from backend.app.memory.preferences import ALLOWED_KINDS, ALLOWED_SOURCES
 
             props["kind"]["enum"] = sorted(ALLOWED_KINDS)
+            props["kind"]["description"] = "偏好类型；时间偏好必须用 preferred_time_window，不要用 note"
+            props["value"]["description"] = "preferred_time_window 用 24 小时制 HH:MM（例如 08:00）"
             props["source"]["enum"] = sorted(ALLOWED_SOURCES)
+            props["source"]["description"] = "患者明确确认时用 patient_confirmed"
         schemas.append(
             {
                 "name": name,

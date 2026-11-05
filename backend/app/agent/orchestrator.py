@@ -36,6 +36,9 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 - 处理健康事件时必须产生至少一个管理动作：create_task、ask_user 或 request_human_review；
   只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
 - search_knowledge 最多调用 2 次；拿到证据后立即行动，不要反复检索同一主题。
+- 知识问答检索不到可引用证据时，直接用 respond 说明"没有足够资料"，不要改用 ask_user 追问无关问题。
+- 保存时间偏好时 kind 必须用 preferred_time_window，value 用 24 小时制 HH:MM（如 08:00）；
+  不要用 kind=note 记录具体时间。
 - 无法继续时，用 respond 说明原因，或 request_human_review 升级，不要沉默。
 请始终以工具调用的方式行动。"""
 
@@ -185,10 +188,14 @@ def run_agent(
                 trace.finish_run(conn, run_id, status="failed", error=str(exc), intent=intent)
                 state_service.save_snapshot(conn, patient_id)
                 raise
+            no_evidence_blocked = intent == "knowledge_question" and any(
+                r.get("code") == validators.NO_EVIDENCE for r in rejections
+            )
             trace.finish_run(
                 conn,
                 run_id,
-                status="failed" if rejections and not question_created else _status_for(executed, rejections, question_created),
+                status="failed" if no_evidence_blocked or (rejections and not question_created)
+                else _status_for(executed, rejections, question_created),
                 plan=plan,
                 output={"responses": responses, "rejections": rejections, "actions": executed},
                 intent=plan.get("intent"),
@@ -657,6 +664,11 @@ def _run_real_llm(
             break
     if not executed and not responses and not rejections:
         reject([{"code": validators.TOOL_EXECUTION_FAILED, "message": "模型没有返回可执行工具或说明"}])
+    # B17：知识问答没有检索到任何可引用证据时，必须明确判 NO_EVIDENCE，
+    # 不能用 ask_user 追问或空回复把问题带过去。
+    if intent == "knowledge_question" and not evidence:
+        reject([{"code": validators.NO_EVIDENCE,
+                 "message": "知识问答未检索到可引用证据，不能生成结论，也不应改用追问代替"}])
     if intent in ('event_response', 'negotiate_plan') and not question_created and not any(
         e.get('ok') and e['tool'] in ('create_task', 'update_task', 'request_human_review') for e in executed
     ):

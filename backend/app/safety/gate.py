@@ -9,15 +9,17 @@ from backend.app.config import safety_rules
 from backend.app.db.connection import dumps, iso, now
 
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
-DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺")
+DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺", "不制定", "不设置", "不开具", "不开展")
 DISCLAIMER_WINDOW = 24
 # 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
 CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
 INSTRUCTION_LEADIN = re.compile(r"(?:建议|请|应|需要|可以|要|立即|马上|尽快|务必|宜)\s*$")
-# 转介豁免（B-REAL-02）：疑问/条件语气 + 命中词后紧跟医生/机构与沟通类动词
-QUESTION_LEFT = re.compile(r"(?:是否|能否|可否|需不需要|要不要|该不该|如需|如果需要|若需|如果|倘若|若)[^，。；！？\n]{0,6}$")
+# 转介豁免（B-REAL-02）：疑问/条件/泛指语气 + 命中词后紧跟医生或"转由医生/转人工复核"等转介语
+LEFT_CUES = re.compile(r"(?:是否|能否|可否|需不需要|要不要|该不该|如需|如果需要|若需|如果|如若|倘若|若|任何|如有|需求|提出|考虑|想|一旦)[^，。；！？\n]{0,10}$")
+IMPERATIVE_TAIL = re.compile(r"(?:建议|请|应|需要|立即|马上|尽快|务必|可以|推荐)[^，。；！？\n]{0,2}$")
 REFERRAL_TARGETS = ("医生", "医师", "医疗机构", "医院", "专业人员", "内分泌科")
 REFERRAL_ACTIONS = ("沟通", "咨询", "讨论", "就诊", "就医", "决定", "确认", "评估")
+REFERRAL_PHRASES = ("转由医生", "转交医生", "转人工复核", "转诊", "请就医", "及时就医", "经医生评估", "由医生处理", "咨询医生", "与医生沟通", "人工复核")
 
 
 class SafetyViolation(Exception):
@@ -53,16 +55,23 @@ def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool
 
 
 def _is_referral(text: str, start: int, end: int) -> bool:
-    """B-REAL-02：'是否调整治疗方案请与医生沟通' 属于转介，不是系统要执行的动作。
+    """B-REAL-02：'是否调整治疗方案请与医生沟通'、'改药需求转由医生处理' 都是转介，不是执行动作。
 
-    仅当命中词前是疑问/条件语气（是否/能否/如需…），且后面紧跟医生/机构 + 沟通类动词时才豁免；
-    '建议停药，请与医生沟通' 仍会被拦截（左侧是指令语气）。
+    允许的转介：左侧为疑问/条件/泛指语气（是否、如需、任何、患者提出、想…），
+    且右侧出现医生/机构 + 沟通类动词，或"转由医生/转人工复核/请就医"等转介语。
+    左侧紧邻指令语气（建议/请/应/可以…）时不豁免，避免"建议停药，请与医生沟通"被放过。
     """
-    left = text[max(0, start - 8) : start]
-    if not QUESTION_LEFT.search(left):
+    left = text[max(0, start - 12) : start]
+    if IMPERATIVE_TAIL.search(left):
         return False
-    right = text[end : end + 14]
-    return any(w in right for w in REFERRAL_TARGETS) and any(a in right for a in REFERRAL_ACTIONS)
+    right = text[end : end + 24]
+    has_referral = any(phrase in right for phrase in REFERRAL_PHRASES) or (
+        any(target in right for target in REFERRAL_TARGETS)
+        and any(action in right for action in REFERRAL_ACTIONS)
+    )
+    if not has_referral:
+        return False
+    return bool(LEFT_CUES.search(left)) or any(cue in right for cue in ("需求", "不适", "想"))
 
 
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:

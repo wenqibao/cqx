@@ -382,6 +382,22 @@ export function TraceView({ trace: t }: { trace: Trace }) {
         ]}
       />
       {run.error && <Alert type="error" title={run.error} />}
+      {array(output.rejections).map((rejection, index) => {
+        const r = obj(rejection);
+        return (
+          <Alert
+            key={index}
+            type="warning"
+            showIcon
+            title={text(r.code) + " · " + text(r.message)}
+            description={
+              r.tool
+                ? "关联工具：" + text(r.tool)
+                : "后端运行核对结果；不能将工具读取成功等同于业务完成。"
+            }
+          />
+        );
+      })}
       <Card title="触发原因与患者上下文">
         <p>{text(obj(run.input).message) || "无人工请求文本"}</p>
         <p>事件来源：{text(obj(run.input).event_ids)}</p>

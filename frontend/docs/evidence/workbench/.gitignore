@@ -1,0 +1,6 @@
+# 辅助/早期失败过程留本机，正式结果和脱敏业务证据随交付。
+e2e-initial.log
+e2e-second.log
+e2e-targeted.log
+format*.log
+typecheck-initial.log

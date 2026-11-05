@@ -1,0 +1,209 @@
+{
+  "at": "2026-11-05T01:27:25.724962+00:00",
+  "mode": "mock",
+  "gets": [
+    {
+      "path": "/health",
+      "status": 200,
+      "response_keys": [
+        "status",
+        "service",
+        "version",
+        "time",
+        "database",
+        "llm_mode",
+        "disclaimer"
+      ]
+    },
+    {
+      "path": "/system/mode",
+      "status": 200,
+      "response_keys": [
+        "llm_mode",
+        "model",
+        "ok"
+      ]
+    },
+    {
+      "path": "/version",
+      "status": 200,
+      "response_keys": [
+        "name",
+        "version"
+      ]
+    },
+    {
+      "path": "/patients",
+      "status": 200,
+      "response_keys": [
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001",
+      "status": 200,
+      "response_keys": [
+        "id",
+        "name",
+        "age",
+        "sex",
+        "diabetes_type",
+        "duration_years",
+        "complications",
+        "goals",
+        "constraints",
+        "baseline",
+        "is_synthetic",
+        "created_at",
+        "updated_at",
+        "profile"
+      ]
+    },
+    {
+      "path": "/patients/P001/state",
+      "status": 200,
+      "response_keys": [
+        "patient",
+        "profile_complete",
+        "missing_fields",
+        "trend",
+        "aggregates",
+        "latest",
+        "open_events",
+        "open_tasks",
+        "pending_questions",
+        "preferences",
+        "unread_notifications",
+        "record_counts",
+        "generated_at"
+      ]
+    },
+    {
+      "path": "/patients/P001/state/history",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "snapshots"
+      ]
+    },
+    {
+      "path": "/patients/P001/records",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/events",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/tasks",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/runs",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/questions",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/reviews",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/notifications",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/patients/P001/preferences?include_history=true",
+      "status": 200,
+      "response_keys": [
+        "patient_id",
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/automation/jobs",
+      "status": 200,
+      "response_keys": [
+        "items"
+      ]
+    },
+    {
+      "path": "/knowledge",
+      "status": 200,
+      "response_keys": [
+        "count",
+        "items"
+      ]
+    },
+    {
+      "path": "/knowledge/search?q=血糖",
+      "status": 200,
+      "response_keys": [
+        "query",
+        "hits",
+        "found",
+        "note",
+        "searched_at"
+      ]
+    },
+    {
+      "path": "/system/audit",
+      "status": 200,
+      "response_keys": [
+        "items",
+        "forbidden_executed",
+        "rejection_codes"
+      ]
+    }
+  ],
+  "concurrent_statuses": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ]
+}

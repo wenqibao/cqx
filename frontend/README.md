@@ -1,56 +1,66 @@
-# 糖衡智管：成员 C 第一阶段真实 API 客户端
+# 糖衡智管 · 医护监管工作台
 
-React + Vite + TypeScript + Ant Design + ECharts + React Router。默认真实 HTTP，基地址 http://127.0.0.1:8000/api。基线 main `e1674e2101bc7d1111191737626ad818aab75fda`，分支 feature/frontend-c-integration。本阶段仅修改 frontend/。
+面向医护健康管理人员的单 Agent 辅助工作台。仅合成病例演示，不提供诊断、处方、改药或医疗处置。采用 React、TypeScript、Vite、React Router、Ant Design、ECharts、Zod、Vitest 和 Playwright。
 
-2026-11-04 更新：本地已合入团队最新 main `c5f787f`；149项后端测试、33场景、11项前端单测、4项浏览器测试通过，C-API-001并发9/9复验通过。当前仍为后端mock规划器，未验证真实厂商模型。完整同步状态、真实模型接入检查和优化优先级见 [最新复验](docs/LATEST_REVIEW.md)。远端main尚未包含完整前端，前端在本功能分支；本地合并尚未push。
+本轮交付日期：2026-11-05。26项都有前端入口；逐项验收 **24 PASS / 2 FAIL**：血压去重和真实模型自动触发后的业务行动仍有后端问题，不能宣称全量真实模型闭环通过。详见 [F01–F26矩阵](docs/F01_F26_FRONTEND_MATRIX.md)。旧版第一阶段文档是历史记录，当前以 V2 文档为准。
 
-模型决策已更新为DeepSeek：用户已本机配置Key，当前代理完成首次真实上游最小调用（deepseek-flash，非思考，HTTP200）。平台Agent/浏览器real闭环尚未通过，仍需适配层显式thinking选项及耗时处理。配置、执行顺序与验收以 [DeepSeek下一步计划](docs/DEEPSEEK_NEXT_PLAN.md) 为准。
+## 安装与启动
 
-## Windows 安装与启动
-
-Node.js 24 / 推荐 npm 12（旧 npm 10 初次解析新版可选peer失败，升级后按锁文件复现）。在仓库根目录：
+本机验证 Node 24.22.1、npm 12、Python 3.13.5；首次安装后端依赖在仓库根目录执行：
 
 ```powershell
 python -m pip install -e ".[dev]"
-# 新建专用合成库，勿对其他成员的库执行重置
-$env:DIABETES_DB_PATH="$PWD/frontend/.runtime/integration.db"
-$env:AGENT_LLM_MODE="mock"
-$env:FRONTEND_ORIGIN="http://127.0.0.1:5180"
-python scripts/reset_demo.py
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+python frontend/tools/start-test-backend.py
 ```
+
+该脚本只使用 `frontend/.runtime/workbench-test.db`，首次创建合成病例，已有数据直接保留，不删除、不重置其他数据库；后端为确定性 Mock，绑定 `127.0.0.1:8020`，关闭后台轮询。端口已占用时先检查，不自动终止他人进程。
 
 另开终端：
 
 ```powershell
 cd frontend
-npm install
+npm ci
+Copy-Item .env.example .env.local
 npm run dev -- --port 5180 --strictPort
 ```
 
-打开 http://127.0.0.1:5180。默认 npm run dev 使用5173，后端默认允许5173；本次验证5180需上面的FRONTEND_ORIGIN。所有服务仅绑定本机。
+打开 [监管工作台](http://127.0.0.1:5180)。如果本机服务已在运行，无需重复启动。Windows重装依赖前关闭使用本目录依赖的旧Vite进程，否则原生编译绑定可能被占用。
 
-## 环境变量与模式
-
-复制 .env.example 为 .env.local 后重启Vite：
+## 配置与模式
 
 ```env
 VITE_API_MODE=http
-VITE_API_BASE_URL=http://127.0.0.1:8000/api
+VITE_API_BASE_URL=http://127.0.0.1:8020/api
 ```
 
-HTTP数据全部来自A的真实服务，失败不会回退Mock。后端llm_mode=mock表示确定性规划器未调用模型，但工具与SQLite实际运行；前端VITE_API_MODE=mock则显示“前端模拟数据”，只提供空数据传输桩、不执行假写入。顶部常驻患者、连接状态、后端模式与合成数据标识，健康状态每15秒检查。
+源码未配置时默认API基址仍是 `http://127.0.0.1:8000/api`。上例使用独立联调端口。连接 A 的其他本机后端时改基址，并由后端设置 `FRONTEND_ORIGIN=http://127.0.0.1:5180`；修改Vite环境后重启前端。
 
-## 使用路径
+- HTTP + 后端 mock：真实 FastAPI、工具与SQLite，确定性规划器，无厂商费用。
+- HTTP + 后端 real：配置状态来自后端；原生模型调用必须在具体run轨迹中核验，安全门处理不能算模型拒绝。
+- 前端 mock：仅空传输桩，显式显示“前端模拟数据”，不执行假保存。HTTP失败不退回此模式。
 
-- `/` 健康总览：选择P001/P002/P003，读取档案、最新值、近7天图表、缺失字段、事件、待回答问题与未完成任务。不计算医学判断。
-- `/records` 健康数据：支持RecordCreate全部8种kind。服药确认用1/0；症状payload需text；血压需systolic/diastolic。时间输入由本地转换UTC，留空使用后端演示时钟。保存只调用records，trigger_agent=true；原样显示record/automation及run_id跳转。事件去重时runs可为空，不冒充自动触发。
-- `/tasks` 健康任务：查看状态、优先级、截止时间、来源，展开完整字段。标记完成需确认，complete发送changed_by=patient、run_agent=false，后端仍执行复评；重新读取任务并显示实际reviews响应。
-- `/runs` Agent轨迹：运行列表或run_id查询；抽屉展示真实阶段、工具输入/返回、拒绝码、证据、关联任务与原始运行结果。不同患者运行归属校验不通过时拒绝展示。
+模型密钥只保存在后端本地环境，不能放入任何VITE变量。普通读取15秒，业务写入最多180秒；写入不自动重试。超时后先重新查询记录/任务/run，不能假定未保存。
 
-主动回答、协商、偏好写入与动态复评操作属于第二阶段，本次未实现，不宣称完整F01–F26前端验收。
+## 页面
 
-## 检查
+| 路由 | 功能 |
+| --- | --- |
+| `/` | 多患者监管、真实待办统计、最近Agent活动 |
+| `/patients`、`/patients/:id` | 搜索/新建合成患者、档案、记录趋势、事件、任务、问题、状态版本 |
+| `/monitoring` | 八类结构化录入、CSV/JSON导入、自动触发结果；`?tab=events`看事件 |
+| `/followups` | 模拟患者答复并恢复；`?tab=preferences`查看/覆盖/清除偏好 |
+| `/tasks` | 完成、人工改期及版本；`?tab=reviews`看三分支及人工结案 |
+| `/agent` | 请求、运行查询、业务化轨迹；`?tab=negotiate`做Agent协商 |
+| `/agent/knowledge` | 知识包与独立检索 |
+| `/audit` | 真实拒绝、升级、执行审计和后端计数口径提示 |
+| `/system` | API/持久化、CLI证据、报告导入、导览、本地时钟/tick维护 |
+| `/notifications` | 实际通知、对象跳转、后端已读保存 |
+
+患者上下文为 `?patient=P001`，运行深链接为 `/agent?patient=P001&run=RUN-...`；任务用`task`、问题用`question`。切换患者清除对象参数，跨患者任务/run拒绝混用。旧`/records`、`/runs`重定向保留。
+
+工作人员完成/改期发送`staff_demo`；模拟患者答复及偏好有醒目标识。回答、偏好及复核接口仍缺完整工作人员身份审计，不能声称实现机构认证和授权。
+
+## 本轮测试与真实模型
 
 ```powershell
 npm run typecheck
@@ -59,12 +69,17 @@ npm run build
 npm run test:e2e
 ```
 
-E2E使用已安装的Google Chrome，自动启动/复用5180前端，连接8000后端。闭环测试严格要求本次录入产生新事件和run_id，**必须先初始化专用演示库**；重复运行会受后端事件去重影响，不能拿历史运行凑结果。不要对共享库执行reset。
+E2E要求8020为专用`workbench-test.db`且模式mock；入口守卫不满足条件直接停止，防止误用共享库或收费模型。测试保留原4类覆盖并扩充到15项；前端30项单测、15项E2E通过，后端原149项和33场景兼容性回归通过。见 [测试报告](docs/TEST_REPORT_V2.md)。
 
-结果见docs/INTEGRATION_REPORT.md、docs/evidence/。A/B回归需NO_PROXY=127.0.0.1,localhost，避免系统代理拦截本地模型stub；真实厂商模型未测试。
+另有本轮实际浏览器DeepSeek冒烟：**2次业务触发、6次厂商HTTP、21,924 tokens**。知识回答PASS；自动触发后的模型只读未行动FAIL。使用的是独立PR #3后端（仍待A审查），没有改后端源码；未将Mock成绩算入Real。`5192`真实模型预览已用满守卫预算，仅用于只读核验，不能继续收费重跑。
 
-## 已知限制
+`tools/real-smoke-server.py`、`tools/real-browser-smoke.mjs`为手动受限验收工具，不由npm测试自动运行。再次真实调用必须先明确新预算、新隔离环境及已审查后端，不能删除账本绕过限制。
 
-旧基线e1674e2存在真实ASGI并发读取跨线程异常；团队main的4c801dd已修复，当前本地9/9并发读取、并发写回归复验通过。旧问题记录与原始日志保留在docs/BACKEND_ISSUES.md，最新状态见docs/LATEST_REVIEW.md。客户端暂保留串行队列；真实模型接入前需处理前端15秒与模型单轮30秒的超时差异。主包约1.72MB，有构建体积提示，生产拆包尚未优化。
+## 证据与交接
 
-普通Git拉取因私有仓库终端认证失败；已通过已授权GitHub API获取并校验143个blob、完整树，恢复完全相同SHA的原始浅检出。未宣称常规git fetch成功，未push/合并main。原D:\cqx独立Mock成果保留，新检出在D:\cqx-current。
+- [产品定位](docs/PRODUCT_POSITIONING.md)、[UI规范](docs/UI_DESIGN_SPEC.md)
+- [接口映射](docs/API_PAGE_MAP_V2.md)、[实际联调](docs/INTEGRATION_REPORT_V2.md)
+- [后端依赖](docs/BACKEND_DEPENDENCIES.md)、[演示流程](docs/DEMO_WORKFLOW.md)
+- [文件地图](docs/FILE_MAP_V2.md)、本轮脱敏证据 `docs/evidence/workbench/`
+
+原始完整真实模型响应、账本与SQLite在忽略的`.runtime/`。clone可复现源码与公开脱敏证据，不包含本机密钥、数据库或node_modules。当前主bundle已拆为路由块，仍有大块体积提示；不是生产部署、临床或机构权限验收。

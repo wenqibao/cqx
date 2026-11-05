@@ -1,0 +1,186 @@
+{
+  "at": "2026-11-05T01:13:18.244172+00:00",
+  "db": "frontend/.runtime/workbench-test.db",
+  "mode": "mock",
+  "actual_process_restart": true,
+  "before_after_equal": true,
+  "patient_id": "WB-case-mw2ujmfa-q3a5",
+  "task": {
+    "id": "TSK-7eec0426d98c",
+    "patient_id": "WB-case-mw2ujmfa-q3a5",
+    "task_type": "confirm_medication",
+    "title": "核实近 3 天服药执行情况",
+    "description": "请核对是否按时服药，并记录一次服药确认。",
+    "status": "done",
+    "priority": 66,
+    "due_at": "2026-11-06T17:08:00Z",
+    "event_id": "EVT-cbb16f66d14e",
+    "source_run_id": "RUN-c049d5dbc251",
+    "version": 3,
+    "required_fields": [
+      "medication_taken"
+    ],
+    "meta": {
+      "event_code": "GLUCOSE_RISING",
+      "event_ids": [
+        "EVT-cbb16f66d14e"
+      ],
+      "knowledge_query": "连续血糖记录 意义",
+      "severity": "medium"
+    },
+    "created_at": "2026-11-05T01:08:03Z",
+    "updated_at": "2026-11-05T01:08:07Z",
+    "completed_at": "2026-11-05T01:08:07Z"
+  },
+  "versions": [
+    {
+      "version": 1,
+      "change_kind": "create",
+      "reason": "任务创建",
+      "changed_by": "agent",
+      "run_id": "RUN-c049d5dbc251",
+      "created_at": "2026-11-05T01:08:03Z",
+      "snapshot": {
+        "completed_at": null,
+        "created_at": "2026-11-05T01:08:03Z",
+        "description": "请核对是否按时服药，并记录一次服药确认。",
+        "due_at": "2026-11-06T01:08:03Z",
+        "event_id": "EVT-cbb16f66d14e",
+        "id": "TSK-7eec0426d98c",
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-cbb16f66d14e"
+          ],
+          "knowledge_query": "连续血糖记录 意义",
+          "severity": "medium"
+        },
+        "patient_id": "WB-case-mw2ujmfa-q3a5",
+        "priority": 66,
+        "required_fields": [
+          "medication_taken"
+        ],
+        "source_run_id": "RUN-c049d5dbc251",
+        "status": "pending",
+        "task_type": "confirm_medication",
+        "title": "核实近 3 天服药执行情况",
+        "updated_at": "2026-11-05T01:08:03Z",
+        "version": 1
+      }
+    },
+    {
+      "version": 2,
+      "change_kind": "reschedule",
+      "reason": "合成病例演示，工作人员确认时间（原时间 2026-11-06T01:08:03Z）",
+      "changed_by": "staff_demo",
+      "run_id": null,
+      "created_at": "2026-11-05T01:08:06Z",
+      "snapshot": {
+        "completed_at": null,
+        "created_at": "2026-11-05T01:08:03Z",
+        "description": "请核对是否按时服药，并记录一次服药确认。",
+        "due_at": "2026-11-06T17:08:00Z",
+        "event_id": "EVT-cbb16f66d14e",
+        "id": "TSK-7eec0426d98c",
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-cbb16f66d14e"
+          ],
+          "knowledge_query": "连续血糖记录 意义",
+          "severity": "medium"
+        },
+        "patient_id": "WB-case-mw2ujmfa-q3a5",
+        "priority": 66,
+        "required_fields": [
+          "medication_taken"
+        ],
+        "source_run_id": "RUN-c049d5dbc251",
+        "status": "pending",
+        "task_type": "confirm_medication",
+        "title": "核实近 3 天服药执行情况",
+        "updated_at": "2026-11-05T01:08:06Z",
+        "version": 2
+      }
+    },
+    {
+      "version": 3,
+      "change_kind": "complete",
+      "reason": "医护演示工作人员人工确认完成",
+      "changed_by": "staff_demo",
+      "run_id": null,
+      "created_at": "2026-11-05T01:08:07Z",
+      "snapshot": {
+        "completed_at": "2026-11-05T01:08:07Z",
+        "created_at": "2026-11-05T01:08:03Z",
+        "description": "请核对是否按时服药，并记录一次服药确认。",
+        "due_at": "2026-11-06T17:08:00Z",
+        "event_id": "EVT-cbb16f66d14e",
+        "id": "TSK-7eec0426d98c",
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-cbb16f66d14e"
+          ],
+          "knowledge_query": "连续血糖记录 意义",
+          "severity": "medium"
+        },
+        "patient_id": "WB-case-mw2ujmfa-q3a5",
+        "priority": 66,
+        "required_fields": [
+          "medication_taken"
+        ],
+        "source_run_id": "RUN-c049d5dbc251",
+        "status": "done",
+        "task_type": "confirm_medication",
+        "title": "核实近 3 天服药执行情况",
+        "updated_at": "2026-11-05T01:08:07Z",
+        "version": 3
+      }
+    }
+  ],
+  "record_ids": [
+    129,
+    128,
+    127,
+    126,
+    125,
+    124,
+    123
+  ],
+  "patient_ids": [
+    "P-0ce5539f3e03",
+    "P-2df84174a4c2",
+    "P-b14048eb14fd",
+    "P001",
+    "P002",
+    "P003",
+    "WB-BP-DEDUPE-CHECK",
+    "WB-case-mw2b024l-y1kw",
+    "WB-case-mw2b1mos-tk23",
+    "WB-case-mw2b1y33-lhkp",
+    "WB-case-mw2b3a7q-9qrk",
+    "WB-case-mw2b3f6w-8aar",
+    "WB-case-mw2b3i5p-z4nl",
+    "WB-case-mw2b3l3e-00il",
+    "WB-case-mw2b3o2b-saf0",
+    "WB-case-mw2b3vf1-tkyl",
+    "WB-case-mw2b3zxs-914t",
+    "WB-case-mw2uf66t-bae3",
+    "WB-case-mw2uf8dr-gow2",
+    "WB-case-mw2ujhph-d1ez",
+    "WB-case-mw2ujmfa-q3a5",
+    "WB-case-mw2ukyiy-cll8",
+    "WB-case-mw2ul7ze-r3lp",
+    "WB-case-mw2ul9zn-8ad7",
+    "WB-case-mw2uld65-6kni",
+    "WB-case-mw2ulfxn-08by",
+    "WB-case-mw2ulita-1r8o",
+    "WB-case-mw2ullr6-33ni",
+    "WB-case-mw2ulswc-dxmd",
+    "WB-case-mw2ulx65-gx3r",
+    "WB-八种记录-mw2ay813-ujyk",
+    "WB-导入-mw2azn3f-mhjg",
+    "WB-闭环-mw2avvrp-fsi5"
+  ]
+}

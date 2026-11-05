@@ -1,20 +1,44 @@
 import { describe, it, expect, vi } from "vitest";
 import { HttpAdapter } from "./httpAdapter";
 import { createClient } from "./client";
-it('非JSON的502仍保留HTTP错误码',async()=>{await expect(new HttpAdapter('',vi.fn().mockResolvedValue(new Response('Bad Gateway',{status:502}))).health()).rejects.toMatchObject({code:'HTTP_502',detail:'Bad Gateway'})});
-it('同一客户端请求串行执行',async()=>{let active=0,max=0;const transport=vi.fn(async()=>{active++;max=Math.max(max,active);await new Promise(r=>setTimeout(r,5));active--;return new Response(JSON.stringify({status:'ok',llm_mode:'mock',database:{ok:true}}))});const api=new HttpAdapter('',transport);await Promise.all([api.health(),api.health(),api.health()]);expect(max).toBe(1)});
+it("非JSON的502仍保留HTTP错误码", async () => {
+  await expect(
+    new HttpAdapter(
+      "",
+      vi.fn().mockResolvedValue(new Response("Bad Gateway", { status: 502 })),
+    ).health(),
+  ).rejects.toMatchObject({ code: "HTTP_502", detail: "Bad Gateway" });
+});
+it("同一客户端请求串行执行", async () => {
+  let active = 0,
+    max = 0;
+  const transport = vi.fn(async () => {
+    active++;
+    max = Math.max(max, active);
+    await new Promise((r) => setTimeout(r, 5));
+    active--;
+    return new Response(
+      JSON.stringify({
+        status: "ok",
+        llm_mode: "mock",
+        database: { ok: true },
+      }),
+    );
+  });
+  const api = new HttpAdapter("", transport);
+  await Promise.all([api.health(), api.health(), api.health()]);
+  expect(max).toBe(1);
+});
 describe("HTTP adapter错误隔离", () => {
   for (const status of [404, 422, 502])
     it(`HTTP ${status}保留状态与错误正文`, async () => {
       const api = new HttpAdapter(
         "",
-        vi
-          .fn()
-          .mockResolvedValue(
-            new Response(JSON.stringify({ detail: "后端原始错误" }), {
-              status,
-            }),
-          ),
+        vi.fn().mockResolvedValue(
+          new Response(JSON.stringify({ detail: "后端原始错误" }), {
+            status,
+          }),
+        ),
       );
       await expect(api.health()).rejects.toMatchObject({
         code: `HTTP_${status}`,
@@ -72,16 +96,14 @@ describe("HTTP adapter错误隔离", () => {
       unit: "步",
       recorded_at: "2026-11-04T02:00:00Z",
     };
-    const transport = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            record,
-            automation: { runs: [], events_created: [] },
-          }),
-        ),
-      );
+    const transport = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          record,
+          automation: { runs: [], events_created: [] },
+        }),
+      ),
+    );
     await new HttpAdapter("", transport).addRecord("P001", {
       kind: "steps",
       value: 4200,

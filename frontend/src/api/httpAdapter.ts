@@ -25,17 +25,18 @@ export class HttpAdapter implements Adapter {
     private base = "http://127.0.0.1:8000/api",
     private transport: typeof fetch = (...args) => globalThis.fetch(...args),
     private timeout = 15000,
+    private actionTimeout = 180000,
   ) {}
   request<T>(
     path: string,
     schema: z.ZodType<T>,
     body?: unknown,
     signal?: AbortSignal,
+    method: "GET" | "POST" | "DELETE" = body === undefined ? "GET" : "POST",
   ): Promise<T> {
-    // Current A baseline uses thread-bound SQLite connections. Avoid overlapping
-    // requests from this client; this does not repair server-side concurrency.
+    // 有界读取：同一客户端最多一个在途请求；写入不重试，不以超时推断未保存。
     const result = this.queue.then(() =>
-      this.perform(path, schema, body, signal),
+      this.perform(path, schema, body, signal, method),
     );
     this.queue = result.then(
       () => undefined,
@@ -48,9 +49,15 @@ export class HttpAdapter implements Adapter {
     schema: z.ZodType<T>,
     body?: unknown,
     signal?: AbortSignal,
+    method: "GET" | "POST" | "DELETE" = "GET",
   ): Promise<T> {
+    if (signal?.aborted) throw new ApiError("CANCELLED", "读取已取消");
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeout);
+    const isWrite = method !== "GET";
+    const timer = setTimeout(
+      () => controller.abort(),
+      isWrite ? this.actionTimeout : this.timeout,
+    );
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) controller.abort();
@@ -58,7 +65,7 @@ export class HttpAdapter implements Adapter {
       const response = await this.transport(
         this.base.replace(/\/$/, "") + path,
         {
-          method: body === undefined ? "GET" : "POST",
+          method,
           headers: {
             Accept: "application/json",
             ...(body === undefined
@@ -80,6 +87,7 @@ export class HttpAdapter implements Adapter {
         const labels: Record<number, string> = {
           404: "资源不存在",
           422: "输入校验失败",
+          500: "后端执行异常",
           502: "后端 Agent 或工具调用失败",
         };
         throw new ApiError(
@@ -101,7 +109,9 @@ export class HttpAdapter implements Adapter {
       throw new ApiError(
         controller.signal.aborted ? "TIMEOUT_OR_ABORT" : "NETWORK_ERROR",
         controller.signal.aborted
-          ? "请求超时或已取消"
+          ? isWrite
+            ? "等待超时：操作可能已保存，请先查询记录、任务或运行状态；不会自动重试"
+            : "请求超时或已取消"
           : "后端连接失败；未切换前端模拟数据",
         e instanceof Error ? e.message : String(e),
       );
@@ -109,6 +119,17 @@ export class HttpAdapter implements Adapter {
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
     }
+  }
+  read<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal) {
+    return this.request(path, schema, undefined, signal, "GET");
+  }
+  write<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    body: unknown,
+    method: "POST" | "DELETE" = "POST",
+  ) {
+    return this.request(path, schema, body, undefined, method);
   }
   health(signal?: AbortSignal) {
     return this.request("/health", healthSchema, undefined, signal);
@@ -183,7 +204,11 @@ export class HttpAdapter implements Adapter {
           reviews: z.array(z.record(z.string(), z.unknown())),
         })
         .passthrough(),
-      { changed_by: "patient", run_agent: false },
+      {
+        changed_by: "staff_demo",
+        note: "医护演示工作人员人工确认完成",
+        run_agent: false,
+      },
     );
   }
 }

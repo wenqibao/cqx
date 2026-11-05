@@ -8,6 +8,13 @@ export const patientSchema = z
     goals: z.array(z.string()),
     constraints: z.array(z.string()),
     is_synthetic: z.union([z.boolean(), z.number()]),
+    sex: z.string().nullable().optional(),
+    complications: z.array(z.string()).optional(),
+    diabetes_type: z.string().optional(),
+    profile: z
+      .object({ complete: z.boolean(), missing: z.array(z.string()) })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 export const recordSchema = z
@@ -18,6 +25,9 @@ export const recordSchema = z
     value: z.number().nullable(),
     unit: z.string(),
     recorded_at: z.string(),
+    payload: z.record(z.string(), z.unknown()).optional(),
+    note: z.string().nullable().optional(),
+    duplicate: z.boolean().optional(),
   })
   .passthrough();
 export const taskSchema = z
@@ -30,6 +40,12 @@ export const taskSchema = z
     due_at: z.string().nullable(),
     source_run_id: z.string().nullable(),
     event_id: z.string().nullable(),
+    task_type: z.string().optional(),
+    description: z.string().optional(),
+    version: z.number().optional(),
+    completed_at: z.string().nullable().optional(),
+    required_fields: z.array(z.string()).optional(),
+    meta: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 export const runSchema = z
@@ -40,6 +56,14 @@ export const runSchema = z
     llm_mode: z.string(),
     trigger_type: z.string(),
     started_at: z.string(),
+    model_name: z.string().nullable().optional(),
+    trigger_ref: z.string().nullable().optional(),
+    intent: z.string().nullable().optional(),
+    input: z.unknown().optional(),
+    plan: z.unknown().optional(),
+    output: z.unknown().optional(),
+    error: z.string().nullable().optional(),
+    finished_at: z.string().nullable().optional(),
   })
   .passthrough();
 export const stateSchema = z
@@ -61,13 +85,21 @@ export const stateSchema = z
     pending_questions: z.array(z.record(z.string(), z.unknown())),
     trend: z.record(z.string(), z.unknown()),
     generated_at: z.string(),
+    aggregates: z
+      .record(z.string(), z.record(z.string(), z.unknown()))
+      .optional(),
+    preferences: z.array(z.record(z.string(), z.unknown())).optional(),
+    record_counts: z.record(z.string(), z.number()).optional(),
+    profile_complete: z.boolean().optional(),
   })
   .passthrough();
 export const healthSchema = z
   .object({
     status: z.string(),
     llm_mode: z.string(),
-    database: z.object({ ok: z.boolean() }),
+    database: z.object({ ok: z.boolean(), path: z.string().optional() }),
+    time: z.string().optional(),
+    version: z.string().optional(),
   })
   .passthrough();
 export const traceSchema = z
@@ -83,11 +115,14 @@ export const traceSchema = z
           payload: z.record(z.string(), z.unknown()),
           status: z.string(),
           code: z.string().nullable(),
+          created_at: z.string().optional(),
         })
         .passthrough(),
     ),
     evidence: z.array(z.record(z.string(), z.unknown())),
     tasks: z.array(taskSchema),
+    questions: z.array(z.record(z.string(), z.unknown())).optional(),
+    reviews: z.array(z.record(z.string(), z.unknown())).optional(),
   })
   .passthrough();
 export const recordKinds = [
@@ -126,6 +161,13 @@ export interface CompleteResult {
 }
 export interface Adapter {
   mode: "http" | "mock";
+  read<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T>;
+  write<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    body: unknown,
+    method?: "POST" | "DELETE",
+  ): Promise<T>;
   health(signal?: AbortSignal): Promise<Health>;
   patients(signal?: AbortSignal): Promise<Patient[]>;
   state(id: string, signal?: AbortSignal): Promise<State>;

@@ -3,6 +3,12 @@ import { ApiError } from "./httpAdapter";
 // Explicit empty transport simulation, never imported as a fallback for HTTP errors.
 export const mockAdapter: Adapter = {
   mode: "mock",
+  read: async () => {
+    throw new ApiError("MOCK_EMPTY", "前端模拟数据：未连接业务后端");
+  },
+  write: async () => {
+    throw new ApiError("MOCK_READ_ONLY", "前端模拟模式不执行保存");
+  },
   health: async () => ({
     status: "frontend_mock",
     llm_mode: "not_connected",

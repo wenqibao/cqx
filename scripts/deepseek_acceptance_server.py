@@ -25,9 +25,13 @@ class AcceptanceBudget:
         request_limit = int(os.environ.get("ACCEPTANCE_REQUEST_LIMIT", "16"))
         self.data = json.loads(path.read_text(encoding="utf8")) if path.exists() else {
             "trigger_limit": trigger_limit, "request_limit": request_limit, "triggers": [], "requests": []}
-        # 旧账本没有限额字段时补齐；已有账本不覆盖，避免绕过预算
-        self.data.setdefault("trigger_limit", trigger_limit)
-        self.data.setdefault("request_limit", request_limit)
+        # A-HARNESS-02：旧账本可能写着更大的 6/18。取"持久化上限"与"当前批准上限"的较小值，
+        # 让收紧后的预算立即生效（fail closed），而不是沿用旧账本。
+        previous = (self.data.get("trigger_limit"), self.data.get("request_limit"))
+        self.data["trigger_limit"] = min(int(self.data.get("trigger_limit", trigger_limit)), trigger_limit)
+        self.data["request_limit"] = min(int(self.data.get("request_limit", request_limit)), request_limit)
+        if previous != (self.data["trigger_limit"], self.data["request_limit"]):
+            self.save()  # 立即落盘，避免进程重启后回到旧上限
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)

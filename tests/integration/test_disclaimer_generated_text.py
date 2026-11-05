@@ -39,6 +39,35 @@ def test_negation_boundary_is_allowed(text):
     assert gate.check_text(text, generated=True)["allowed"] is True, text
 
 
+# B-REAL-02：合规转介不能被当成"调整用药"
+REFERRAL_TEXTS = [
+    "本系统不做诊断、不调整用药或胰岛素剂量。若您出现明显不适，请及时就医。是否调整治疗方案请与医生沟通。",
+    "是否调整用药请咨询医生",
+    "如需调整用药，请咨询医生",
+]
+
+
+@pytest.mark.parametrize("text", REFERRAL_TEXTS)
+def test_referral_to_doctor_is_allowed(text):
+    assert gate.check_text(text, generated=True)["allowed"] is True, text
+    assert gate.check_text(text)["allowed"] is True, text
+
+
+@pytest.mark.parametrize("text", ["建议停药，请与医生沟通", "停药请与医生沟通"])
+def test_instruction_plus_referral_still_blocked(text):
+    """有转介也不能掩盖前面的指令语气。"""
+    assert gate.check_text(text, generated=True)["allowed"] is False, text
+
+
+def test_respond_with_referral_is_allowed(conn):
+    patients.create_patient(conn, {"id": "REF", "name": "转介", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    text = "本系统不做诊断、不调整用药或胰岛素剂量。是否调整治疗方案请与医生沟通。"
+    result = validators.validate_plan(conn, patient_id="REF",
+                                      plan={"actions": [{"tool": "respond", "args": {"patient_id": "REF", "text": text}}]},
+                                      state={})
+    assert result["ok"] is True, result["rejections"]
+
+
 @pytest.mark.parametrize("text", BLOCKED_REQUESTS)
 def test_real_changes_and_mixed_text_still_blocked(text):
     assert gate.check_text(text, generated=True)["allowed"] is False, text

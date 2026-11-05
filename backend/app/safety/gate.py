@@ -14,6 +14,10 @@ DISCLAIMER_WINDOW = 24
 # 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
 CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
 INSTRUCTION_LEADIN = re.compile(r"(?:建议|请|应|需要|可以|要|立即|马上|尽快|务必|宜)\s*$")
+# 转介豁免（B-REAL-02）：疑问/条件语气 + 命中词后紧跟医生/机构与沟通类动词
+QUESTION_LEFT = re.compile(r"(?:是否|能否|可否|需不需要|要不要|该不该|如需|如果需要|若需|如果|倘若|若)[^，。；！？\n]{0,6}$")
+REFERRAL_TARGETS = ("医生", "医师", "医疗机构", "医院", "专业人员", "内分泌科")
+REFERRAL_ACTIONS = ("沟通", "咨询", "讨论", "就诊", "就医", "决定", "确认", "评估")
 
 
 class SafetyViolation(Exception):
@@ -48,6 +52,19 @@ def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool
     return covered or bool(re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window))
 
 
+def _is_referral(text: str, start: int, end: int) -> bool:
+    """B-REAL-02：'是否调整治疗方案请与医生沟通' 属于转介，不是系统要执行的动作。
+
+    仅当命中词前是疑问/条件语气（是否/能否/如需…），且后面紧跟医生/机构 + 沟通类动词时才豁免；
+    '建议停药，请与医生沟通' 仍会被拦截（左侧是指令语气）。
+    """
+    left = text[max(0, start - 8) : start]
+    if not QUESTION_LEFT.search(left):
+        return False
+    right = text[end : end + 14]
+    return any(w in right for w in REFERRAL_TARGETS) and any(a in right for a in REFERRAL_ACTIONS)
+
+
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
@@ -55,8 +72,11 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
         except re.error:  # 配置写错不应让安全门整体失效
             continue
         for m in matches:
-            if not _is_disclaimer(text, m.start(), generated=generated):
-                return m.start(), m.group(0)
+            if _is_disclaimer(text, m.start(), generated=generated):
+                continue
+            if _is_referral(text, m.start(), m.end()):
+                continue
+            return m.start(), m.group(0)
     return None
 
 
@@ -76,8 +96,11 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
     lowered = (text or "").lower()
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
-            positions = [m.start() for m in re.finditer(re.escape(kw.lower()), lowered)]
-            if any(not _is_disclaimer(lowered, position, generated=generated) for position in positions):
+            for match in re.finditer(re.escape(kw.lower()), lowered):
+                if _is_disclaimer(lowered, match.start(), generated=generated):
+                    continue
+                if _is_referral(lowered, match.start(), match.end()):
+                    continue
                 return {
                     "allowed": False,
                     "code": rule["code"],

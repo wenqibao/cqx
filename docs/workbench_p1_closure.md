@@ -231,3 +231,36 @@ espond 工具带转介文本通过；B24 原句、混合文本、绕过的既有
 - **B19 missed 任务**：服务端 create_task 校验 due_at 必须在未来 0~720 小时，过期会被 INVALID_DUE
   拒绝（已实测：过去时间 → INVALID_DUE；未来时间 → 通过）。因此 missed 只能来自场景 fixture
   的 due_at 或测试运行耗时，请 B 检查该场景前置任务的时间。
+
+## 15. B16 声明检测时序 / resume 假完成（2026-11-05 追加）
+
+### 现象
+RUN-73de69152ded（intent=knowledge_question）：同一轮先 
+espond 声称"已为您创建任务"，
+后执行 create_task 且真实成功，但 respond 被立即判 POSTCHECK_MISMATCH，run failed。
+
+### 根因
+_check_real_reply 在 respond 执行时就用当时的 xecuted 核对声明；同轮后续工具尚未执行，
+必然误判。声明核对发生在"单工具粒度"，而不是"整次运行结束后"。
+
+### 修复
+- _check_real_reply(..., claims_out=...)：安全/证据门仍在执行时立即生效，
+  但"声称 → 成功工具"的核对把文本收集起来，等整次运行的 xecuted 完整后统一核对；
+- 增加总规则：xecuted 全是只读工具、且没有 
+esponses、没有提问/升级 → 判
+  POSTCHECK_MISMATCH（修 resume 路径"查完就 completed"）；
+- 系统提示要求 
+espond.text 只输出自然语言结论，不得输出 JSON/plan_id/data_snapshot 等内部字段。
+
+### 回归
+	ests/integration/test_claim_timing.py（3 项）：
+1. respond 在前、同轮 create_task 成功 → 无 POSTCHECK、completed、任务落库；
+2. 同轮没有任何 create_task 却声称已创建 → 仍 failed + POSTCHECK（防虚假成功）；
+3. 只 list_tasks/query_history、不回答 → failed + POSTCHECK（不再"查完就完成"）。
+
+### B19
+服务端 create_task 校验 due_at 在未来 0~720h（实测过去时间 → INVALID_DUE），
+missed 只能来自场景 fixture 的时间或运行耗时；B19 的 complete_task 硬编码
+
+ecord_glucose 与模型自主创建的 glucose_logging 不符，属场景假设问题，需要在
+valuation/scenarios 放宽类型或显式创建前置任务（B 负责）。

@@ -1,0 +1,95 @@
+{
+  "pid": "WB-case-mw37bgkx-8mv7",
+  "csv": {
+    "patient_id": "WB-case-mw37bgkx-8mv7",
+    "imported": 1,
+    "duplicates": 1,
+    "failed": 1,
+    "records": [
+      {
+        "id": 238,
+        "patient_id": "WB-case-mw37bgkx-8mv7",
+        "kind": "steps",
+        "label": "步数",
+        "value": 4567,
+        "unit": "步",
+        "recorded_at": "2026-11-04T01:01:00Z",
+        "source": "csv_import",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-05T07:05:37Z",
+        "duplicate": false
+      }
+    ],
+    "duplicate_records": [
+      {
+        "id": 238,
+        "patient_id": "WB-case-mw37bgkx-8mv7",
+        "kind": "steps",
+        "label": "步数",
+        "value": 4567,
+        "unit": "步",
+        "recorded_at": "2026-11-04T01:01:00Z",
+        "source": "csv_import",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-05T07:05:37Z",
+        "duplicate": true
+      }
+    ],
+    "errors": [
+      {
+        "row": 4,
+        "error": "fasting_glucose 需要数值型 value",
+        "raw": {
+          "kind": "fasting_glucose",
+          "value": "bad",
+          "recorded_at": "2026-11-04T01:02:00Z"
+        }
+      }
+    ]
+  },
+  "json": {
+    "patient_id": "WB-case-mw37bgkx-8mv7",
+    "imported": 2,
+    "duplicates": 0,
+    "failed": 0,
+    "records": [
+      {
+        "id": 240,
+        "patient_id": "WB-case-mw37bgkx-8mv7",
+        "kind": "bp",
+        "label": "血压",
+        "value": null,
+        "unit": "mmHg",
+        "recorded_at": "2026-11-04T01:03:00Z",
+        "source": "csv_import",
+        "note": null,
+        "payload": {
+          "diastolic": 81,
+          "systolic": 121
+        },
+        "created_at": "2026-11-05T07:05:37Z",
+        "duplicate": false
+      },
+      {
+        "id": 241,
+        "patient_id": "WB-case-mw37bgkx-8mv7",
+        "kind": "symptom",
+        "label": "症状记录",
+        "value": null,
+        "unit": "",
+        "recorded_at": "2026-11-04T01:04:00Z",
+        "source": "csv_import",
+        "note": null,
+        "payload": {
+          "text": "无不适（虚构）"
+        },
+        "created_at": "2026-11-05T07:05:37Z",
+        "duplicate": false
+      }
+    ],
+    "duplicate_records": [],
+    "errors": []
+  }
+}

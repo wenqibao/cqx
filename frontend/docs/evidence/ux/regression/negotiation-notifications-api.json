@@ -1,0 +1,151 @@
+{
+  "pid": "WB-case-mw37bojs-r4it",
+  "run": {
+    "run_id": "RUN-60aa3ae5d7af",
+    "patient_id": "WB-case-mw37bojs-r4it",
+    "status": "completed",
+    "llm_mode": "mock",
+    "model": "deterministic-planner",
+    "intent": "negotiate_plan",
+    "reasoning": [
+      "把任务 补录 2 次空腹血糖 从 2026-11-06T19:05:45Z 调整到 2026-11-06T08:00:00Z"
+    ],
+    "actions": [
+      {
+        "tool": "parse_constraint",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "target_hour": 8,
+          "target_minute": 0,
+          "task_type": "record_glucose",
+          "raw": "我19:00上班，改成08:00记录血糖",
+          "confidence": 0.9
+        }
+      },
+      {
+        "tool": "update_task",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "task_id": "TSK-ca1308c84acc",
+          "version": 2,
+          "due_at": "2026-11-06T08:00:00Z",
+          "status": "pending"
+        }
+      },
+      {
+        "tool": "save_preference",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "preference_id": "PREF-e65a6ab73fc7",
+          "kind": "preferred_time_window",
+          "value": "08:00"
+        }
+      }
+    ],
+    "responses": [],
+    "evidence": [],
+    "rejections": [],
+    "waiting_user": false,
+    "priority_order": []
+  },
+  "changed": {
+    "id": "TSK-ca1308c84acc",
+    "patient_id": "WB-case-mw37bojs-r4it",
+    "task_type": "record_glucose",
+    "title": "补录 2 次空腹血糖",
+    "description": "在明天早餐前补录空腹血糖，用于判断趋势是否持续。",
+    "status": "pending",
+    "priority": 61,
+    "due_at": "2026-11-06T08:00:00Z",
+    "event_id": "EVT-7265ae07ffce",
+    "source_run_id": "RUN-aa665a17180c",
+    "version": 2,
+    "required_fields": [],
+    "meta": {
+      "event_code": "GLUCOSE_RISING",
+      "event_ids": [
+        "EVT-7265ae07ffce"
+      ],
+      "knowledge_query": null,
+      "severity": "medium"
+    },
+    "created_at": "2026-11-05T07:05:45Z",
+    "updated_at": "2026-11-05T07:05:47Z",
+    "completed_at": null
+  },
+  "versions": {
+    "task_id": "TSK-ca1308c84acc",
+    "versions": [
+      {
+        "version": 1,
+        "change_kind": "create",
+        "reason": "任务创建",
+        "changed_by": "agent",
+        "run_id": "RUN-aa665a17180c",
+        "created_at": "2026-11-05T07:05:45Z",
+        "snapshot": {
+          "completed_at": null,
+          "created_at": "2026-11-05T07:05:45Z",
+          "description": "在明天早餐前补录空腹血糖，用于判断趋势是否持续。",
+          "due_at": "2026-11-06T19:05:45Z",
+          "event_id": "EVT-7265ae07ffce",
+          "id": "TSK-ca1308c84acc",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-7265ae07ffce"
+            ],
+            "knowledge_query": null,
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw37bojs-r4it",
+          "priority": 61,
+          "required_fields": [],
+          "source_run_id": "RUN-aa665a17180c",
+          "status": "pending",
+          "task_type": "record_glucose",
+          "title": "补录 2 次空腹血糖",
+          "updated_at": "2026-11-05T07:05:45Z",
+          "version": 1
+        }
+      },
+      {
+        "version": 2,
+        "change_kind": "reschedule",
+        "reason": "患者提出时间冲突：我19:00上班，改成08:00记录血糖（原时间 2026-11-06T19:05:45Z）",
+        "changed_by": "patient",
+        "run_id": "RUN-60aa3ae5d7af",
+        "created_at": "2026-11-05T07:05:47Z",
+        "snapshot": {
+          "completed_at": null,
+          "created_at": "2026-11-05T07:05:45Z",
+          "description": "在明天早餐前补录空腹血糖，用于判断趋势是否持续。",
+          "due_at": "2026-11-06T08:00:00Z",
+          "event_id": "EVT-7265ae07ffce",
+          "id": "TSK-ca1308c84acc",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-7265ae07ffce"
+            ],
+            "knowledge_query": null,
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw37bojs-r4it",
+          "priority": 61,
+          "required_fields": [],
+          "source_run_id": "RUN-aa665a17180c",
+          "status": "pending",
+          "task_type": "record_glucose",
+          "title": "补录 2 次空腹血糖",
+          "updated_at": "2026-11-05T07:05:47Z",
+          "version": 2
+        }
+      }
+    ]
+  },
+  "notice": "NTF-e226bd37ff2a"
+}

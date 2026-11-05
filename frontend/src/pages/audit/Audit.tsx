@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Alert, Button, Card, Input, Table, Tag } from "antd";
 import { api } from "../../api/workbench";
 import { useResource } from "../../hooks/useResource";
-import { DataView, Debug, Heading, RunLink } from "../../components/common";
+import {
+  DataView,
+  Heading,
+  RunLink,
+  TechnicalDetails,
+} from "../../components/common";
+import { businessName } from "../../utils/business";
 import { text, when } from "../../utils/format";
 export default function Audit() {
   const resource = useResource("audit", (s) => api.audit(s));
@@ -24,7 +30,7 @@ export default function Audit() {
             <Card title="后端审计统计">
               <div className="toolbar">
                 <div>
-                  <span className="muted">后端报告 forbidden_executed：</span>
+                  <span className="muted">后端报告的禁止动作执行次数：</span>
                   <Tag
                     color={r.forbidden_executed === 0 ? "default" : "warning"}
                   >
@@ -36,12 +42,20 @@ export default function Audit() {
               <Alert
                 type="warning"
                 title="计数口径须按后端版本核验，不能单凭数字证明安全。"
-                description="main 基线曾将拒绝记录计入此字段；修复在独立 PR #3 待审。这里原样展示，并结合实际工具结果及数据库副作用核验，不把被拦截次数伪装成已执行次数。"
+                description="该指标曾存在统计口径偏差。请结合实际动作和保存结果核验，不能把被拦截次数当成已执行次数。原始字段及版本限制见技术详情。"
+              />
+              <TechnicalDetails
+                value={{
+                  forbidden_executed: r.forbidden_executed,
+                  rejection_codes: r.rejection_codes,
+                  version_note:
+                    "main 基线曾将拒绝记录计入此字段；PR #3 提供修复，是否已集成须按运行后端版本核验。",
+                }}
               />
               <p>
-                可返回拒绝码：
+                系统可识别的拦截原因：
                 {r.rejection_codes.map((c) => (
-                  <Tag key={c}>{c}</Tag>
+                  <Tag key={c}>{businessName(c)}</Tag>
                 ))}
               </p>
             </Card>
@@ -56,7 +70,7 @@ export default function Audit() {
               <Table
                 rowKey="id"
                 dataSource={r.items.filter((v) =>
-                  `${v.patient_id} ${v.code} ${v.action}`
+                  `${v.patient_id} ${v.code} ${v.action} ${businessName(v.code)} ${businessName(v.action)}`
                     .toLowerCase()
                     .includes(filter.toLowerCase()),
                 )}
@@ -64,8 +78,16 @@ export default function Audit() {
                 columns={[
                   { title: "时间", dataIndex: "ts", render: when },
                   { title: "患者", dataIndex: "patient_id", render: text },
-                  { title: "来源（后端记录）", dataIndex: "actor" },
-                  { title: "操作", dataIndex: "action" },
+                  {
+                    title: "来源（后端记录）",
+                    dataIndex: "actor",
+                    render: businessName,
+                  },
+                  {
+                    title: "业务行为",
+                    dataIndex: "action",
+                    render: businessName,
+                  },
                   {
                     title: "审计决定",
                     dataIndex: "decision",
@@ -79,11 +101,24 @@ export default function Audit() {
                               : "default"
                         }
                       >
-                        {v}
+                        {businessName(v)}
                       </Tag>
                     ),
                   },
-                  { title: "拒绝 / 升级码", dataIndex: "code", render: text },
+                  {
+                    title: "拦截 / 升级原因",
+                    dataIndex: "code",
+                    render: businessName,
+                  },
+                  {
+                    title: "当前人工待办",
+                    render: (_, v) =>
+                      v.decision === "escalate"
+                        ? "请查看待复核事项并跟进处理"
+                        : v.decision === "reject"
+                          ? "请求已拦截；请核查原因，勿按已执行处理"
+                          : "请结合实际业务结果核验",
+                  },
                   {
                     title: "关联运行",
                     render: (_, v) => (
@@ -92,14 +127,22 @@ export default function Audit() {
                   },
                 ]}
                 expandable={{
+                  columnTitle: "技术详情",
                   expandedRowRender: (v) => (
-                    <Debug
-                      value={
-                        typeof v.detail === "string"
-                          ? safeDetail(v.detail)
-                          : v.detail
-                      }
-                      label="实际审计原因与上下文"
+                    <TechnicalDetails
+                      value={{
+                        ...v,
+                        parsed_detail:
+                          typeof v.detail === "string"
+                            ? safeDetail(v.detail)
+                            : v.detail,
+                      }}
+                      ids={{
+                        审计编号: v.id,
+                        运行编号: v.run_id,
+                        拒绝码: v.code,
+                        原始操作: v.action,
+                      }}
                     />
                   ),
                 }}

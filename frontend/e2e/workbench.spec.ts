@@ -269,7 +269,11 @@ test("人工复核结案与B24拒绝审计 [F12 F13 F26]", async ({ page, reques
   expect(unsafe.status).toBe("blocked");
   await visit(page, "/audit", safetyPid);
   await page.getByLabel("筛选审计").fill(safetyPid);
-  await expect(page.locator("main")).toContainText("INSULIN_DOSE");
+  await expect(page.locator("main")).toContainText("调整胰岛素剂量请求已拦截");
+  await page.getByRole("row").filter({ hasText: safetyPid }).first().getByRole("button", { name: /展开|Expand/ }).click();
+  const auditTechnical = page.locator("details").filter({ hasText: "审计编号" }).first();
+  await auditTechnical.locator("summary").click();
+  await expect(auditTechnical).toContainText("INSULIN_DOSE");
   const tasks = await json(request, `/patients/${safetyPid}/tasks`);
   expect(tasks.items).toHaveLength(0);
   await evidence("reviews-safety-api", { pid, review, safetyPid, unsafe });

@@ -10,7 +10,6 @@ import {
   Select,
   Table,
   Tabs,
-  Tag,
 } from "antd";
 import { useSearchParams } from "react-router-dom";
 import { api, type Question } from "../../api/workbench";
@@ -19,14 +18,15 @@ import { useResource } from "../../hooks/useResource";
 import {
   CostNotice,
   DataView,
-  Debug,
   ErrorBox,
   Heading,
   RunLink,
   Status,
   WriteResult,
+  TechnicalDetails,
 } from "../../components/common";
-import { name, text, when } from "../../utils/format";
+import { businessName, businessText } from "../../utils/business";
+import { name, when } from "../../utils/format";
 export default function Followups() {
   const { patientId, patient, busy, perform } = useWorkbench();
   const [params, setParams] = useSearchParams();
@@ -95,9 +95,9 @@ export default function Followups() {
                               : ""
                           }
                         >
-                          <h3>{q.question}</h3>
+                          <h3>{businessText(q.question)}</h3>
                           <p className="muted">
-                            {q.id} · {when(q.created_at)} · 来源{" "}
+                            {when(q.created_at)} · 来源{" "}
                             <RunLink id={q.run_id} patient={patientId} />
                           </p>
                           {q.status === "waiting" ? (
@@ -112,16 +112,23 @@ export default function Followups() {
                             <>
                               <p>
                                 实际已保存答复：{q.answer_text || "未提供文本"}{" "}
-                                {!!q.answer && (
-                                  <Tag color="gold">{text(q.answer)}</Tag>
-                                )}
+                                {q.answer &&
+                                typeof q.answer === "object" &&
+                                "uncertain" in q.answer &&
+                                q.answer.uncertain === true
+                                  ? "（患者表示不确定，尚未补全为服药事实）"
+                                  : ""}
                               </p>
-                              <Debug
-                                value={q.answer}
-                                label="查看结构化回答（含不确定性）"
-                              />
                             </>
                           )}
+                          <TechnicalDetails
+                            value={q}
+                            ids={{
+                              问题编号: q.id,
+                              来源运行编号: q.run_id,
+                              原始字段: q.target_field,
+                            }}
+                          />
                         </Card>
                       ))
                     ) : (
@@ -192,13 +199,13 @@ export default function Followups() {
                           options={[
                             {
                               value: "patient_input",
-                              label: "patient_input · 模拟患者输入",
+                              label: "模拟患者输入",
                             },
                             {
                               value: "patient_confirmed",
-                              label: "patient_confirmed · 模拟患者明确确认",
+                              label: "模拟患者明确确认",
                             },
-                            { value: "import", label: "import · 合成资料导入" },
+                            { value: "import", label: "合成资料导入" },
                           ]}
                         />
                       </Form.Item>
@@ -272,7 +279,11 @@ export default function Followups() {
                         columns={[
                           { title: "类型", dataIndex: "kind", render: name },
                           { title: "内容", dataIndex: "value" },
-                          { title: "来源", dataIndex: "source" },
+                          {
+                            title: "来源",
+                            dataIndex: "source",
+                            render: businessName,
+                          },
                           {
                             title: "状态",
                             dataIndex: "status",

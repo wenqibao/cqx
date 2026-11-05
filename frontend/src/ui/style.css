@@ -738,3 +738,12 @@ textarea.ant-input {
     scroll-behavior: auto !important;
   }
 }
+
+/* 业务信息先读，验收标识按需展开。 */
+.business-summary { max-width: 44rem; margin: 4px 0 10px; line-height: 1.65; white-space: normal; }
+.technical-details { margin: 10px 0; color: #52676e; font-size: 12px; overflow-wrap: anywhere; }
+.technical-details > summary { cursor: pointer; width: fit-content; padding: 5px 0; }
+.technical-details > summary:focus-visible { outline: 2px solid #087f8c; outline-offset: 3px; }
+.technical-details > .ant-collapse { margin-top: 8px; }
+.technical-id { font-size: 11px; color: #52676e; overflow-wrap: anywhere; }
+.business-overview .ant-descriptions-item-content { line-height: 1.8; }

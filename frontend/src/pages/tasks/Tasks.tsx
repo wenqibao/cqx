@@ -20,13 +20,14 @@ import { useResource } from "../../hooks/useResource";
 import {
   CostNotice,
   DataView,
-  Debug,
   ErrorBox,
   Heading,
   RunLink,
   Status,
   WriteResult,
+  TechnicalDetails,
 } from "../../components/common";
+import { businessText, businessName } from "../../utils/business";
 import { link, name, text, when } from "../../utils/format";
 export default function Tasks() {
   const { patientId, patient, busy, perform } = useWorkbench();
@@ -89,10 +90,10 @@ export default function Tasks() {
                                 type="link"
                                 onClick={() => set({ task: t.id })}
                               >
-                                {t.title}
+                                {businessText(t.title)}
                               </Button>
                               <small className="block mono muted">
-                                {t.task_type} · {t.id}
+                                {businessName(t.task_type)}
                               </small>
                             </>
                           ),
@@ -119,7 +120,7 @@ export default function Tasks() {
                           render: (_, t) => (
                             <Popconfirm
                               title="医护演示工作人员确认此管理任务已完成？"
-                              description="changed_by=staff_demo；执行规则复评，不额外运行模型。"
+                              description="由医护演示工作人员确认；执行规则复评，不额外运行模型。"
                               disabled={
                                 busy ||
                                 !["pending", "missed"].includes(t.status)
@@ -142,16 +143,25 @@ export default function Tasks() {
                         expandedRowRender: (t) => (
                           <>
                             <p>
-                              创建原因：{t.description || "后端未提供具体说明"}
+                              创建原因：
+                              {businessText(
+                                t.description,
+                                "后端未提供具体说明",
+                              )}
                             </p>
                             <p>
                               关联事件：
                               {d.events.find((e) => e.id === t.event_id)
-                                ?.message ||
-                                t.event_id ||
-                                "无关联事件"}
+                                ?.message || "未返回关联事件说明"}
                             </p>
-                            <p>元数据 / 合并来源：{text(t.meta)}</p>
+                            <TechnicalDetails
+                              value={t}
+                              ids={{
+                                任务编号: t.id,
+                                来源运行编号: t.source_run_id,
+                                事件编号: t.event_id,
+                              }}
+                            />
                             <p>
                               已确认偏好：
                               {d.preferences
@@ -184,7 +194,7 @@ export default function Tasks() {
               <>
                 <Alert
                   type="info"
-                  title="三分支 CLOSED / MISSING_DATA / HUMAN_REVIEW 仅在后端实际返回记录时展示。人工结案内容由工作人员填写，不由 Agent 代写。"
+                  title="复评分为正常关闭、补充数据和人工复核，仅展示实际返回的结果。人工结案内容由工作人员填写。"
                 />
                 <DataView resource={resource}>
                   {(d) => (
@@ -290,7 +300,15 @@ function TaskDetail({
       {(d) => (
         <>
           <h2>{d.task.title}</h2>
-          <p className="mono">{d.task.id}</p>
+          <p>{businessText(d.task.description)}</p>
+          <TechnicalDetails
+            value={d}
+            ids={{
+              任务编号: d.task.id,
+              来源运行编号: d.task.source_run_id,
+              事件编号: d.task.event_id,
+            }}
+          />
           <Descriptions
             column={1}
             items={[
@@ -316,7 +334,7 @@ function TaskDetail({
           <Card title="医护工作人员直接调整普通管理任务">
             <Alert
               type="info"
-              title="人工操作 · staff_demo；此操作不是 DeepSeek 自主规划。"
+              title="由医护演示工作人员直接调整；此操作不是 DeepSeek 自主规划。"
             />
             <Form
               layout="vertical"
@@ -356,7 +374,7 @@ function TaskDetail({
                 children: (
                   <>
                     <strong>
-                      v{v.version} · {v.change_kind}
+                      版本 {v.version} · {businessName(v.change_kind)}
                     </strong>
                     <p>
                       {when(v.created_at)} · {name(v.changed_by)}
@@ -365,7 +383,8 @@ function TaskDetail({
                       截止：{when(v.snapshot.due_at)} ·{" "}
                       {name(v.snapshot.status)}
                     </p>
-                    <p>{v.reason}</p>
+                    <p>{businessText(v.reason)}</p>
+                    <TechnicalDetails value={v} />
                     <RunLink id={v.run_id} patient={patientId} />
                   </>
                 ),
@@ -397,22 +416,33 @@ export function ReviewCard({
       }
       id={r.id}
     >
-      <p>{r.reason}</p>
+      <p>{businessText(r.reason)}</p>
+      <p>
+        当前待办：
+        {r.branch === "HUMAN_REVIEW" && r.status === "pending_human"
+          ? "请医护人员核查依据并记录复核结论。"
+          : r.branch === "MISSING_DATA"
+            ? "请补充缺失记录后跟进复评。"
+            : "请查看复评结果与任务状态。"}
+      </p>
       <p className="muted">
-        {r.id} · 计划复评 {when(r.scheduled_for)} · 结案 {when(r.resolved_at)}
+        计划复评 {when(r.scheduled_for)} · 结案 {when(r.resolved_at)}
       </p>
       <p>
         关联任务：
         {r.task_id ? (
           <Link to={link("/tasks", patientId, { task: r.task_id })}>
-            {r.task_id}
+            查看关联管理任务
           </Link>
         ) : (
           "无"
         )}{" "}
         · <RunLink id={r.run_id} patient={patientId} />
       </p>
-      <Debug value={r.detail} label="复评依据与人工处理记录" />
+      <TechnicalDetails
+        value={r}
+        ids={{ 复评编号: r.id, 任务编号: r.task_id, 运行编号: r.run_id }}
+      />
       {r.branch === "HUMAN_REVIEW" && r.status === "pending_human" && (
         <Form
           layout="vertical"

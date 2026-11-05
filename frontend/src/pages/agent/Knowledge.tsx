@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Alert, Button, Card, Input, List, Tag } from "antd";
+import { Alert, Button, Card, Input, List } from "antd";
 import { api } from "../../api/workbench";
 import { useResource } from "../../hooks/useResource";
-import { DataView, Heading } from "../../components/common";
+import { DataView, Heading, TechnicalDetails } from "../../components/common";
 export default function Knowledge() {
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState("");
@@ -18,7 +18,7 @@ export default function Knowledge() {
       />
       <Alert
         type="info"
-        title="知识包为带来源的摘编，不代表实时临床指南。本页独立检索不关联某次 Agent 运行；运行证据须在对应 run_id 中核验。"
+        title="知识包为带来源的摘编，不代表实时临床指南。本页独立检索不关联某次 Agent 运行；运行证据须在对应处理经过中核验。"
       />
       <Card title="检索知识片段">
         <Input.Search
@@ -40,9 +40,12 @@ export default function Knowledge() {
                       <div>
                         <h3>{h.title}</h3>
                         <p className="muted">
-                          {h.publisher} · {h.version} · {h.doc_id} · {h.anchor}{" "}
-                          · 匹配分 {h.score}
+                          {h.publisher} · 版本 {h.version}
                         </p>
+                        <TechnicalDetails
+                          value={h}
+                          ids={{ 知识编号: h.doc_id, 段落锚点: h.anchor }}
+                        />
                         <blockquote className="evidence-quote">
                           {h.quote}
                         </blockquote>
@@ -81,14 +84,11 @@ export default function Knowledge() {
               renderItem={(d) => (
                 <List.Item>
                   <List.Item.Meta
-                    title={
-                      <>
-                        {d.title} <Tag>{d.id}</Tag>
-                      </>
-                    }
+                    title={<>{d.title}</>}
                     description={
                       <>
                         {d.publisher} · 版本 {d.version} · 发布 {d.published_at}
+                        <TechnicalDetails value={d} ids={{ 知识编号: d.id }} />
                         <p>
                           {d.source_url.startsWith("https://") && (
                             <a

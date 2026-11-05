@@ -1,15 +1,25 @@
-import { Alert, Button, Card, Collapse, Empty, Spin, Tag } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Collapse,
+  Empty,
+  Spin,
+  Tag,
+  Typography,
+} from "antd";
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import { ApiError } from "../api/httpAdapter";
 import { useWorkbench } from "../app/WorkbenchContext";
-import { array, link, name, obj, text } from "../utils/format";
+import { businessName, businessText } from "../utils/business";
+import { array, link, obj, text } from "../utils/format";
 export function Json({ value }: { value: unknown }) {
   return <pre className="json">{JSON.stringify(value, null, 2)}</pre>;
 }
 export function Debug({
   value,
-  label = "完整 JSON 调试信息",
+  label = "技术详情：完整原始 JSON",
 }: {
   value: unknown;
   label?: string;
@@ -17,7 +27,22 @@ export function Debug({
   return (
     <Collapse
       size="small"
-      items={[{ key: "json", label, children: <Json value={value} /> }]}
+      items={[
+        {
+          key: "json",
+          label,
+          children: (
+            <>
+              <Typography.Paragraph
+                copyable={{ text: JSON.stringify(value, null, 2) || "null" }}
+              >
+                复制完整原始 JSON
+              </Typography.Paragraph>
+              <Json value={value} />
+            </>
+          ),
+        },
+      ]}
     />
   );
 }
@@ -41,7 +66,7 @@ export function Status({ value }: { value: string }) {
               : "default"
       }
     >
-      {name(value)}
+      {businessName(value)}
     </Tag>
   );
 }
@@ -125,11 +150,43 @@ export function PatientScope({ children }: { children: ReactNode }) {
     return <Alert type="error" title="此工作台仅支持合成患者演示" />;
   return <div key={patientId}>{children}</div>;
 }
+export function TechnicalDetails({
+  value,
+  ids = {},
+  children,
+}: {
+  value: unknown;
+  ids?: Record<string, unknown>;
+  children?: ReactNode;
+}) {
+  return (
+    <details className="technical-details">
+      <summary>技术详情（编号、参数与原始数据）</summary>
+      {Object.entries(ids).map(([label, id]) =>
+        id ? (
+          <p key={label}>
+            {label}：
+            <Typography.Text className="mono" copyable={{ text: String(id) }}>
+              {String(id)}
+            </Typography.Text>
+          </p>
+        ) : null,
+      )}
+      {children}
+      <Debug value={value} />
+    </details>
+  );
+}
 export function RunLink({ id, patient }: { id: unknown; patient: string }) {
   return typeof id === "string" && id ? (
-    <Link className="mono" to={link("/agent", patient, { run: id })}>
-      {id}
-    </Link>
+    <span className="run-reference">
+      <Link to={link("/agent", patient, { run: id })}>查看处理经过</Link>
+      <small className="block muted">
+        <Typography.Text className="technical-id" copyable={{ text: id }}>
+          {id}
+        </Typography.Text>
+      </small>
+    </span>
   ) : (
     <span className="muted">无关联运行</span>
   );
@@ -194,8 +251,8 @@ export function WriteResult({
       )}
       {!!task.id && (
         <p>
-          任务：{text(task.id)} · <Status value={String(task.status)} /> · 版本{" "}
-          {text(task.version)}
+          任务：{businessText(task.title, "健康管理任务")} ·{" "}
+          <Status value={String(task.status)} /> · 版本 {text(task.version)}
         </p>
       )}
       {root.imported !== undefined && (
@@ -228,10 +285,10 @@ export function WriteResult({
       ))}
       {array(root.reviews).map((r, i) => (
         <p key={i}>
-          复评：{text(obj(r).id)} · <Status value={String(obj(r).branch)} />
+          复评结果 · <Status value={String(obj(r).branch)} />
         </p>
       ))}
-      <Debug value={value} />
+      <TechnicalDetails value={value} ids={{ 任务编号: task.id }} />
     </Card>
   );
 }

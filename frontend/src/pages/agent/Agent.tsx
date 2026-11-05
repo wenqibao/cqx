@@ -12,7 +12,6 @@ import {
   Table,
   Tabs,
   Timeline,
-  Tag,
 } from "antd";
 import { Link, useSearchParams } from "react-router-dom";
 import { client } from "../../api/client";
@@ -23,30 +22,21 @@ import { useResource } from "../../hooks/useResource";
 import {
   CostNotice,
   DataView,
-  Debug,
   ErrorBox,
   Heading,
-  RunLink,
   Status,
   WriteResult,
+  TechnicalDetails,
 } from "../../components/common";
 import { array, link, name, obj, text, when } from "../../utils/format";
-export const toolDescriptions: Record<string, string> = {
-  search_knowledge: "检索有限知识包并返回出处",
-  ask_user: "提出具体问题并等待模拟反馈",
-  create_task: "创建非医疗管理任务",
-  update_task: "调整管理任务并保存版本",
-  complete_task: "完成任务并进入后续流程",
-  query_history: "读取健康记录历史",
-  schedule_review: "安排到期复评",
-  create_notification: "创建站内提醒",
-  request_human_review: "升级人工专业复核",
-  save_preference: "保存明确确认的偏好",
-  get_preferences: "读取生效偏好",
-  list_tasks: "读取任务列表",
-  parse_constraint: "解析时间安排约束",
-  respond: "输出可追溯说明",
-};
+import {
+  toolDescriptions,
+  businessName,
+  businessText,
+  runNarrative,
+  actionSummary,
+} from "../../utils/business";
+export { toolDescriptions } from "../../utils/business";
 export default function Agent() {
   const { patientId, patient, busy, perform, boot } = useWorkbench();
   const [params, setParams] = useSearchParams();
@@ -140,8 +130,8 @@ export default function Agent() {
                   <div className="toolbar">
                     <Button onClick={resource.reload}>刷新运行状态</Button>
                     <Input.Search
-                      aria-label="查询 run_id"
-                      placeholder="通过 run_id 查询实际轨迹"
+                      aria-label="查询运行编号"
+                      placeholder="按运行编号查询（技术验收）"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       onSearch={(v) => v.trim() && set({ run: v.trim() })}
@@ -155,17 +145,30 @@ export default function Agent() {
                         scroll={{ x: 950 }}
                         columns={[
                           {
-                            title: "运行标识",
-                            dataIndex: "id",
-                            render: (v) => (
-                              <Button
-                                type="link"
-                                className="mono"
-                                onClick={() => set({ run: v })}
-                              >
-                                {v}
-                              </Button>
-                            ),
+                            title: "本次处理",
+                            render: (_, r) => {
+                              const narrative = runNarrative(r);
+                              return (
+                                <>
+                                  <Button
+                                    type="link"
+                                    onClick={() => set({ run: r.id })}
+                                  >
+                                    {narrative.title}
+                                  </Button>
+                                  <p className="business-summary">
+                                    {narrative.summary}
+                                  </p>
+                                  <small className="block muted">
+                                    触发原因：{narrative.reason}
+                                  </small>
+                                  <TechnicalDetails
+                                    value={r}
+                                    ids={{ 运行编号: r.id }}
+                                  />
+                                </>
+                              );
+                            },
                           },
                           {
                             title: "触发来源",
@@ -196,7 +199,7 @@ export default function Agent() {
                           {
                             title: "失败原因",
                             dataIndex: "error",
-                            render: text,
+                            render: (v) => businessText(v, "未返回失败原因"),
                           },
                         ]}
                       />
@@ -262,7 +265,7 @@ export default function Agent() {
               <Card title="现有工具白名单说明">
                 <Alert
                   type="info"
-                  title="此处是工具能力说明，不表示某次运行调用过全部工具。实际调用以对应 run_id 的轨迹为准。"
+                  title="此处是工具能力说明，不表示某次运行调用过全部工具。实际调用以对应运行的处理经过为准。"
                 />
                 <Table
                   rowKey="tool"
@@ -271,8 +274,16 @@ export default function Agent() {
                     ([tool, description]) => ({ tool, description }),
                   )}
                   columns={[
-                    { title: "工具名称", dataIndex: "tool" },
-                    { title: "中文说明", dataIndex: "description" },
+                    { title: "业务行为", dataIndex: "description" },
+                    {
+                      title: "技术详情",
+                      render: (_, r) => (
+                        <TechnicalDetails
+                          value={r}
+                          ids={{ 工具名称: r.tool }}
+                        />
+                      ),
+                    },
                   ]}
                 />
               </Card>
@@ -317,18 +328,15 @@ export function TraceDetail({
   );
 }
 export function TraceView({ trace: t }: { trace: Trace }) {
-  const run = t.run;
-  const plan = obj(run.plan);
-  const output = obj(run.output);
-  const pid = run.patient_id;
-  const rejected = t.steps.filter(
-    (s) =>
-      s.kind === "rejection" ||
-      s.status === "failed" ||
-      s.status === "rejected",
-  );
+  const run = t.run,
+    output = obj(run.output),
+    pid = run.patient_id;
+  const narrative = runNarrative(run, t);
   const results = t.steps.filter((s) => s.kind === "tool_result");
-  const native = t.steps.filter(
+  const rejected = t.steps.filter(
+    (s) => s.kind === "rejection" || ["failed", "rejected"].includes(s.status),
+  );
+  const native = t.steps.some(
     (s) => s.kind === "llm_response" && array(s.payload.tool_calls).length > 0,
   );
   const safety =
@@ -338,79 +346,67 @@ export function TraceView({ trace: t }: { trace: Trace }) {
     ? "后端安全门处理；不据此宣称模型主动拒绝"
     : run.llm_mode === "mock"
       ? "后端确定性 Mock 规划器；工具与数据库实际执行"
-      : native.length
+      : native
         ? "轨迹包含原生模型工具响应"
-        : "后端记录 real 模式；未返回足以核验原生调用来源的响应元数据";
+        : "后端配置为真实模型模式；未返回足以核验原生调用来源的响应元数据";
   return (
     <>
       <div className="run-overview">
         <div>
-          <h2>
-            <Status value={run.status} /> {run.model_name || "模型未返回"}
-          </h2>
-          <span className="mono">{run.id}</span>
+          <h2>{narrative.title}</h2>
+          <p>{narrative.summary}</p>
         </div>
-        <Tag>{name(run.trigger_type)}</Tag>
+        <Status value={run.status} />
       </div>
+      <Card title="发生了什么，接下来做什么" className="business-overview">
+        <Descriptions
+          column={1}
+          items={[
+            { key: "reason", label: "为什么触发", children: narrative.reason },
+            { key: "actions", label: "处理结果", children: narrative.summary },
+            { key: "next", label: "当前人工待办", children: narrative.next },
+            {
+              key: "boundary",
+              label: "安全边界",
+              children:
+                "不诊断、不开处方、不改药或胰岛素剂量；需关注的事项交由医护人员复核。",
+            },
+            {
+              key: "evidence",
+              label: "知识依据",
+              children: t.evidence.length
+                ? `返回 ${t.evidence.length} 条证据，可在知识证据页签查看原文与出处。`
+                : "未返回知识证据，不能据此给出有依据的医学结论。",
+            },
+            { key: "time", label: "处理时间", children: when(run.started_at) },
+          ]}
+        />
+      </Card>
       <Alert
-        type={
-          rejected.length || array(output.rejections).length
-            ? "warning"
-            : "info"
-        }
+        type={narrative.incomplete ? "warning" : "info"}
         title={origin}
         description={
-          rejected.length
-            ? "存在拒绝或失败步骤，不能把整体展示为全部执行成功。"
+          narrative.incomplete
+            ? "存在拒绝或失败，不能把整体展示为全部执行成功。"
             : undefined
         }
       />
-      <Descriptions
-        column={2}
-        size="small"
-        items={[
-          { key: "patient", label: "患者", children: pid },
-          { key: "mode", label: "模式", children: run.llm_mode },
-          { key: "start", label: "开始", children: when(run.started_at) },
-          { key: "finish", label: "结束", children: when(run.finished_at) },
-          {
-            key: "trigger",
-            label: "触发关联",
-            children: text(run.trigger_ref),
-          },
-          { key: "intent", label: "业务意图", children: text(run.intent) },
-        ]}
-      />
-      {run.error && <Alert type="error" title={run.error} />}
-      {array(output.rejections).map((rejection, index) => {
-        const r = obj(rejection);
+      {run.error && <Alert type="error" title={businessText(run.error)} />}
+      {array(output.rejections).map((value, i) => {
+        const r = obj(value);
         return (
           <Alert
-            key={index}
+            key={i}
             type="warning"
             showIcon
-            title={text(r.code) + " · " + text(r.message)}
-            description={
-              r.tool
-                ? "关联工具：" + text(r.tool)
-                : "后端运行核对结果；不能将工具读取成功等同于业务完成。"
-            }
+            title={businessName(r.code)}
+            description={businessText(
+              r.message,
+              "请核查拒绝原因，未将此项计为成功。精确拒绝码见技术详情。证据读取成功不等于业务完成。",
+            )}
           />
         );
       })}
-      <Card title="触发原因与患者上下文">
-        <p>{text(obj(run.input).message) || "无人工请求文本"}</p>
-        <p>事件来源：{text(obj(run.input).event_ids)}</p>
-        <Debug
-          value={t.steps.find((s) => s.phase === "perceive")?.payload}
-          label="实际感知状态"
-        />
-        {Array.isArray(plan.priority_order) ? (
-          <p>后端 priority_order：{text(plan.priority_order)}</p>
-        ) : (
-          <p className="muted">此运行未返回事件优先序列，不推测模型排序。</p>
-        )}
-      </Card>
       <div className="phase-list">
         {["perceive", "plan", "validate", "act", "observe"].map((phase) => {
           const count = t.steps.filter((s) => s.phase === phase).length;
@@ -428,55 +424,39 @@ export function TraceView({ trace: t }: { trace: Trace }) {
         items={[
           {
             key: "actions",
-            label: `工具动作 ${results.length}`,
+            label: `处理动作 ${results.length}`,
             children: (
               <>
-                <Card title="实际工具执行">
+                <Card title="Agent 实际做了什么">
                   <Table
                     rowKey="step_no"
                     size="small"
                     dataSource={results}
                     pagination={false}
-                    scroll={{ x: 650 }}
                     columns={[
-                      { title: "顺序", dataIndex: "step_no", width: 65 },
                       {
-                        title: "工具与行为",
+                        title: "业务行为",
                         render: (_, s) => (
-                          <>
-                            <strong>
-                              {toolDescriptions[s.tool_name || ""] ||
-                                s.tool_name}
-                            </strong>
-                            <small className="block mono muted">
-                              {s.tool_name} · tool_result
-                            </small>
-                          </>
+                          <strong>{businessName(s.tool_name)}</strong>
                         ),
                       },
                       {
-                        title: "状态",
-                        dataIndex: "status",
-                        render: (v) => <Status value={v} />,
-                      },
-                      {
-                        title: "返回摘要",
-                        render: (_, s) => {
-                          const result = obj(s.payload.result);
-                          return text(
-                            result.error ||
-                              result.text ||
-                              result.task_id ||
-                              result.question_id ||
-                              result.review_id ||
-                              result.notification_id ||
-                              (result.found !== undefined
-                                ? `检索命中：${result.found}`
-                                : result.ok === true
-                                  ? "工具返回 ok；详见参数、结果及核对"
-                                  : "未返回摘要"),
-                          );
-                        },
+                        title: "动作结果",
+                        render: (_, s) => (
+                          <>
+                            <Status
+                              value={
+                                obj(s.payload.post_check).ok === false ||
+                                obj(s.payload.result).ok === false
+                                  ? "failed"
+                                  : s.status
+                              }
+                            />
+                            <p>
+                              {actionSummary(s.tool_name, s.payload, s.status)}
+                            </p>
+                          </>
+                        ),
                       },
                     ]}
                     expandable={{
@@ -490,36 +470,24 @@ export function TraceView({ trace: t }: { trace: Trace }) {
                               c.step_no < s.step_no,
                           );
                         return (
-                          <>
-                            <h3>执行参数</h3>
-                            {call ? (
-                              <Descriptions
-                                column={1}
-                                items={Object.entries(
-                                  obj(call.payload.args),
-                                ).map(([k, v]) => ({
-                                  key: k,
-                                  label: k,
-                                  children: text(v),
-                                }))}
-                              />
-                            ) : (
+                          <TechnicalDetails
+                            value={{ tool_call: call || null, tool_result: s }}
+                            ids={{
+                              运行编号: run.id,
+                              工具名称: s.tool_name,
+                              拒绝码: s.code,
+                            }}
+                          >
+                            {!call && (
                               <Alert
                                 type="warning"
                                 title="此工具缺少对应 tool_call 轨迹，不能编造执行参数。"
                               />
                             )}
-                            <p>
-                              执行后核对：{text(obj(s.payload.post_check).ok)} ·{" "}
-                              {text(obj(s.payload.post_check).message)}
-                            </p>
-                            <Debug
-                              value={s.payload}
-                              label="真实工具返回与核对详情"
-                            />
-                          </>
+                          </TechnicalDetails>
                         );
                       },
+                      columnTitle: "技术详情",
                     }}
                     locale={{
                       emptyText: "没有实际工具返回记录；不显示工具执行成功",
@@ -534,14 +502,14 @@ export function TraceView({ trace: t }: { trace: Trace }) {
                       renderItem={(v) => (
                         <List.Item>
                           <Link to={link("/tasks", pid, { task: v.id })}>
-                            {v.title}
+                            {businessText(v.title)}
                           </Link>
                           <Status value={v.status} />
                         </List.Item>
                       )}
                     />
                   </Card>
-                  <Card title="问题与复评变化">
+                  <Card title="随访与复评">
                     <p>
                       实际关联问题 {t.questions?.length || 0} 项 · 复评{" "}
                       {t.reviews?.length || 0} 项
@@ -553,17 +521,24 @@ export function TraceView({ trace: t }: { trace: Trace }) {
                             question: String(q.id),
                           })}
                         >
-                          {text(q.question)}
-                        </Link>
+                          {businessText(q.question)}
+                        </Link>{" "}
+                        · {businessName(q.status)}
                       </p>
                     ))}
                     {t.reviews?.map((r, i) => (
                       <p key={i}>
-                        {text(r.id)} · <Status value={String(r.branch)} />
+                        <Status value={String(r.branch)} />{" "}
+                        {businessText(r.reason, "具体依据见复评记录")}
                       </p>
                     ))}
                   </Card>
                 </div>
+                {array(output.responses).map((response, i) => (
+                  <Card key={i} title="实际返回的管理说明">
+                    <p>{businessText(response)}</p>
+                  </Card>
+                ))}
               </>
             ),
           },
@@ -573,21 +548,29 @@ export function TraceView({ trace: t }: { trace: Trace }) {
             children: (
               <Timeline
                 items={t.steps.map((s) => ({
-                  color:
-                    s.status === "failed" || s.status === "rejected"
-                      ? "red"
-                      : "#087f8c",
+                  color: ["failed", "rejected"].includes(s.status)
+                    ? "red"
+                    : "#087f8c",
                   children: (
                     <>
                       <strong>
-                        {s.step_no}. {name(s.phase)} · {name(s.kind)}
+                        {name(s.phase)} ·{" "}
+                        {s.tool_name
+                          ? businessName(s.tool_name)
+                          : businessName(s.kind)}
                       </strong>
-                      <p className="muted">
-                        {s.tool_name && `${s.tool_name} · `}
-                        {when(s.created_at)} · {name(s.status)}{" "}
-                        {s.code && <Tag color="error">{s.code}</Tag>}
+                      <p>
+                        <Status value={s.status} />{" "}
+                        {s.code && businessName(s.code)} · {when(s.created_at)}
                       </p>
-                      <Debug value={s.payload} label="查看实际步骤数据" />
+                      <TechnicalDetails
+                        value={s}
+                        ids={{
+                          步骤: s.step_no,
+                          工具名称: s.tool_name,
+                          拒绝码: s.code,
+                        }}
+                      />
                     </>
                   ),
                 }))}
@@ -599,21 +582,28 @@ export function TraceView({ trace: t }: { trace: Trace }) {
             label: `知识证据 ${t.evidence.length}`,
             children: t.evidence.length ? (
               t.evidence.map((e, i) => (
-                <Card key={i} title={text(e.title || e.doc_id)}>
+                <Card key={i} title={businessText(e.title, "知识依据片段")}>
                   <p className="muted">
-                    {text(e.publisher)} · 版本 {text(e.version)} ·{" "}
-                    {text(e.doc_id)} / {text(e.chunk_id)} / {text(e.anchor)}
+                    {text(e.publisher)} · 版本 {text(e.version)}
                   </p>
                   <blockquote className="evidence-quote">
                     {text(e.quote)}
                   </blockquote>
-                  <p>引用：{text(e.citation)}</p>
+                  <p>引用：{businessText(e.citation, "来源标记见技术详情")}</p>
                   {typeof e.source_url === "string" &&
                     e.source_url.startsWith("https://") && (
                       <a href={e.source_url} target="_blank" rel="noreferrer">
                         查看原始来源
                       </a>
                     )}
+                  <TechnicalDetails
+                    value={e}
+                    ids={{
+                      知识编号: e.doc_id,
+                      片段编号: e.chunk_id,
+                      段落锚点: e.anchor,
+                    }}
+                  />
                 </Card>
               ))
             ) : (
@@ -630,34 +620,58 @@ export function TraceView({ trace: t }: { trace: Trace }) {
               <>
                 <Alert
                   type="info"
-                  title="仅展示后端执行前校验、拒绝码与执行后核对，不在前端重做医学判断。"
+                  title="仅展示后端执行前校验与执行后核对，不在前端重做医学判断。"
                 />
                 {rejected.map((s) => (
                   <Card
                     key={s.step_no}
                     title={
                       <>
-                        <Status value={s.status} /> {s.code || "校验未通过"}
+                        <Status value={s.status} />{" "}
+                        {businessName(s.code || s.phase)}
                       </>
                     }
                   >
-                    <p>{s.tool_name || name(s.phase)}</p>
-                    <Debug value={s.payload} label="拒绝与失败原因" />
+                    <p>
+                      {businessText(
+                        s.payload.message || obj(s.payload.result).error,
+                        "未通过的具体原因见技术详情；不作为已完成动作。",
+                      )}
+                    </p>
+                    <TechnicalDetails
+                      value={s}
+                      ids={{ 拒绝码: s.code, 工具名称: s.tool_name }}
+                    />
                   </Card>
                 ))}
                 {!rejected.length && (
                   <p>未返回失败或拒绝步骤；这不等于系统已覆盖全部安全语义。</p>
                 )}
-                <Debug value={output.rejections} label="运行输出中的拒绝项" />
+                <TechnicalDetails value={output.rejections} />
               </>
             ),
           },
           {
             key: "json",
-            label: "完整运行信息",
-            children: <Debug value={t} label="完整 JSON 调试视图" />,
+            label: "技术详情",
+            children: (
+              <TechnicalDetails
+                value={t}
+                ids={{
+                  运行编号: run.id,
+                  触发关联编号: run.trigger_ref,
+                  患者编号: pid,
+                  模型名称: run.model_name,
+                  原始状态: run.status,
+                }}
+              />
+            ),
           },
         ]}
+      />
+      <TechnicalDetails
+        value={t}
+        ids={{ 运行编号: run.id, 触发关联编号: run.trigger_ref }}
       />
     </>
   );

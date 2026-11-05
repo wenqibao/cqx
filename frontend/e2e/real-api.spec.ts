@@ -34,7 +34,10 @@ test("真实后端：录入→自动触发→轨迹→人工改期→任务完�
   const runId = saved.automation.runs[0].run_id;
   await visit(page, `/agent?run=${runId}`, pid);
   const drawer = page.getByRole("dialog");
-  await expect(drawer).toContainText(runId);
+  const runTechnical = drawer.locator("details").last();
+  await runTechnical.locator("summary").click();
+  await expect(runTechnical).toContainText(runId);
+  await runTechnical.getByText("技术详情：完整原始 JSON", { exact: true }).click();
   await expect(drawer).toContainText("后端确定性 Mock 规划器");
   await expect(drawer).toContainText("tool_result");
   await page.screenshot({
@@ -48,6 +51,7 @@ test("真实后端：录入→自动触发→轨迹→人工改期→任务完�
   );
   expect(target).toBeTruthy();
   await visit(page, `/tasks?task=${target.id}`, pid);
+  await page.getByRole("dialog").locator("details").first().locator("summary").click();
   await expect(page.getByRole("dialog")).toContainText(target.id);
   const due = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 16);
   await page.getByLabel("新的截止时间（本地时间）").fill(due);
@@ -67,7 +71,7 @@ test("真实后端：录入→自动触发→轨迹→人工改期→任务完�
   await page.keyboard.press("Escape");
   await page
     .getByRole("row")
-    .filter({ hasText: target.id })
+    .filter({ hasText: target.title })
     .getByRole("button", { name: "标记完成" })
     .click();
   const completed = page.waitForResponse(
@@ -87,7 +91,7 @@ test("真实后端：录入→自动触发→轨迹→人工改期→任务完�
   expect(actual.task.status).toBe("done");
   await page.reload();
   await expect(
-    page.getByRole("row").filter({ hasText: target.id }),
+    page.getByRole("row").filter({ hasText: target.title }),
   ).toContainText("已完成");
   const after = await json(request, "/patients/P002/state");
   expect(after.latest).toEqual(before.latest);

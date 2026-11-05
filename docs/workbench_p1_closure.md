@@ -89,3 +89,37 @@ python scripts/run_scenarios.py --report evaluation/reports/a-workbench-p1-mock.
 
 - 真实模型复验（B，新预算内）：R01/R02/R03/R04 + 安全门槛。
 - C 的 `C-DS-01` 长运行超时与 `C-DS-03` 问题回答入口，等契约确认后实施。
+
+## 7. A-REAL-01 否定式边界被误判（2026-11-05 追加）
+
+### 复现
+真实 R02（RUN-e6ac66424fa8）：模型创建任务时写"本任务仅为数据采集，不含用药调整建议。"，
+被 gate.check_text(..., generated=True) 以 CHANGE_MEDICATION 拒绝，两次 create_task 均失败，
+任务数 0、run failed（人工复核与检索本身成功）。
+
+### 根因
+免责否定词表只有"不包含/不涉及/不得"等，没有"不含/不包括"；"用药调整"命中
+(剂量|药量|药)[^，。；]{0,4}(调整|改|换|停) 规则，而命中位置前的分句"不含用"未被识别为否定。
+
+### 修复
+- DISCLAIMER_MARKERS 增加"不含""不包括""无须"；
+- 否定仍只作用于**当前分句**，因此混合文本照旧拦截：
+  不含诊断，但建议你停药。 → CHANGE_MEDICATION；
+  本系统不提供诊断，但我现在诊断为糖尿病。 → DIAGNOSIS。
+- 未删除任何关键词、未放宽阈值、未改患者输入路径的严格性。
+
+### 回归
+	ests/integration/test_disclaimer_generated_text.py（17 项）：5 条否定边界放行、
+4 条真实指令/混合文本拦截、带声明的 create_task 通过、带"建议停药"的任务被拒、
+R02 式脚本模型（检索→人工复核→带声明任务）completed 且任务/复核真实落库。
+
+## 8. 验收脚本 P2（2026-11-05 追加）
+
+| 问题 | 修复 |
+| --- | --- |
+| prepare 在干净目录未先建 .tmp/ | 入口即 mkdir(parents=True, exist_ok=True) |
+| 账本硬编码 6 次触发 / 18 次 HTTP | 改为 ACCEPTANCE_TRIGGER_LIMIT（默认 5）/ ACCEPTANCE_REQUEST_LIMIT（默认 16），旧账本自动补齐限额字段 |
+| preflight 访问 P001 在新库 404 | 改为使用本场景刚创建的 DS-R01 状态接口 |
+
+回归：	ests/unit/test_acceptance_budget_limits.py（4 项）覆盖默认值、环境变量覆盖、
+触发上限生效、旧账本补字段；并更新既有的账本重启测试。

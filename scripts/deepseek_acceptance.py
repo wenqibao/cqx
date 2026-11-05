@@ -34,6 +34,7 @@ def dump(name,data):
 
 
 def prepare():
+    (ROOT / ".tmp").mkdir(parents=True, exist_ok=True)  # 干净目录首次执行时 .tmp 可能不存在
     from backend.app.config import settings
     from backend.app.db.connection import connect,iso,now
     from backend.app.events.detector import detect_events
@@ -72,7 +73,7 @@ def prepare():
         preview.close()
     finally:conn.close()
     FIXTURES.write_text(json.dumps(fixture,ensure_ascii=False,indent=2),encoding='utf8')
-    env={'git_sha':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip(),'branch':subprocess.check_output(['git','branch','--show-current'],cwd=ROOT).decode().strip(),'python':sys.version,'os':platform.platform(),'db':str(expected),'mode':cfg.llm_mode,'model':cfg.llm_model,'base_host':urlparse(cfg.llm_base_url).hostname,'safety_sha256':hashlib.sha256((ROOT/'config/safety_rules.yaml').read_bytes()).hexdigest(),'preflight':[health,request('GET','/patients'),request('GET','/patients/P001/state'),request('GET','/system/mode')]}
+    env={'git_sha':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip(),'branch':subprocess.check_output(['git','branch','--show-current'],cwd=ROOT).decode().strip(),'python':sys.version,'os':platform.platform(),'db':str(expected),'mode':cfg.llm_mode,'model':cfg.llm_model,'base_host':urlparse(cfg.llm_base_url).hostname,'safety_sha256':hashlib.sha256((ROOT/'config/safety_rules.yaml').read_bytes()).hexdigest(),'preflight':[health,request('GET','/patients'),request('GET',f"/patients/{fixture['patients']['R01']}/state"),request('GET','/system/mode')]}
     dump('deepseek_environment.json',env)
     print(json.dumps({'prepared':True,'event_preview':fixture['event_preview']}))
 

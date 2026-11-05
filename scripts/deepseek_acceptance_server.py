@@ -21,7 +21,13 @@ class AcceptanceBudget:
     def __init__(self, path: Path):
         self.path = path
         self.lock = threading.RLock()
-        self.data = json.loads(path.read_text(encoding="utf8")) if path.exists() else {"trigger_limit": 6, "request_limit": 18, "triggers": [], "requests": []}
+        trigger_limit = int(os.environ.get("ACCEPTANCE_TRIGGER_LIMIT", "5"))
+        request_limit = int(os.environ.get("ACCEPTANCE_REQUEST_LIMIT", "16"))
+        self.data = json.loads(path.read_text(encoding="utf8")) if path.exists() else {
+            "trigger_limit": trigger_limit, "request_limit": request_limit, "triggers": [], "requests": []}
+        # 旧账本没有限额字段时补齐；已有账本不覆盖，避免绕过预算
+        self.data.setdefault("trigger_limit", trigger_limit)
+        self.data.setdefault("request_limit", request_limit)
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -29,8 +35,9 @@ class AcceptanceBudget:
 
     def reserve_trigger(self, scenario, patient_id, trigger_type):
         with self.lock:
-            if len(self.data['triggers']) >= 6:
-                raise RuntimeError("验收6次Agent业务触发预算已耗尽，禁止继续调用")
+            limit = int(self.data.get('trigger_limit', 5))
+            if len(self.data['triggers']) >= limit:
+                raise RuntimeError('验收业务触发预算已耗尽（上限 %s 次），禁止继续调用' % limit)
             entry = {"number": len(self.data['triggers']) + 1, "scenario": scenario, "patient_id": patient_id, "trigger_type": trigger_type, "at": datetime.now(timezone.utc).isoformat(), "run_id": None,
                      "git_sha": subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()}
             self.data['triggers'].append(entry)
@@ -39,8 +46,9 @@ class AcceptanceBudget:
 
     def reserve_request(self, trigger):
         with self.lock:
-            if len(self.data['requests']) >= 18:
-                raise RuntimeError("验收真实HTTP请求达到18次硬上限")
+            limit = int(self.data.get('request_limit', 16))
+            if len(self.data['requests']) >= limit:
+                raise RuntimeError('验收真实HTTP请求达到硬上限（%s 次）' % limit)
             if len(self.data['requests']) >= 2 and all(r.get('status') == 'failed' for r in self.data['requests'][-2:]):
                 raise RuntimeError("连续两次上游失败，停止后续真实请求")
             entry = {"number": len(self.data['requests']) + 1, "trigger_number": trigger['number'], "scenario": trigger['scenario'], "status": "inflight", "token_usage": None}

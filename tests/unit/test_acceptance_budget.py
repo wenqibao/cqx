@@ -3,12 +3,13 @@ import pytest
 from scripts.deepseek_acceptance_server import AcceptanceBudget
 
 
-def test_trigger_limit_survives_restart(workdir):
+def test_trigger_limit_survives_restart(workdir, monkeypatch):
+    monkeypatch.delenv('ACCEPTANCE_TRIGGER_LIMIT', raising=False)
     path=workdir/'ledger.json'
     budget=AcceptanceBudget(path)
-    for _ in range(6):budget.reserve_trigger('R02','P1','event_detected')
+    for _ in range(5):budget.reserve_trigger('R02','P1','event_detected')
     restarted=AcceptanceBudget(path)
-    with pytest.raises(RuntimeError,match='6次'):
+    with pytest.raises(RuntimeError,match='预算已耗尽'):
         restarted.reserve_trigger('R03','P1','answer_received')
 
 

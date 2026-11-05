@@ -1,0 +1,45 @@
+{
+  "note": "Actual successful command outputs captured during this task. Raw .log files remain local because repository ignores logs. Not newly executed by viewing this JSON.",
+  "executions": [
+    {
+      "command": "npm ci",
+      "result": "PASS",
+      "output": "\nadded 131 packages, and audited 132 packages in 14s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n"
+    },
+    {
+      "command": "npm run typecheck",
+      "result": "PASS",
+      "output": "npm notice run diabetes-agent-frontend@0.2.0 typecheck\nnpm notice run tsc --noEmit\n"
+    },
+    {
+      "command": "npm test",
+      "result": "PASS",
+      "output": "npm notice run diabetes-agent-frontend@0.2.0 test\nnpm notice run vitest run --reporter=default --reporter=json --outputFile=docs/evidence/workbench/unit-results.json\n\n RUN  v4.1.12 D:/cqx-current/frontend\n\n ✓ src/utils/reports.test.ts (14 tests) 19ms\n ✓ src/api/workbench.test.ts (5 tests) 64ms\n ✓ src/api/httpAdapter.test.ts (11 tests) 101ms\n\n Test Files  3 passed (3)\n      Tests  30 passed (30)\n   Start at  09:23:37\n   Duration  677ms (transform 159ms, setup 0ms, import 672ms, tests 185ms, environment 0ms)\n\nJSON report written to D:/cqx-current/frontend/docs/evidence/workbench/unit-results.json\n"
+    },
+    {
+      "command": "npm run build",
+      "result": "PASS",
+      "output": "npm notice run diabetes-agent-frontend@0.2.0 build\nnpm notice run tsc --noEmit && vite build\nvite v8.3.5 building client environment for production...\ntransforming...\n✓ 3804 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                             0.60 kB │ gzip:   0.36 kB\ndist/assets/index-BZhm1mIW.css              9.59 kB │ gzip:   2.86 kB\ndist/assets/rolldown-runtime-XKyaHtl9.js    0.72 kB │ gzip:   0.42 kB\ndist/assets/context-Cwn0YWoO.js             0.80 kB │ gzip:   0.49 kB\ndist/assets/Notifications-CwjkU8ep.js       1.55 kB │ gzip:   0.91 kB\ndist/assets/Knowledge-B-IFBBsN.js           2.36 kB │ gzip:   1.25 kB\ndist/assets/row-C4c_3jOK.js                 2.43 kB │ gzip:   1.26 kB\ndist/assets/Audit-CGL_yZ6I.js               2.74 kB │ gzip:   1.58 kB\ndist/assets/Dashboard-Ce6_cwX1.js           5.51 kB │ gzip:   2.31 kB\ndist/assets/Followups-GsmJjlEq.js           5.99 kB │ gzip:   2.71 kB\ndist/assets/Monitoring-CFS1LtKN.js          7.05 kB │ gzip:   3.29 kB\ndist/assets/Tasks-bBMrxjZE.js               7.71 kB │ gzip:   3.39 kB\ndist/assets/descriptions-CBzvjKmC.js        7.89 kB │ gzip:   2.82 kB\ndist/assets/popconfirm-D757suDv.js          7.90 kB │ gzip:   3.10 kB\ndist/assets/list-DnPv7U2t.js                9.63 kB │ gzip:   3.60 kB\ndist/assets/Agent-BeU7cVr5.js              13.13 kB │ gzip:   5.59 kB\ndist/assets/input-B42FvlO8.js              15.50 kB │ gzip:   6.56 kB\ndist/assets/System-C-iWm_OH.js             18.07 kB │ gzip:   7.26 kB\ndist/assets/space-Cvwvc8J2.js              19.40 kB │ gzip:   7.11 kB\ndist/assets/input-number-Dn0l_Hry.js       20.64 kB │ gzip:   7.52 kB\ndist/assets/form-BBjM5JCC.js               22.04 kB │ gzip:   8.52 kB\ndist/assets/pagination-Cy59X9pU.js         41.96 kB │ gzip:  11.20 kB\ndist/assets/timeline-DQWEG9dT.js           50.51 kB │ gzip:  15.04 kB\ndist/assets/index-0Pk2p8rc.js              81.77 kB │ gzip:  28.44 kB\ndist/assets/table-DcyKFtQe.js             212.41 kB │ gzip:  65.48 kB\ndist/assets/Patients-pqHKbeB5.js          503.69 kB │ gzip: 171.06 kB\ndist/assets/common-Dzwu_2Uk.js            764.44 kB │ gzip: 247.12 kB\n\n[plugin builtin:vite-reporter] \n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n✓ built in 856ms\n"
+    },
+    {
+      "command": "npm run test:e2e",
+      "result": "PASS",
+      "output": "npm notice run diabetes-agent-frontend@0.2.0 test:e2e\nnpm notice run playwright test\n\nRunning 15 tests using 1 worker\n\n(node:13132) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n  ok  1 e2e\\multi-events.spec.ts:3:1 › 多事件协调保留实际优先序列、任务与去重依据 [F05 F09 F22] (6.1s)\n  ok  2 e2e\\real-api.spec.ts:3:1 › 真实后端：录入→自动触发→轨迹→人工改期→任务完成→复评 [F03 F05 F06 F09 F10 F11 F12 F14 F23 F26] (8.8s)\n  ok  3 e2e\\real-api.spec.ts:110:1 › 患者切换及三种桌面尺寸页面 [F01 F02 F04 F15] (52.0s)\n  ok  4 e2e\\real-api.spec.ts:165:1 › 后端断连明确报错且无静态患者回退 [F15 F18] (1.5s)\n  ok  5 e2e\\record-types.spec.ts:3:1 › 八种真实记录类型、重复处理和类型切换不残留数值 [F03 F06] (8.5s)\n  ok  6 e2e\\workbench.spec.ts:4:1 › 新建合成患者并重新读取档案 [F01 F02 F18] (3.6s)\n  ok  7 e2e\\workbench.spec.ts:31:1 › CSV/JSON导入保留逐行错误和重复结果 [F03] (2.6s)\n  ok  8 e2e\\workbench.spec.ts:81:1 › 主动提问、不确定模拟答复与恢复 [F08 F21 F26] (4.1s)\n  ok  9 e2e\\workbench.spec.ts:129:1 › 偏好来源、覆盖历史与清除 [F25] (3.6s)\n  ok 10 e2e\\workbench.spec.ts:173:1 › Agent协商与版本、通知已读 [F16 F23] (3.7s)\n  ok 11 e2e\\workbench.spec.ts:229:1 › 人工复核结案与B24拒绝审计 [F12 F13 F26] (7.1s)\n  ok 12 e2e\\workbench.spec.ts:277:1 › 知识检索命中与无结果 [F24] (2.3s)\n  ok 13 e2e\\workbench.spec.ts:287:1 › 报告导入不混淆模式、CLI复制不执行、无报告不造成绩 [F17 F19 F20] (3.7s)\n  ok 14 e2e\\workbench.spec.ts:326:1 › 跨患者深链接拒绝混用、模型失败与无工具结果如实展示 [F14 F15 F26] (5.5s)\n  ok 15 e2e\\z-maintenance.spec.ts:3:1 › 隔离演示时钟与tick产生实际缺数据复评 [F07 F12] (4.6s)\n\n  15 passed (2.0m)\n"
+    },
+    {
+      "command": "python scripts/run_scenarios.py",
+      "result": "PASS",
+      "output": "[PASS] B01 稳定患者读取状态不产生额外判断 (36ms) mode=mock\n[PASS] B02 连续血糖变化自动触发事件和 Agent (66ms) mode=mock\n[PASS] B03 单次波动后恢复不产生持续恶化结论 (20ms) mode=mock\n[PASS] B04 低血糖记录进入人工复核 (30ms) mode=mock\n[PASS] B05 显著高血糖记录进入人工复核 (28ms) mode=mock\n[PASS] B06 活动量下降创建活动记录任务 (28ms) mode=mock\n[PASS] B07 连续漏服记录触发依从性核实 (28ms) mode=mock\n[PASS] B08 体重变化按版本化规则检测 (30ms) mode=mock\n[PASS] B09 重复记录不产生额外业务判断 (18ms) mode=mock\n[PASS] B10 缺信息时提问并在回答后恢复 (42ms) mode=mock\n[PASS] B11 患者记不清时不补全事实 (43ms) mode=mock\n[PASS] B12 普通记录任务协商时间并保存偏好 (29ms) mode=mock\n[PASS] B13 停药请求被安全门拦截 (20ms) mode=mock\n[PASS] B14 胰岛素剂量请求被安全门拦截 (20ms) mode=mock\n[PASS] B15 危险症状只升级人工复核 (23ms) mode=mock\n[PASS] B16 知识回答必须带可追溯来源 (30ms) mode=mock\n[PASS] B17 无证据问题拒绝臆测 (30ms) mode=mock\n[PASS] B18 血糖、漏服和活动事件综合排序 (36ms) mode=mock\n[PASS] B19 完成任务后进入 CLOSED 复评 (35ms) mode=mock\n[PASS] B20 任务到期缺数据进入 MISSING_DATA (175ms) mode=mock\n[PASS] B21 调度连续执行保持幂等 (125ms) mode=mock\n[PASS] B22 运行后保存状态快照 (34ms) mode=mock\n[PASS] B23 知识包无相关资料时拒绝臆测 (29ms) mode=mock\n[PASS] B24 患者偏好清晰时任务仍不改变医疗边界 (29ms) mode=mock\n[PASS] S01 录入健康数据后无需点击即自动触发 Agent 并创建任务 (36ms) mode=mock\n[PASS] S02 信息缺失时 Agent 主动提问，患者回答后恢复同一管理流程 (44ms) mode=mock\n[PASS] S03 多个事件并发时合并同类任务并按优先级排序 (37ms) mode=mock\n[PASS] S04 患者提出时间冲突后协商修改任务并保存版本与偏好 (26ms) mode=mock\n[PASS] S05 复评三分支：完成任务正常关闭，到期未完成进入数据缺失分支 (143ms) mode=mock\n[PASS] S06 低血糖记录触发安全门：不处置、升级人工复核 (31ms) mode=mock\n[PASS] S07 知识问答必须引用可定位来源 (31ms) mode=mock\n[PASS] S08 知识包无相关资料时拒绝臆测并记录 NO_EVIDENCE (30ms) mode=mock\n[PASS] S09 禁止的医疗动作被安全门拦截并留痕 (22ms) mode=mock\n\n合计 33 个场景，通过 33，失败 0\n报告: frontend\\docs\\evidence\\workbench\\scenarios.json\n"
+    },
+    {
+      "command": "contrast_lint.py",
+      "result": "PASS",
+      "output": "[PASS] body  #193638 on #ffffff: 12.91:1 (need 4.5:1)\n[PASS] body  #526b6d on #f3f6f6: 5.25:1 (need 4.5:1)\n[PASS] body  #087f8c on #ffffff: 4.75:1 (need 4.5:1)\n[PASS] body  #ffffff on #087f8c: 4.75:1 (need 4.5:1)\n[PASS] body  #dce8e8 on #173c3e: 9.56:1 (need 4.5:1)\n[PASS] body  #ffffff on #28706d: 5.79:1 (need 4.5:1)\n[PASS] body  #145d60 on #eaf3f2: 6.73:1 (need 4.5:1)\n--- 7/7 pairs pass WCAG AA ---\n"
+    },
+    {
+      "command": "ai_tell_lint.py",
+      "result": "PASS",
+      "output": "CLEAN: no AI-tells found.\n"
+    }
+  ]
+}

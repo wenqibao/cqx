@@ -39,7 +39,7 @@
 | `docs/INTEGRATION_REPORT_V2.md`、`docs/TEST_REPORT_V2.md` | 本轮联调、自动化、Real/Mock独立结果 |
 | `docs/BACKEND_DEPENDENCIES.md` | 已复现的A依赖、当前替代展示与严重度 |
 | `docs/DEMO_WORKFLOW.md`、`docs/UI_DESIGN_SPEC.md` | 可录制流程及统一设计规范 |
-| `docs/evidence/workbench/` | 本轮实际脱敏JSON、测试日志、XML、截图；不覆盖第一阶段历史证据 |
+| `docs/evidence/workbench/` | 本轮实际脱敏JSON、命令输出、XML、截图；不覆盖第一阶段历史证据 |
 | `.runtime/`（忽略） | 专用SQLite、完整真实模型原响应、预算账本、早期/辅助检查；不随clone交付 |
 
 依赖栈与锁文件沿用，未换项目骨架。最终文件数量和提交SHA以本轮Git差异/PR为准，完整源码清单可用`git diff --name-status 83073c7..HEAD -- frontend`复核。

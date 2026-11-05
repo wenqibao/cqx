@@ -34,3 +34,5 @@ E2E启动守卫仅允许backend mock与frontend/.runtime/workbench-test.db；它
 本轮完整F矩阵24 PASS/2 FAIL；因此只能交付“完整前端入口和已验证的本机业务能力”，不能宣称“完整真实模型参赛验收通过”。
 
 全量15项E2E在核心实现6cfb273上通过。52c966b随后仅增加默认显示真实运行拒绝摘要；已用只读浏览器核验真实失败及证据，0个POST，并再次通过typecheck、30项单测和build。没有为此重跑收费模型。
+
+仓库忽略原始*.log，原始命令日志保留本机；供clone核验的成功命令输出统一在evidence/workbench/commands-output.json，未强制添加日志。公开pytest XML仅脱敏hostname，原XML在.runtime/backend-pytest-original.xml。

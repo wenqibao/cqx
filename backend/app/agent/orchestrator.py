@@ -32,7 +32,17 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 3. 缺信息时应主动询问，不得自行推断患者未提供的事实。
 4. 只能通过给定工具执行动作，禁止声称执行了实际未执行的工具。
 5. 高风险信号（低血糖、显著高血糖、危险症状）一律升级人工复核，不做处置建议。
-请始终以 JSON 计划或工具调用的方式行动。"""
+完成标准（关键）：
+- 处理健康事件时必须产生至少一个管理动作：create_task、ask_user 或 request_human_review；
+  只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
+- search_knowledge 最多调用 2 次；拿到证据后立即行动，不要反复检索同一主题。
+- 无法继续时，用 respond 说明原因，或 request_human_review 升级，不要沉默。
+请始终以工具调用的方式行动。"""
+
+# 只读工具：不改变业务状态，不能单独构成"处理完成"
+READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferences", "list_tasks"})
+ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review", "save_preference", "create_notification"})
+MAX_SEARCH_CALLS = 2
 
 
 def _state_brief(state: dict[str, Any]) -> str:
@@ -536,6 +546,8 @@ def _run_real_llm(
     responses: list[str] = []
     history: list[dict[str, Any]] = []
     accepted_actions: list[dict[str, Any]] = []
+    search_calls = 0
+    nudges = 0
     question_created = False
     rounds = []
     user = "\n".join([
@@ -583,6 +595,23 @@ def _run_real_llm(
         ]})
         outcomes = []
         for index, call in enumerate(response.tool_calls):
+            tool_call_id = call.id or f"call_{round_no}_{index}"
+            # A-WB-01：只读检索次数封顶，防止模型反复检索、始终不采取管理动作
+            if call.name == "search_knowledge" and search_calls >= MAX_SEARCH_CALLS:
+                limited = {
+                    "ok": False,
+                    "code": "NO_PROGRESS",
+                    "error": "检索次数已达上限，请基于已有证据立即执行管理动作（create_task / ask_user / request_human_review）",
+                }
+                trace.add_step(conn, run_id, phase="observe", kind="tool_result", tool_name=call.name,
+                               payload={"skipped": True, "reason": "search_limit", "query": call.arguments.get("query")},
+                               status="skipped", code="NO_PROGRESS")
+                history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                "content": json.dumps(limited, ensure_ascii=False)})
+                outcomes.append({"tool": call.name, "ok": False})
+                continue
+            if call.name == "search_knowledge":
+                search_calls += 1
             action = {"tool": call.name, "args": call.arguments, "requires_evidence": call.name == 'respond' and intent == 'knowledge_question', "reason": "模型决策"}
             candidates = accepted_actions + [action]
             checked = validators.validate_plan(conn, patient_id=patient_id, plan={"actions": candidates}, evidence=evidence)
@@ -607,10 +636,22 @@ def _run_real_llm(
                 if result.get('text') and result.get('ok'):
                     responses.append(result['text'])
             # 实际工具返回（包括知识片段/出处、实际任务ID）传回模型，不能只给命中数量。
-            history.append({"role": "tool", "tool_call_id": call.id or f"call_{round_no}_{index}",
+            history.append({"role": "tool", "tool_call_id": tool_call_id,
                             "content": json.dumps(result, ensure_ascii=False)})
             outcomes.append({"tool": call.name, "ok": result.get('ok')})
         rounds.append({"round": round_no, "tools": outcomes})
+        # A-WB-01：整轮只有读取动作时推一把，避免"只看不做"耗尽轮数
+        action_ok = any(o["tool"] in ACTION_TOOLS and o["ok"] for o in outcomes)
+        only_read = bool(outcomes) and all(o["tool"] in READ_ONLY_TOOLS for o in outcomes)
+        if only_read and not action_ok and nudges < 1 and round_no < 2:
+            nudges += 1
+            trace.add_step(conn, run_id, phase="plan", kind="progress_nudge",
+                           payload={"round": round_no, "message": "本轮只有读取动作，未产生管理动作"})
+            history.append({
+                "role": "system",
+                "content": "本轮只有读取动作，没有产生任何管理动作。请立即执行 create_task / ask_user / request_human_review，"
+                           "或说明为什么无法继续；不要再次检索同一主题。",
+            })
         # 整轮都被拒绝或工具失败时停止收费循环，先交给操作者核对。
         if outcomes and not any(o['ok'] for o in outcomes):
             break

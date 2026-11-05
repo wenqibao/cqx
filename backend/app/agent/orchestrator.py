@@ -39,6 +39,7 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 - 知识问答检索不到可引用证据时，直接用 respond 说明"没有足够资料"，不要改用 ask_user 追问无关问题。
 - 保存时间偏好时 kind 必须用 preferred_time_window，value 用 24 小时制 HH:MM（如 08:00）；
   不要用 kind=note 记录具体时间。
+- respond 的 text 只写自然语言结论；不要把 JSON、plan_id、data_snapshot、actions_taken 等内部字段写进 respond。
 - 无法继续时，用 respond 说明原因，或 request_human_review 升级，不要沉默。
 请始终以工具调用的方式行动。"""
 
@@ -526,14 +527,27 @@ def _claimed_state_changes(text: str) -> set[str]:
     return claimed
 
 
-def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed):
-    """自由文本与 respond 工具使用相同安全/证据门，操作声明必须有成功工具支撑。"""
+def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed, claims_out=None):
+    """自由文本与 respond 工具使用相同安全/证据门。
+
+    "声称已执行"的核对不在执行单个工具时做（B16：respond 可能排在同轮 create_task 之前），
+    而是把文本放进 claims_out，等整轮/整次运行的 executed 完整后再统一核对。
+    """
     action = {"tool": "respond", "args": {"text": text}, "requires_evidence": intent == "knowledge_question"}
     checked = validators.validate_plan(conn, patient_id=patient_id, plan={"actions": [action]}, evidence=evidence)
-    for tool in _claimed_state_changes(text):
-        if not any(e.get("ok") and e.get("tool") == tool for e in executed):
-            checked["rejections"].append({"code": validators.POSTCHECK_MISMATCH, "message": "回答声称的业务变更没有成功工具支持", "tool": tool})
+    if claims_out is not None:
+        claims_out.append(text)
+    else:
+        checked["rejections"].extend(_unsupported_claims(text, executed))
     return checked["rejections"]
+
+
+def _unsupported_claims(text: str, executed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {"code": validators.POSTCHECK_MISMATCH, "message": "回答声称的业务变更没有成功工具支持", "tool": tool}
+        for tool in _claimed_state_changes(text)
+        if not any(e.get("ok") and e.get("tool") == tool for e in executed)
+    ]
 
 
 def _run_real_llm(
@@ -555,6 +569,7 @@ def _run_real_llm(
     accepted_actions: list[dict[str, Any]] = []
     search_calls = 0
     nudges = 0
+    claim_texts: list[str] = []
     question_created = False
     rounds = []
     user = "\n".join([
@@ -589,7 +604,7 @@ def _run_real_llm(
         if not response.tool_calls:
             if response.content:
                 errors = _check_real_reply(response.content, conn=conn, patient_id=patient_id, intent=intent,
-                                           evidence=evidence, executed=executed)
+                                           evidence=evidence, executed=executed, claims_out=claim_texts)
                 if errors:
                     reject(errors)
                 else:
@@ -625,7 +640,8 @@ def _run_real_llm(
             errors = [e for e in checked['rejections'] if e.get('index') in (None, len(candidates)-1)]
             if call.name == 'respond' and isinstance(call.arguments, dict) and call.arguments.get('text'):
                 errors.extend(_check_real_reply(call.arguments['text'], conn=conn, patient_id=patient_id,
-                                               intent=intent, evidence=evidence, executed=executed))
+                                               intent=intent, evidence=evidence, executed=executed,
+                                               claims_out=claim_texts))
             if errors:
                 reject(errors, call.name)
                 result = {"ok": False, "error": "rejected by safety gate", "code": errors[0]['code']}
@@ -664,6 +680,13 @@ def _run_real_llm(
             break
     if not executed and not responses and not rejections:
         reject([{"code": validators.TOOL_EXECUTION_FAILED, "message": "模型没有返回可执行工具或说明"}])
+    # B16：整次运行结束后再核对"声称已执行"，避免 respond 排在同轮 create_task 之前被误判
+    for text in claim_texts:
+        for item in _unsupported_claims(text, executed):
+            reject([item])
+    # 只做了读取、既没给结论也没提问/升级：不能算完成（resume 路径的"查完就完成"）
+    if executed and all(e["tool"] in READ_ONLY_TOOLS for e in executed) and not responses and not question_created:
+        reject([{"code": validators.POSTCHECK_MISMATCH, "message": "只执行了读取动作，没有给出结论或管理动作"}])
     # B17：知识问答没有检索到任何可引用证据时，必须明确判 NO_EVIDENCE，
     # 不能用 ask_user 追问或空回复把问题带过去。
     if intent == "knowledge_question" and not evidence:

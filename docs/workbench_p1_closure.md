@@ -348,3 +348,27 @@ API 的 `actions` 字段逐条返回 `ok/result`，前端应展示「部分成�
 `test_full_real_p1.py` 更新：
 - 无证据 → `rejections == {"NO_EVIDENCE"}`、`responses` 非空、0 任务；
 - 过期 due_at → 轨迹中存在带 `hint` 的 `INVALID_DUE` step。
+
+## 19. 发布验收 REL-01 / REL-02 修复（2026-11-06 追加）
+
+### REL-01 复评被普通任务替代（对应 B 的 #6）
+- 现象：模型用 `create_task(task_type=follow_up_review)` 代替 `schedule_review`，
+  24 小时跟进任务存在，但正式 `reviews` 仍是默认时点。
+- 修复：
+  - 工具描述与系统提示明确「正式复评/随访必须调用 `schedule_review`」；
+  - 编排器对 `create_task` 的复评语义（`follow_up_review` / 标题含「复评」）做**软拒绝**
+    （`TOOL_CHOICE_INVALID`，只回给模型并记轨迹，不计入正式拒绝），并允许下一轮纠正；
+  - 声明映射中「复评」归到 `schedule_review`，避免"已安排复评"被当成声称建任务。
+- 回归：复评任务被引导 → 模型改调 `schedule_review` → run completed、0 任务、1 条正式复评。
+
+### REL-02 合规否定/免责声明仍被误拒（对应 B 的 #10）
+- 被拒原文：
+  1. `本任务仅做提醒与核实，不涉及任何改药、停药或剂量调整建议。`
+  2. `目标由患者参与确定，不设医疗性运动处方。`
+- 修复：否定词表补充 `不设/不建议/不予`；否定仍只作用于当前分句。
+- 回归：两条原文双路径放行；`开具处方`、`建议把降糖药停掉`、
+  `不设处方而是开具处方` 仍分别以 `PRESCRIPTION` / `CHANGE_MEDICATION` 拦截。
+
+### 版本说明
+本修复基于 `450767a` 的后端树（与 `v0.2.0 @ d37b2f2` 的后端一致），
+作为 `v0.2.1` 候选；建议新分支提交，不移动已发布的 `v0.2.0` 标签。

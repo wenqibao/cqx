@@ -173,3 +173,45 @@ def test_past_due_returns_correctable_hint_then_model_retries(conn):
     step = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND code='INVALID_DUE' LIMIT 1",
                         (result["run_id"],)).fetchone()
     assert step and "hint" in step["payload"]
+
+# ---------- 发布验收 REL-01 / REL-02 ----------
+def test_review_requires_schedule_review_tool(conn):
+    """REL-01：'复评'不能用普通任务替代，必须先被引导到 schedule_review。"""
+    patients.create_patient(conn, {"id": "REL1", "name": "复评", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    llm = _ScriptedLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+            "patient_id": "REL1", "task_type": "follow_up_review", "title": "24小时复评",
+            "due_at": (now() + timedelta(hours=24)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="", tool_calls=[
+            ToolCall("schedule_review", {"patient_id": "REL1", "delay_hours": 24, "reason": "完成任务后复评"}, "c2"),
+            ToolCall("respond", {"patient_id": "REL1", "text": "已安排 24 小时复评。"}, "c3"),
+        ], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "REL1", trigger_type="user_request",
+                                    message="完成任务后安排24小时复评", llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='REL1'").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='REL1'").fetchone()["c"] == 1
+    codes = [s["code"] for s in conn.execute(
+        "SELECT code FROM agent_steps WHERE run_id=? AND kind='tool_choice'", (result["run_id"],)).fetchall()]
+    assert "TOOL_CHOICE_INVALID" in codes
+
+
+@pytest.mark.parametrize("text", [
+    "本任务仅做提醒与核实，不涉及任何改药、停药或剂量调整建议。",
+    "目标由患者参与确定，不设医疗性运动处方。",
+])
+def test_rel02_negated_texts_allowed(text):
+    assert gate.check_text(text, generated=True)["allowed"] is True
+    assert gate.check_text(text)["allowed"] is True
+
+
+@pytest.mark.parametrize("text,code", [
+    ("开具处方", "PRESCRIPTION"),
+    ("建议把降糖药停掉", "CHANGE_MEDICATION"),
+    ("不设处方而是开具处方", "PRESCRIPTION"),
+])
+def test_rel02_real_actions_still_blocked(text, code):
+    verdict = gate.check_text(text, generated=True)
+    assert verdict["allowed"] is False
+    assert verdict["code"] == code

@@ -30,7 +30,7 @@ TOOL_SPECS: dict[str, dict[str, Any]] = {
         "parameters": {"patient_id": "string", "question": "string", "target_field": "string?", "options": "array?"},
     },
     "create_task": {
-        "description": "创建健康管理任务（不是医疗处置）",
+        "description": "创建健康管理任务（不是医疗处置）；正式复评/随访请用 schedule_review，不要用任务替代",
         "parameters": {
             "patient_id": "string",
             "task_type": "string",

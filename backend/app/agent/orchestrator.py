@@ -37,6 +37,7 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
   只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
 - search_knowledge 最多调用 2 次；拿到证据后立即行动，不要反复检索同一主题。
 - 知识问答检索不到可引用证据时，直接用 respond 说明"没有足够资料"，不要改用 ask_user 追问无关问题。
+- 安排复评/随访时必须调用 schedule_review（正式复评记录），不要用 create_task 代替。
 - 保存时间偏好时 kind 必须用 preferred_time_window，value 用 24 小时制 HH:MM（如 08:00）；
   不要用 kind=note 记录具体时间。
 - respond 的 text 只写自然语言结论；不要把 JSON、plan_id、data_snapshot、actions_taken 等内部字段写进 respond。
@@ -523,7 +524,8 @@ _CLAIM_PATTERNS = {
     ),
 }
 _CLAIM_NEGATIONS = ("不能", "无法", "未能", "没有", "尚未", "不会", "不需要", "无需")
-_CLAIM_OBJECT_TO_TOOL = {"提醒": "create_notification", "通知": "create_notification", "消息": "create_notification"}
+_CLAIM_OBJECT_TO_TOOL = {"提醒": "create_notification", "通知": "create_notification", "消息": "create_notification",
+                        "复评": "schedule_review"}
 
 
 def _claimed_state_changes(text: str) -> set[str]:
@@ -633,6 +635,19 @@ def _run_real_llm(
         outcomes = []
         for index, call in enumerate(response.tool_calls):
             tool_call_id = call.id or f"call_{round_no}_{index}"
+            # REL-01：正式复评必须用 schedule_review，普通任务不能替代（软拒绝，允许下一轮纠正）
+            if call.name == "create_task" and isinstance(call.arguments, dict):
+                task_type = str(call.arguments.get("task_type") or "").lower()
+                title = str(call.arguments.get("title") or "")
+                if task_type in {"follow_up_review", "followup_review", "review"} or "复评" in title:
+                    guidance = {"ok": False, "code": "TOOL_CHOICE_INVALID",
+                                "error": "正式复评必须调用 schedule_review；create_task 不能替代复评"}
+                    trace.add_step(conn, run_id, phase="validate", kind="tool_choice", tool_name=call.name,
+                                   payload=guidance, status="skipped", code="TOOL_CHOICE_INVALID")
+                    history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                    "content": json.dumps(guidance, ensure_ascii=False)})
+                    outcomes.append({"tool": call.name, "ok": False, "code": "TOOL_CHOICE_INVALID"})
+                    continue
             # A-WB-01：只读检索次数封顶，防止模型反复检索、始终不采取管理动作
             if call.name == "search_knowledge" and search_calls >= MAX_SEARCH_CALLS:
                 limited = {
@@ -711,7 +726,7 @@ def _run_real_llm(
         if responded:
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
-        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA}
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, "TOOL_CHOICE_INVALID"}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:

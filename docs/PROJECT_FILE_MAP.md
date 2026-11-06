@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 149 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发回归）
+python -m pytest -q                 # 271 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
 python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 
@@ -207,3 +207,15 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 4. SQLite 单写锁：已用 `busy_timeout=30000` + 真实并发用例（读 9/9、写 6/6）覆盖 C-API-001，但未做高并发压力测试；写入仍是单写者模型。
 5. 前端（`frontend/`）尚未实现，仅提供契约与 Mock 约定。
 6. 未做鉴权：仅允许 `127.0.0.1` 本机演示。
+
+## 11. DeepSeek独立验收补充（2026-11-04）
+
+- `tests/integration/test_real_acceptance_regressions.py`：本地Stub复现与回归，覆盖证据/轨迹、空输出、虚假成功、文本安全、所有权、参数/时间及累计限制；不代表厂商模型通过。
+- `tests/unit/test_acceptance_budget.py`：6次业务触发预算跨重启持久化、失败请求计数与连续失败停止。
+- `scripts/deepseek_acceptance_server.py`：仅本机8010隔离验收服务；统计真实请求与用量，不修改厂商响应，强制6次业务/18次HTTP上限。
+- `scripts/deepseek_acceptance.py`：分步准备合成夹具、执行/收集业务API与数据库证据；不自动重试。
+- 验收数据库与机器证据保存在忽略目录，禁止把.env、数据库或原始敏感日志提交。
+- `docs/deepseek_real_acceptance.md`：6次真实业务触发、14次厂商HTTP的逐项验收、版本与证据路径；如实保留失败及未复验状态。
+- `docs/deepseek_real_bugfixes.md`：真实路径缺陷、最小修复、受控回归和B待复验记录。
+- `docs/deepseek_next_actions.md`：A审查、B独立复验、C具体缺陷单与正式演示门槛。
+- `evaluation/reports/deepseek_real_acceptance.json`：本地机器验收报告（已生成但忽略，不随clone交付）；同目录保留ledger、API/DB快照及截图。

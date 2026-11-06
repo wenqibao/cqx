@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from typing import Any
 
@@ -122,14 +123,37 @@ def execute(ctx: ToolContext, tool: str, args: dict[str, Any]) -> dict[str, Any]
         return _fail("TOOL_EXECUTION_FAILED", f"{type(exc).__name__}: {exc}")
 
 
+ENTITY_CODE_RE = re.compile(r"\b[A-Za-z]{2,}[-_]?\d{2,}\b")
+
+
+def _filter_relevant_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A0-FULL-P1-05：查询里的实体编码（如 XQZ-999）必须在命中片段中出现才算相关。
+
+    否则通用 HbA1c / 自我监测片段会被当成该实体的证据，导致无证据问题也能引用。
+    """
+    codes = ENTITY_CODE_RE.findall(query or "")
+    if not codes:
+        return hits
+    kept = []
+    for hit in hits:
+        text = " ".join(str(hit.get(key) or "") for key in ("text", "quote", "title", "content")).lower()
+        if all(code.lower() in text for code in codes):
+            kept.append(hit)
+    return kept
+
+
 def _search_knowledge(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     result = knowledge_search.search(ctx.conn, args.get("query", ""))
-    ctx.evidence = result["hits"]
+    hits = _filter_relevant_hits(args.get("query", ""), result["hits"])
+    ctx.evidence = hits
+    note = result["note"]
+    if hits != result["hits"]:
+        note = "检索到的通用片段不包含查询中的实体，已按证据不足处理"
     return _ok(
         query=result["query"],
-        hits=result["hits"],
-        found=result["found"],
-        note=result["note"],
+        hits=hits,
+        found=bool(hits),
+        note=note,
     )
 
 

@@ -129,10 +129,11 @@ def trace(conn: sqlite3.Connection, run_id: str) -> dict[str, Any]:
     if not run:
         raise KeyError(f"运行记录不存在: {run_id}")
     patient_id = run["patient_id"]
+    version_tasks = {r['task_id'] for r in conn.execute("SELECT DISTINCT task_id FROM task_versions WHERE run_id=?", (run_id,)).fetchall()}
     tasks = [
         t
         for t in list_tasks(conn, patient_id, limit=200)
-        if t.get("source_run_id") == run_id or run_id in (t.get("meta") or {}).get("run_ids", [])
+        if t.get("source_run_id") == run_id or t['id'] in version_tasks or run_id in (t.get("meta") or {}).get("run_ids", [])
     ]
     return {
         "run": run,

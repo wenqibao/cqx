@@ -90,6 +90,26 @@ paths:
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { type: object }
+                  forbidden_executed:
+                    type: integer
+                    description: 成功工具调用中出现越权工具/动作文本的次数（实际执行，不是拒绝数）
+                  blocked_total:
+                    type: integer
+                    description: audit_log 中 decision=reject 的拦截次数；拦截增加不代表执行增加
+                  checked_tool_results:
+                    type: integer
+                    description: 本次计数覆盖的 tool_result 条数，便于交叉核查
+                  rejection_codes:
+                    type: array
+                    items: { type: string }
 
   /patients:
     get:

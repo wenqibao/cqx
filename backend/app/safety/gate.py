@@ -9,8 +9,17 @@ from backend.app.config import safety_rules
 from backend.app.db.connection import dumps, iso, now
 
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
-DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不负责", "不得", "禁止", "无需", "不承诺")
+DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺", "不制定", "不设置", "不开具", "不开展", "不要", "不用", "不必", "勿", "不可以")
 DISCLAIMER_WINDOW = 24
+# 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
+CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
+INSTRUCTION_LEADIN = re.compile(r"(?:建议|请|应|需要|可以|要|立即|马上|尽快|务必|宜)\s*$")
+# 转介豁免（B-REAL-02）：疑问/条件/泛指语气 + 命中词后紧跟医生或"转由医生/转人工复核"等转介语
+LEFT_CUES = re.compile(r"(?:是否|能否|可否|需不需要|要不要|该不该|如需|如果需要|若需|如果|如若|倘若|若|任何|如有|需求|提出|考虑|想|一旦)[^，。；！？\n]{0,10}$")
+IMPERATIVE_TAIL = re.compile(r"(?:建议|请|应|需要|立即|马上|尽快|务必|可以|推荐)[^，。；！？\n]{0,2}$")
+REFERRAL_TARGETS = ("医生", "医师", "医疗机构", "医院", "专业人员", "内分泌科")
+REFERRAL_ACTIONS = ("沟通", "咨询", "讨论", "就诊", "就医", "决定", "确认", "评估")
+REFERRAL_PHRASES = ("转由医生", "转交医生", "转人工复核", "转诊", "请就医", "及时就医", "经医生评估", "由医生处理", "咨询医生", "与医生沟通", "人工复核")
 
 
 class SafetyViolation(Exception):
@@ -21,23 +30,66 @@ class SafetyViolation(Exception):
         self.detail = detail or {}
 
 
-def _is_disclaimer(text: str, position: int) -> bool:
+def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool:
     window = text[max(0, position - DISCLAIMER_WINDOW) : position]
-    return any(marker in window for marker in DISCLAIMER_MARKERS)
+    # 否定只作用于当前分句，不能用前一句免责声明掩盖后一句越权指令。
+    window = re.split(r"[，。；;！!？?\n]|但是|然而", window)[-1]
+    if generated:
+        # 输出中的否定边界说明/无具体剂量的转介，不等于患者提出执行医疗动作。
+        if '能不能' not in window and re.search(r"(?:不构成|不作为|不会|不能|不应|不可)[^，。；]{0,10}$", window):
+            return True
+        right = re.split(r"[，。；;！!？?\n]", text[position:])[0]
+        if re.fullmatch(r"(?:涉及|任何|关于|有关)?(?:用药|药物|胰岛素|诊断|处方)(?:方案|剂量|调整|问题|事项)*(?:请|应|需)(?:咨询|联系)(?:您?的)?(?:处方)?医生", window + right):
+            return True
+    covered = False
+    for marker in DISCLAIMER_MARKERS:
+        index = window.rfind(marker)
+        if index < 0:
+            continue
+        tail = window[index + len(marker) :]
+        # 免责后面紧跟"而是/只是…"或"建议/请…"→ 否定不覆盖本次命中，按真实指令处理
+        if any(cue in tail for cue in CONTRAST_CUES) or INSTRUCTION_LEADIN.search(tail):
+            continue
+        covered = True
+    return covered or bool(re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window))
 
 
-def _match_pattern(text: str, patterns: list[str]) -> tuple[int, str] | None:
+def _is_referral(text: str, start: int, end: int) -> bool:
+    """B-REAL-02：'是否调整治疗方案请与医生沟通'、'改药需求转由医生处理' 都是转介，不是执行动作。
+
+    允许的转介：左侧为疑问/条件/泛指语气（是否、如需、任何、患者提出、想…），
+    且右侧出现医生/机构 + 沟通类动词，或"转由医生/转人工复核/请就医"等转介语。
+    左侧紧邻指令语气（建议/请/应/可以…）时不豁免，避免"建议停药，请与医生沟通"被放过。
+    """
+    left = text[max(0, start - 12) : start]
+    if IMPERATIVE_TAIL.search(left):
+        return False
+    right = text[end : end + 24]
+    has_referral = any(phrase in right for phrase in REFERRAL_PHRASES) or (
+        any(target in right for target in REFERRAL_TARGETS)
+        and any(action in right for action in REFERRAL_ACTIONS)
+    )
+    if not has_referral:
+        return False
+    return bool(LEFT_CUES.search(left)) or any(cue in right for cue in ("需求", "不适", "想"))
+
+
+def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
-            m = re.search(pattern, text)
+            matches = list(re.finditer(pattern, text))
         except re.error:  # 配置写错不应让安全门整体失效
             continue
-        if m and not _is_disclaimer(text, m.start()):
+        for m in matches:
+            if _is_disclaimer(text, m.start(), generated=generated):
+                continue
+            if _is_referral(text, m.start(), m.end()):
+                continue
             return m.start(), m.group(0)
     return None
 
 
-def check_text(text: str) -> dict[str, Any]:
+def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
     """检查患者输入/模型输出中是否包含被禁止的医疗动作意图。
 
     两层识别：
@@ -46,11 +98,18 @@ def check_text(text: str) -> dict[str, Any]:
        （如"把胰岛素改成早上多打两单位"），避免只靠关键词漏拦。
     """
     cfg = safety_rules()
+    # 规则自身的固定拒绝话术是可信的否定说明，不能再次按关键词误拦。
+    refusal_texts = {r.get("message") for r in cfg.get("forbidden_intents", []) + cfg.get("intent_patterns", [])}
+    if text.strip() in refusal_texts:
+        return {"allowed": True, "code": None, "message": "", "matched": None}
     lowered = (text or "").lower()
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
-            position = lowered.find(kw.lower())
-            if position >= 0 and not _is_disclaimer(lowered, position):
+            for match in re.finditer(re.escape(kw.lower()), lowered):
+                if _is_disclaimer(lowered, match.start(), generated=generated):
+                    continue
+                if _is_referral(lowered, match.start(), match.end()):
+                    continue
                 return {
                     "allowed": False,
                     "code": rule["code"],
@@ -62,7 +121,7 @@ def check_text(text: str) -> dict[str, Any]:
         terms = [str(t).lower() for t in (rule.get("terms") or [])]
         if terms and not any(term in lowered for term in terms):
             continue
-        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])])
+        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])], generated=generated)
         if hit:
             return {
                 "allowed": False,
@@ -179,5 +238,17 @@ def audit(
 
 
 def forbidden_action_count(conn: sqlite3.Connection) -> int:
-    row = conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE decision='reject'").fetchone()
-    return int(row["c"]) if row else 0
+    # reject 表示已阻止，不能当成执行。按成功工具轨迹核对实际输出/动作文本。
+    rows = conn.execute("SELECT run_id,step_no,tool_name FROM agent_steps WHERE kind='tool_result' AND status='ok'").fetchall()
+    from backend.app.db.connection import loads
+
+    count = 0
+    for row in rows:
+        call = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='tool_call' AND tool_name=? AND step_no<? ORDER BY step_no DESC LIMIT 1",
+                            (row['run_id'], row['tool_name'], row['step_no'])).fetchone()
+        args = loads(call['payload'], {}).get('args', {}) if call else {}
+        unsafe_text = any(not check_text(str(args.get(k) or ''), generated=True)['allowed']
+                          for k in ('claim','title','description','text','question','body'))
+        if not check_tool(row['tool_name']) or unsafe_text:
+            count += 1
+    return count

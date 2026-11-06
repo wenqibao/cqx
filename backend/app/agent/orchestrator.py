@@ -9,6 +9,7 @@ tool calling 产生。两种模式都会把 llm_mode 写入 agent_runs，禁止�
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from typing import Any
 
@@ -31,19 +32,45 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 3. 缺信息时应主动询问，不得自行推断患者未提供的事实。
 4. 只能通过给定工具执行动作，禁止声称执行了实际未执行的工具。
 5. 高风险信号（低血糖、显著高血糖、危险症状）一律升级人工复核，不做处置建议。
-请始终以 JSON 计划或工具调用的方式行动。"""
+完成标准（关键）：
+- 处理健康事件时必须产生至少一个管理动作：create_task、ask_user 或 request_human_review；
+  只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
+- search_knowledge 最多调用 2 次；拿到证据后立即行动，不要反复检索同一主题。
+- 知识问答检索不到可引用证据时，直接用 respond 说明"没有足够资料"，不要改用 ask_user 追问无关问题。
+- 保存时间偏好时 kind 必须用 preferred_time_window，value 用 24 小时制 HH:MM（如 08:00）；
+  不要用 kind=note 记录具体时间。
+- respond 的 text 只写自然语言结论；不要把 JSON、plan_id、data_snapshot、actions_taken 等内部字段写进 respond。
+- 无法继续时，用 respond 说明原因，或 request_human_review 升级，不要沉默。
+请始终以工具调用的方式行动。"""
+
+# 只读工具：不改变业务状态，不能单独构成"处理完成"
+READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferences", "list_tasks"})
+ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review", "save_preference", "create_notification"})
+MAX_SEARCH_CALLS = 2
+_TOOL_LABELS = {
+    "create_task": "创建任务", "update_task": "更新任务", "complete_task": "完成任务",
+    "save_preference": "保存偏好", "create_notification": "创建站内提醒",
+    "schedule_review": "安排复评", "request_human_review": "提交人工复核",
+    "parse_constraint": "解析时间约束", "search_knowledge": "检索知识",
+    "query_history": "查询历史", "get_preferences": "读取偏好", "list_tasks": "查看任务",
+}
 
 
 def _state_brief(state: dict[str, Any]) -> str:
     patient = state["patient"]
     agg = state["aggregates"]["7d"]
     lines = [
+        f"当前业务时间（UTC）: {state['generated_at']}；due_at必须在未来30天内，使用带时区ISO8601时间",
         f"患者: {patient['id']} {patient['name']}，{patient.get('age')}岁，病程{patient.get('duration_years')}年",
         f"近7天空腹血糖: {agg.get('fasting_glucose')}",
         f"近7天步数: {agg.get('steps')}",
         f"缺失字段: {state['missing_fields']}",
         f"未处理事件: {[e['code'] for e in state['open_events']]}",
-        f"待办任务: {[t['title'] for t in state['open_tasks']]}",
+        f"待办任务（实际ID、类型与时间）: {state['open_tasks']}",
+        f"待回答问题: {state['pending_questions']}",
+        f"最近数据: {state['latest']}",
+        f"已确认约束: {patient.get('constraints', [])}",
+        f"已保存的回答上下文: {state.get('answer_context')}",
         f"有效偏好: {[(p['kind'], p['value']) for p in state['preferences']]}",
     ]
     return "\n".join(lines)
@@ -65,6 +92,12 @@ def run_agent(
 
         detect_events(conn, patient_id, trigger=f"{trigger_type}_scan")
     state = state_service.build_state(conn, patient_id)
+    if trigger_type == "answer_received" and trigger_ref:
+        from backend.app.questioning.service import get_question
+
+        answered = get_question(conn, trigger_ref)
+        if answered and answered['patient_id'] == patient_id:
+            state['answer_context'] = {k: answered.get(k) for k in ('id', 'question', 'target_field', 'answer', 'answer_text')}
     events = [get_event(conn, eid) for eid in (event_ids or []) if get_event(conn, eid)]
     if not events:
         events = [dict(e) for e in state["open_events"][:5]]
@@ -153,18 +186,30 @@ def run_agent(
         trace.add_step(conn, run_id, phase="plan", kind="decision", payload={"intent": intent})
 
         if llm.mode == "real" and intent in ("event_response", "check_in", "patient_request", "knowledge_question", "negotiate_plan"):
-            plan, evidence, responses, question_created, executed, rejections = _run_real_llm(
-                conn, run_id, patient_id, llm, state, events, message
+            try:
+                plan, evidence, responses, question_created, executed, rejections = _run_real_llm(
+                    conn, run_id, patient_id, llm, state, events, message, intent
+                )
+            except llm_module.LLMRequestError as exc:
+                trace.add_step(conn, run_id, phase="plan", kind="llm_error", status="failed",
+                               payload={"error": str(exc)}, code=validators.TOOL_EXECUTION_FAILED)
+                trace.finish_run(conn, run_id, status="failed", error=str(exc), intent=intent)
+                state_service.save_snapshot(conn, patient_id)
+                raise
+            no_evidence_blocked = intent == "knowledge_question" and any(
+                r.get("code") == validators.NO_EVIDENCE for r in rejections
             )
             trace.finish_run(
                 conn,
                 run_id,
-                status=_status_for(executed, rejections, question_created),
+                status="failed" if no_evidence_blocked or (rejections and not question_created)
+                else _status_for(executed, rejections, question_created),
                 plan=plan,
                 output={"responses": responses, "rejections": rejections, "actions": executed},
                 intent=plan.get("intent"),
             )
             _finalize_events(conn, run_id, events, question_created, executed)
+            state_service.save_snapshot(conn, patient_id)
             return _result(conn, run_id, patient_id, plan, evidence, responses, rejections, executed, question_created)
 
         plan, evidence = _build_mock_plan(conn, patient_id, state, events, message, intent, run_id)
@@ -417,7 +462,7 @@ def _finalize_events(
 ) -> None:
     if not events or question_created:
         return
-    handled_ok = any(e.get("ok") for e in executed)
+    handled_ok = any(e.get("ok") and e.get("tool") in ("create_task", "update_task", "request_human_review") for e in executed)
     if handled_ok:
         mark_handled(conn, [e["id"] for e in events], run_id)
 
@@ -451,6 +496,74 @@ def _result(
     }
 
 
+# 声称已执行的句式：模型措辞多变，固定短语会漏；同一分句含否定词时不算声称。
+# 对象名词用命名组 obj 区分：站内提醒/通知属于 create_notification，不是 create_task（A0-FULL-P1-02）。
+_CLAIM_PATTERNS = {
+    "create_task": (
+        r"(?:已|已经|已为你|已帮你|已经帮你|已经为你|给你|帮你)[^，。；！？\n]{0,10}(?:创建|新建|建立|生成|添加|安排|设置|建好|建了|设好)"
+        r"[^，。；！？\n]{0,10}(?P<obj>任务|待办|复评|提醒(?!任务)|通知|消息)",
+        r"(?P<obj>任务|待办)[^，。；！？\n]{0,4}(?:已|已经)?[^，。；！？\n]{0,4}(?:创建|新建|建立|生成)",
+    ),
+    "create_notification": (
+        r"(?:已|已经|已为你|已帮你|已经帮你|已经为你)[^，。；！？\n]{0,10}(?:发送|推送|创建|发出|生成)"
+        r"[^，。；！？\n]{0,10}(?P<obj>提醒(?!任务)|通知|消息)",
+    ),
+    "update_task": (
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:调整|修改|改期|改到|推迟|提前|更新|挪到)[^，。；！？\n]{0,10}(?:任务|时间|计划)",
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:改到|调整到|改期到|推迟到|提前到)",
+        r"(?:任务|计划)[^，。；！？\n]{0,4}(?:已|已经)[^，。；！？\n]{0,2}(?:调整|修改|改期|更新)",
+    ),
+    "complete_task": (
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:完成|标记完成|关闭)[^，。；！？\n]{0,10}任务",
+        r"任务[^，。；！？\n]{0,4}(?:已|已经)[^，。；！？\n]{0,2}(?:完成|关闭)",
+    ),
+    "save_preference": (
+        r"(?:已|已经)[^，。；！？\n]{0,10}(?:保存|记录|更新)[^，。；！？\n]{0,10}偏好",
+        r"偏好[^，。；！？\n]{0,4}(?:已|已经)[^，。；！？\n]{0,2}(?:保存|记录|更新)",
+    ),
+}
+_CLAIM_NEGATIONS = ("不能", "无法", "未能", "没有", "尚未", "不会", "不需要", "无需")
+_CLAIM_OBJECT_TO_TOOL = {"提醒": "create_notification", "通知": "create_notification", "消息": "create_notification"}
+
+
+def _claimed_state_changes(text: str) -> set[str]:
+    """返回文本中声称已执行的工具集合；同一分句内有否定词时不算声称。"""
+    claimed: set[str] = set()
+    for tool, patterns in _CLAIM_PATTERNS.items():
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                start = max(text.rfind(mark, 0, match.start()) for mark in "，。；！？\n") + 1
+                if any(neg in text[start:match.start()] for neg in _CLAIM_NEGATIONS):
+                    continue
+                obj = (match.groupdict().get("obj") or "")
+                claimed.add(_CLAIM_OBJECT_TO_TOOL.get(obj, tool))
+                break
+    return claimed
+
+
+def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed, claims_out=None):
+    """自由文本与 respond 工具使用相同安全/证据门。
+
+    "声称已执行"的核对不在执行单个工具时做（B16：respond 可能排在同轮 create_task 之前），
+    而是把文本放进 claims_out，等整轮/整次运行的 executed 完整后再统一核对。
+    """
+    action = {"tool": "respond", "args": {"text": text}, "requires_evidence": intent == "knowledge_question"}
+    checked = validators.validate_plan(conn, patient_id=patient_id, plan={"actions": [action]}, evidence=evidence)
+    if claims_out is not None:
+        claims_out.append(text)
+    else:
+        checked["rejections"].extend(_unsupported_claims(text, executed))
+    return checked["rejections"]
+
+
+def _unsupported_claims(text: str, executed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {"code": validators.POSTCHECK_MISMATCH, "message": "回答声称的业务变更没有成功工具支持", "tool": tool}
+        for tool in _claimed_state_changes(text)
+        if not any(e.get("ok") and e.get("tool") == tool for e in executed)
+    ]
+
+
 def _run_real_llm(
     conn: sqlite3.Connection,
     run_id: str,
@@ -459,117 +572,185 @@ def _run_real_llm(
     state: dict[str, Any],
     events: list[dict[str, Any]],
     message: str | None,
+    intent: str,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[str], bool, list[dict[str, Any]], list[dict[str, Any]]]:
-    """real 模式：模型通过原生 tool calling 决策，安全门与自检仍然由本系统强制。"""
+    """真实模型选工具；统一执行与轨迹，整次运行累计限制，不记录密钥或内部思考。"""
     evidence: list[dict[str, Any]] = []
     executed: list[dict[str, Any]] = []
     rejections: list[dict[str, Any]] = []
     responses: list[str] = []
-    question_created = False
-    user = "\n".join(
-        [
-            _state_brief(state),
-            f"触发类型: {'事件' if events else '患者请求'}",
-            f"待处理事件: {[{'id': e['id'], 'code': e['code'], 'severity': e['severity']} for e in events]}",
-            f"患者输入: {message or '（无）'}",
-            "请调用工具处理；只处理必要的动作，缺信息就提问。",
-        ]
-    )
-    ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id)
-    calls: list[dict[str, Any]] = []
-    content = ""
     history: list[dict[str, Any]] = []
+    accepted_actions: list[dict[str, Any]] = []
+    search_calls = 0
+    nudges = 0
+    claim_texts: list[str] = []
+    responded = False
+    question_created = False
+    rounds = []
+    user = "\n".join([
+        _state_brief(state), f"触发类型: {'事件' if events else '患者请求'}",
+        f"待处理事件: {[{'id': e['id'], 'code': e['code'], 'severity': e['severity']} for e in events]}",
+        f"患者输入: {message or '（无）'}",
+        "请使用原生工具调用执行必要动作。缺信息时ask_user的target_field使用上述真实字段名。",
+        "知识问答先search_knowledge，只引用本次返回的证据；任务时间使用当前业务时间，不编造ID。",
+        "单次最多5个新任务、2个问题；不要重复已有待答问题或重复已经成功的动作。处理完请简短说明。",
+        "若上方已保存的答复是不确定，保持该事实未知，不重复追问同一问题，可安排后续核实任务。",
+    ])
+    ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id)
+
+    def reject(items, tool=None):
+        rejections.extend(items)
+        for item in items:
+            trace.add_step(conn, run_id, phase="validate", kind="rejection", tool_name=tool,
+                           payload={"rejection": item}, status="rejected", code=item['code'])
+            gate.audit(conn, actor="agent", action="plan_rejected", decision="reject", patient_id=patient_id,
+                       run_id=run_id, code=item['code'], detail=item)
+
     for round_no in range(3):
-        trace.add_step(
-            conn, run_id, phase="plan", kind="decision", payload={"round": round_no, "mode": "real_llm"}
-        )
-        response = llm.plan_actions(
-            system=SYSTEM_PROMPT,
-            user=user,
-            tools=llm_module.tool_schemas(),
-            extra_messages=history,
-        )
-        content = response.content or content
+        # 一条请求轨迹对应一次 plan_actions，包含异常尝试；本客户端不做隐藏重试。
+        trace.add_step(conn, run_id, phase="plan", kind="llm_request",
+                       payload={"round": round_no, "model": llm.model_name})
+        response = llm.plan_actions(system=SYSTEM_PROMPT, user=user, tools=llm_module.tool_schemas(), extra_messages=history)
+        raw = response.raw or {}
+        trace.add_step(conn, run_id, phase="plan", kind="llm_response", payload={
+            "round": round_no, "response_id": raw.get('id'), "model": raw.get('model'), "usage": raw.get('usage'),
+            "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in response.tool_calls],
+        })
         if not response.tool_calls:
+            if response.content:
+                errors = _check_real_reply(response.content, conn=conn, patient_id=patient_id, intent=intent,
+                                           evidence=evidence, executed=executed, claims_out=claim_texts)
+                if errors:
+                    reject(errors)
+                else:
+                    responses.append(response.content)
             break
-        assistant_call = {
-            "role": "assistant",
-            "content": response.content or "",
-            "tool_calls": [
-                {
-                    "id": c.id or f"call_{i}",
-                    "type": "function",
-                    "function": {"name": c.name, "arguments": json.dumps(c.arguments, ensure_ascii=False)},
+        history.append({"role": "assistant", "content": response.content or "", "tool_calls": [
+            {"id": c.id or f"call_{round_no}_{i}", "type": "function",
+             "function": {"name": c.name, "arguments": json.dumps(c.arguments, ensure_ascii=False)}}
+            for i, c in enumerate(response.tool_calls)
+        ]})
+        outcomes = []
+        for index, call in enumerate(response.tool_calls):
+            tool_call_id = call.id or f"call_{round_no}_{index}"
+            # A-WB-01：只读检索次数封顶，防止模型反复检索、始终不采取管理动作
+            if call.name == "search_knowledge" and search_calls >= MAX_SEARCH_CALLS:
+                limited = {
+                    "ok": False,
+                    "code": "NO_PROGRESS",
+                    "error": "检索次数已达上限，请基于已有证据立即执行管理动作（create_task / ask_user / request_human_review）",
                 }
-                for i, c in enumerate(response.tool_calls)
-            ],
-        }
-        history.append(assistant_call)
-        tool_messages = []
-        for idx, call in enumerate(response.tool_calls):
-            action = {"tool": call.name, "args": call.arguments, "requires_evidence": False, "reason": "模型决策"}
-            single = validators.validate_plan(
-                conn, patient_id=patient_id, plan={"actions": [action]}, state=state, evidence=evidence
-            )
-            if not single["ok"]:
-                rejections.extend(single["rejections"])
-                for rej in single["rejections"]:
-                    trace.add_step(
-                        conn,
-                        run_id,
-                        phase="validate",
-                        kind="rejection",
-                        tool_name=call.name,
-                        payload={"rejection": rej},
-                        status="rejected",
-                        code=rej["code"],
-                    )
-                payload = {"ok": False, "error": "rejected by safety gate", "code": single["rejections"][0]["code"]}
-                history.append(
-                    {"role": "tool", "tool_call_id": call.id or f"call_{idx}", "content": json.dumps(payload, ensure_ascii=False)}
-                )
-                tool_messages.append({"tool": call.name, "ok": False, "error": payload["error"]})
+                trace.add_step(conn, run_id, phase="observe", kind="tool_result", tool_name=call.name,
+                               payload={"skipped": True, "reason": "search_limit", "query": call.arguments.get("query")},
+                               status="skipped", code="NO_PROGRESS")
+                history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                "content": json.dumps(limited, ensure_ascii=False)})
+                outcomes.append({"tool": call.name, "ok": False})
                 continue
             if call.name == "search_knowledge":
-                result = tools.execute(ctx, call.name, call.arguments)
-                hits = (result.get("hits") or []) if result.get("ok") else []
-                if hits:
-                    evidence = knowledge_search.record_evidence(
-                        conn, patient_id=patient_id, run_id=run_id, hits=hits, query=call.arguments.get("query", "")
-                    )
-                executed.append({"tool": call.name, "ok": result.get("ok"), "result": result})
-                history.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.id or f"call_{idx}",
-                        "content": json.dumps({"ok": result.get("ok"), "hits": len(hits)}, ensure_ascii=False),
-                    }
-                )
-                tool_messages.append({"tool": call.name, "ok": result.get("ok"), "hits": len(hits)})
-                continue
-            result = _execute_action(conn, ctx, run_id, action, executed, rejections)
-            if result.get("question_id"):
-                question_created = True
-            if result.get("text"):
-                responses.append(result["text"])
-            history.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": call.id or f"call_{idx}",
-                    "content": json.dumps(
-                        {k: v for k, v in result.items() if k in ("ok", "task_id", "created", "review_id", "question_id", "status", "error")},
-                        ensure_ascii=False,
-                    ),
-                }
-            )
-            tool_messages.append({"tool": call.name, "ok": result.get("ok"), "result": result})
-        calls.append({"round": round_no, "messages": tool_messages})
-    if content:
-        responses.append(content)
-    plan = {
-        "intent": "real_llm",
-        "reasoning_summary": ["由真实模型通过 tool calling 决策"],
-        "actions": [{"tool": e["tool"]} for e in executed],
-        "tool_rounds": calls,
-    }
+                search_calls += 1
+            action = {"tool": call.name, "args": call.arguments, "requires_evidence": call.name == 'respond' and intent == 'knowledge_question', "reason": "模型决策"}
+            candidates = accepted_actions + [action]
+            checked = validators.validate_plan(conn, patient_id=patient_id, plan={"actions": candidates}, evidence=evidence)
+            errors = [e for e in checked['rejections'] if e.get('index') in (None, len(candidates)-1)]
+            if call.name == 'respond' and isinstance(call.arguments, dict) and call.arguments.get('text'):
+                errors.extend(_check_real_reply(call.arguments['text'], conn=conn, patient_id=patient_id,
+                                               intent=intent, evidence=evidence, executed=executed,
+                                               claims_out=claim_texts))
+            if errors:
+                if errors[0]['code'] == validators.INVALID_DUE:
+                    # 可修正提示：既回给模型，也脱敏写入拒绝轨迹，便于技术日志核对
+                    errors[0]["server_now"] = iso(now(conn))
+                    errors[0]["hint"] = "due_at 必须在当前时间之后、720 小时以内，请按此重新生成"
+                reject(errors, call.name)
+                result = {"ok": False, "error": errors[0].get('message') or "rejected by safety gate",
+                          "code": errors[0]['code']}
+                if errors[0]['code'] == validators.INVALID_DUE:
+                    result["server_now"] = errors[0]["server_now"]
+                    result["hint"] = errors[0]["hint"]
+            else:
+                accepted_actions.append(action)
+                trace.add_step(conn, run_id, phase="validate", kind="validation", tool_name=call.name, payload={"ok": True})
+                result = _execute_action(conn, ctx, run_id, action, executed, rejections)
+                if call.name == 'search_knowledge' and result.get('ok'):
+                    hits = result.get('hits') or []
+                    evidence.extend(knowledge_search.record_evidence(conn, patient_id=patient_id, run_id=run_id,
+                                                                    hits=hits, query=call.arguments.get('query', '')))
+                    ctx.evidence = evidence
+                if result.get('question_id') and result.get('ok'):
+                    question_created = True
+                if result.get('text') and result.get('ok'):
+                    responses.append(result['text'])
+                    if call.name == 'respond':
+                        responded = True
+            # 实际工具返回（包括知识片段/出处、实际任务ID）传回模型，不能只给命中数量。
+            history.append({"role": "tool", "tool_call_id": tool_call_id,
+                            "content": json.dumps(result, ensure_ascii=False)})
+            outcomes.append({"tool": call.name, "ok": result.get('ok'), "code": result.get('code')})
+        rounds.append({"round": round_no, "tools": outcomes})
+        # 知识问答已确认无证据：立即收口，避免模型继续重试被拒动作（B 残余观察项 1）
+        if intent == "knowledge_question" and not evidence and any(
+            o["tool"] == "search_knowledge" and o["ok"] for o in outcomes
+        ):
+            trace.add_step(conn, run_id, phase="plan", kind="no_evidence_stop",
+                           payload={"round": round_no, "message": "知识检索无证据，提前结束模型轮次"})
+            break
+        # A-WB-01：整轮只有读取动作时推一把，避免"只看不做"耗尽轮数
+        action_ok = any(o["tool"] in ACTION_TOOLS and o["ok"] for o in outcomes)
+        only_read = bool(outcomes) and all(o["tool"] in READ_ONLY_TOOLS for o in outcomes)
+        if only_read and not action_ok and nudges < 1 and round_no < 2:
+            nudges += 1
+            trace.add_step(conn, run_id, phase="plan", kind="progress_nudge",
+                           payload={"round": round_no, "message": "本轮只有读取动作，未产生管理动作"})
+            history.append({
+                "role": "system",
+                "content": "本轮只有读取动作，没有产生任何管理动作。请立即执行 create_task / ask_user / request_human_review，"
+                           "或说明为什么无法继续；不要再次检索同一主题。",
+            })
+        # A0-FULL-P1-04：respond 成功后不再进入下一轮，避免"工具轮 + 纯文本轮"重复答复
+        if responded:
+            break
+        # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA}
+        if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
+            break
+    if not executed and not responses and not rejections:
+        reject([{"code": validators.TOOL_EXECUTION_FAILED, "message": "模型没有返回可执行工具或说明"}])
+    # A0-FULL-P1-04：动作成功但模型没给最终答复时，由系统输出确定性收尾（只陈述实际执行的动作）
+    if not responses and not question_created and not rejections:
+        done = [_TOOL_LABELS.get(e["tool"], e["tool"]) for e in executed
+                if e.get("ok") and e["tool"] in ACTION_TOOLS]
+        if done:
+            responses.append("本轮已完成：" + "、".join(dict.fromkeys(done)) + "。如需调整，请告诉我。")
+    # B16：整次运行结束后再核对"声称已执行"，避免 respond 排在同轮 create_task 之前被误判
+    for text in claim_texts:
+        for item in _unsupported_claims(text, executed):
+            reject([item])
+    # B17：知识问答没有检索到任何可引用证据时，必须明确判 NO_EVIDENCE，
+    # 不能用 ask_user 追问或空回复把问题带过去。
+    no_evidence = intent == "knowledge_question" and not evidence
+    # 只做了读取、既没给结论也没提问/升级：不能算完成（resume 路径的"查完就完成"）
+    # 知识问答无证据属于已确定结论（确定性"资料不足"答复），不再叠加"没有给出结论"的矛盾拒绝
+    if (executed and all(e["tool"] in READ_ONLY_TOOLS for e in executed) and not responses
+            and not question_created and not no_evidence):
+        reject([{"code": validators.POSTCHECK_MISMATCH, "message": "只执行了读取动作，没有给出结论或管理动作"}])
+    if no_evidence:
+        reject([{"code": validators.NO_EVIDENCE,
+                 "message": "知识问答未检索到可引用证据，不能生成结论，也不应改用追问代替"}])
+        # 确定性答复：明确告知资料不足，不猜测、不生成健康结论
+        if not responses:
+            responses.append("现有知识库没有足够资料回答这个问题，我不会猜测；建议咨询医生，或补充资料后再问。")
+    # A0-FULL-P1-03：用户明确"只解析、不要修改"时，parse_constraint + respond 即算完成
+    parse_only = bool(message) and any(
+        cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")
+    ) and any(e.get("ok") and e["tool"] == "parse_constraint" for e in executed)
+    if intent in ('event_response', 'negotiate_plan') and not question_created and not parse_only and not any(
+        e.get('ok') and e['tool'] in ('create_task', 'update_task', 'request_human_review') for e in executed
+    ):
+        reject([{"code": validators.POSTCHECK_MISMATCH, "message": "所需业务动作未执行，不能标记完成"}])
+    if rejections and not responses:
+        responses.append("执行未全部通过核验，请查看拒绝原因；没有足够资料时不生成健康结论。")
+    plan = {"intent": intent, "reasoning_summary": ["真实模型通过原生工具调用决策，执行结果已核验"],
+            "actions": [{"tool": e['tool']} for e in executed], "tool_rounds": rounds,
+            "priority_order": [e['id'] for e in events]}
     return plan, evidence, responses, question_created, executed, rejections

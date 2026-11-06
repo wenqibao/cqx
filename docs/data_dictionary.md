@@ -138,7 +138,9 @@
 ## audit_log（F13/F14）
 
 `actor`（agent/patient/system）、`action`、`decision`（`allow` / `reject` / `escalate` / `info`）、`code`、`detail`。
-`decision='reject'` 的条数即"被拦截的越权/无效动作数"，B 的发布闸门要求**实际执行的禁止动作为 0**。
+`decision='reject'` 是**拦截**记录，不等于执行。`GET /api/system/audit` 分开返回：
+`forbidden_executed`（成功工具调用中出现越权工具/动作文本的次数，必须是 0）、
+`blocked_total`（拒绝条数，随拦截增加）与 `checked_tool_results`（本次计数覆盖的工具结果数，便于交叉核查）。
 
 ## 拒绝码（`backend/app/safety/validators.py`）
 

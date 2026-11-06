@@ -147,6 +147,8 @@ def test_no_evidence_stops_further_actions(conn):
     assert any(r["code"] == "NO_EVIDENCE" for r in result["rejections"])
     assert conn.execute("SELECT COUNT(*) c FROM tasks").fetchone()["c"] == 0, "无证据后不应再执行建任务"
     assert any("没有足够资料" in r for r in result["responses"])
+    # 只保留与事实一致的 NO_EVIDENCE，不再叠加"只读无结论"矛盾拒绝
+    assert {r["code"] for r in result["rejections"]} == {"NO_EVIDENCE"}, result["rejections"]
 
 
 def test_past_due_returns_correctable_hint_then_model_retries(conn):
@@ -167,3 +169,7 @@ def test_past_due_returns_correctable_hint_then_model_retries(conn):
     assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='DUE1'").fetchone()["c"] == 1
     second_round = " ".join(str(m) for m in llm.seen[1])
     assert "INVALID_DUE" in second_round and "hint" in second_round
+    # 脱敏后的可修正提示也要留在持久化轨迹里，供技术日志核对
+    step = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND code='INVALID_DUE' LIMIT 1",
+                        (result["run_id"],)).fetchone()
+    assert step and "hint" in step["payload"]

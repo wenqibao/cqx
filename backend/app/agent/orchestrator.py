@@ -658,13 +658,16 @@ def _run_real_llm(
                                                intent=intent, evidence=evidence, executed=executed,
                                                claims_out=claim_texts))
             if errors:
+                if errors[0]['code'] == validators.INVALID_DUE:
+                    # 可修正提示：既回给模型，也脱敏写入拒绝轨迹，便于技术日志核对
+                    errors[0]["server_now"] = iso(now(conn))
+                    errors[0]["hint"] = "due_at 必须在当前时间之后、720 小时以内，请按此重新生成"
                 reject(errors, call.name)
                 result = {"ok": False, "error": errors[0].get('message') or "rejected by safety gate",
                           "code": errors[0]['code']}
                 if errors[0]['code'] == validators.INVALID_DUE:
-                    # 给模型可修正的窗口，而不是只回一个错误码
-                    result["server_now"] = iso(now(conn))
-                    result["hint"] = "due_at 必须在当前时间之后、720 小时以内，请按此重新生成"
+                    result["server_now"] = errors[0]["server_now"]
+                    result["hint"] = errors[0]["hint"]
             else:
                 accepted_actions.append(action)
                 trace.add_step(conn, run_id, phase="validate", kind="validation", tool_name=call.name, payload={"ok": True})
@@ -723,12 +726,15 @@ def _run_real_llm(
     for text in claim_texts:
         for item in _unsupported_claims(text, executed):
             reject([item])
-    # 只做了读取、既没给结论也没提问/升级：不能算完成（resume 路径的"查完就完成"）
-    if executed and all(e["tool"] in READ_ONLY_TOOLS for e in executed) and not responses and not question_created:
-        reject([{"code": validators.POSTCHECK_MISMATCH, "message": "只执行了读取动作，没有给出结论或管理动作"}])
     # B17：知识问答没有检索到任何可引用证据时，必须明确判 NO_EVIDENCE，
     # 不能用 ask_user 追问或空回复把问题带过去。
-    if intent == "knowledge_question" and not evidence:
+    no_evidence = intent == "knowledge_question" and not evidence
+    # 只做了读取、既没给结论也没提问/升级：不能算完成（resume 路径的"查完就完成"）
+    # 知识问答无证据属于已确定结论（确定性"资料不足"答复），不再叠加"没有给出结论"的矛盾拒绝
+    if (executed and all(e["tool"] in READ_ONLY_TOOLS for e in executed) and not responses
+            and not question_created and not no_evidence):
+        reject([{"code": validators.POSTCHECK_MISMATCH, "message": "只执行了读取动作，没有给出结论或管理动作"}])
+    if no_evidence:
         reject([{"code": validators.NO_EVIDENCE,
                  "message": "知识问答未检索到可引用证据，不能生成结论，也不应改用追问代替"}])
         # 确定性答复：明确告知资料不足，不猜测、不生成健康结论

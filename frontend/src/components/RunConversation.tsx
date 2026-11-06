@@ -2,8 +2,12 @@ import { Button, Tag } from "antd";
 import { Link } from "react-router-dom";
 import { api } from "../api/workbench";
 import { useResource } from "../hooks/useResource";
-import { array, link, obj } from "../utils/format";
-import { businessText, relatedQuestions } from "../utils/business";
+import { link, obj } from "../utils/format";
+import {
+  businessText,
+  relatedQuestions,
+  runResponses,
+} from "../utils/business";
 
 // 仅展示本次运行的原始消息和问题。待回答入口以真实问题状态为准，读取不触发Agent。
 export function RunConversation({
@@ -30,9 +34,7 @@ export function RunConversation({
     waiting && !resource.loading && !resource.error
       ? related.filter((q) => q.status === "waiting")
       : [];
-  const responses = array(obj(run.output).responses ?? run.responses).filter(
-    (v): v is string => typeof v === "string" && !!v.trim(),
-  );
+  const responses = runResponses(run);
   const message = obj(run.input).message;
   return (
     <section className="run-conversation" aria-label="本次沟通">

@@ -37,6 +37,7 @@ import {
   runNarrative,
   actionSummary,
   relatedQuestions,
+  runResponses,
 } from "../../utils/business";
 export { toolDescriptions } from "../../utils/business";
 export default function Agent() {
@@ -349,6 +350,7 @@ export function TraceView({ trace: t }: { trace: Trace }) {
     pid = run.patient_id;
   const narrative = runNarrative(run, t);
   const results = t.steps.filter((s) => s.kind === "tool_result");
+  const responses = runResponses(run);
   const reasons = array(output.rejections).map((r) =>
     businessText(obj(r).message, businessName(obj(r).code)),
   );
@@ -395,7 +397,12 @@ export function TraceView({ trace: t }: { trace: Trace }) {
             <List.Item>
               <List.Item.Meta
                 title={businessName(s.tool_name)}
-                description={actionSummary(s.tool_name, s.payload, s.status)}
+                description={actionSummary(
+                  s.tool_name,
+                  s.payload,
+                  s.status,
+                  responses,
+                )}
               />
               <Status
                 value={

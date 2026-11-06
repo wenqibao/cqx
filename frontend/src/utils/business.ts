@@ -65,10 +65,17 @@ export function businessName(value: unknown): string {
   );
 }
 
+export function runResponses(run: Record<string, unknown>): string[] {
+  return array(obj(run.output).responses ?? run.responses).filter(
+    (value): value is string => typeof value === "string" && !!value.trim(),
+  );
+}
+
 export function actionSummary(
   tool: string | null,
   payload: Record<string, unknown>,
   status: string,
+  displayedReplies: readonly string[] = [],
 ) {
   const result = obj(payload.result),
     check = obj(payload.post_check);
@@ -84,7 +91,16 @@ export function actionSummary(
   if (task.title || question.question)
     return businessText(task.title || question.question);
   if (typeof result.question === "string") return businessText(result.question);
-  if (result.text) return businessText(result.text);
+  const reply = result.text;
+  if (typeof reply === "string" && reply.trim()) {
+    if (
+      tool === "respond" &&
+      displayedReplies.some((text) => text.trim() === reply.trim())
+    ) {
+      return "已给出回复";
+    }
+    return businessText(reply);
+  }
   if (tool === "search_knowledge")
     return result.found === false
       ? "未检索到匹配依据"

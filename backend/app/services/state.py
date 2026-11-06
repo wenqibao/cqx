@@ -14,13 +14,14 @@ METRICS = ("fasting_glucose", "postprandial_glucose", "steps", "weight", "medica
 
 def _records_since(conn: sqlite3.Connection, patient_id: str, since: datetime) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT * FROM health_records WHERE patient_id=? AND recorded_at>=? ORDER BY recorded_at",
-        (patient_id, iso(since)),
+        "SELECT * FROM health_records WHERE patient_id=? AND recorded_at>=? AND recorded_at<=? ORDER BY recorded_at",
+        (patient_id, iso(since), iso(now(conn))),
     ).fetchall()
 
 
 def _aggregate(rows: list[sqlite3.Row], kind: str) -> dict[str, Any]:
-    vals = [r["value"] for r in rows if r["kind"] == kind and r["value"] is not None]
+    kind_rows = [r for r in rows if r["kind"] == kind and r["value"] is not None]
+    vals = [r["value"] for r in kind_rows]
     if not vals:
         return {"count": 0}
     return {
@@ -29,7 +30,7 @@ def _aggregate(rows: list[sqlite3.Row], kind: str) -> dict[str, Any]:
         "min": round(min(vals), 2),
         "max": round(max(vals), 2),
         "last": round(vals[-1], 2),
-        "last_at": rows[-1]["recorded_at"],
+        "last_at": kind_rows[-1]["recorded_at"],  # 必须来自同一指标记录
     }
 
 

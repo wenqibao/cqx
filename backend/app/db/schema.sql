@@ -259,7 +259,9 @@ CREATE TABLE IF NOT EXISTS automation_jobs (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_jobs_key ON automation_jobs(kind, patient_id, ref_id, run_at);
+DROP INDEX IF EXISTS uq_jobs_key;
+-- JOB-DEDUPE-01：系统作业 patient_id 为 NULL，普通唯一索引对 NULL 无效
+CREATE UNIQUE INDEX IF NOT EXISTS uq_jobs_key ON automation_jobs(kind, COALESCE(patient_id,''), COALESCE(ref_id,''), run_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_due ON automation_jobs(status, run_at);
 
 -- 幂等键（重复提交不重复执行）

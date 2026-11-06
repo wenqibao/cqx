@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 import io
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 from backend.app.db.connection import dumps, iso, loads, now, parse_ts
@@ -120,6 +120,8 @@ def add_record(
     value = safe_float(data.get("value"))
     _validate(kind, value, payload)
     ts = _recorded_at(data.get("recorded_at"), now(conn))
+    if parse_ts(ts) and parse_ts(ts) > now(conn) + timedelta(minutes=5):
+        raise RecordValidationError("recorded_at 不能晚于当前时间（允许 5 分钟设备误差）")
     dedupe = None
     legacy_key = None
     if not allow_duplicate:

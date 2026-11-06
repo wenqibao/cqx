@@ -22,6 +22,10 @@ class QuestionError(ValueError):
     pass
 
 
+class QuestionExpired(QuestionError):
+    pass
+
+
 def _row(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -63,7 +67,20 @@ def create_question(
             (patient_id, target_field),
         ).fetchone()
         if dup:
-            return _row(dup), False
+            # QUESTION-DEDUPE-01：同字段合并关联事件，不能丢掉新事件的上下文
+            merged = _row(dup)
+            payload = dict(merged.get("resume_payload") or {})
+            ids = set(payload.get("event_ids", []))
+            if event_id:
+                ids.add(event_id)
+            if ids:
+                payload["event_ids"] = sorted(ids)
+                payload["merged"] = True
+            conn.execute(
+                "UPDATE questions SET resume_payload=?, event_id=COALESCE(event_id,?) WHERE id=?",
+                (dumps(payload), event_id, merged["id"]),
+            )
+            return get_question(conn, merged["id"]) or merged, False
     ts = now(conn)
     qid = new_id("question")
     conn.execute(
@@ -123,6 +140,10 @@ def answer_question(
         raise QuestionError(f"问题状态为 {q['status']}，不能重复回答")
     ts = now(conn)
     expires = parse_ts(q["expires_at"])
+    if expires and ts > expires:
+        # QUESTION-EXP-01：过期答复不保存、不恢复，避免 expired + resume 矛盾状态
+        conn.execute("UPDATE questions SET status='expired' WHERE id=?", (question_id,))
+        raise QuestionExpired("问题已过期，请重新发起")
     payload = answer if answer is not None else {
         "text": answer_text,
         "value": answer_value,

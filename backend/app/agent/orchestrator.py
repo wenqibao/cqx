@@ -461,11 +461,29 @@ def _finalize_events(
     question_created: bool,
     executed: list[dict[str, Any]],
 ) -> None:
+    """EVENT-FINALIZE-01：只关闭由成功动作明确关联的事件，未关联的保持 open。"""
     if not events or question_created:
         return
-    handled_ok = any(e.get("ok") and e.get("tool") in ("create_task", "update_task", "request_human_review") for e in executed)
-    if handled_ok:
-        mark_handled(conn, [e["id"] for e in events], run_id)
+    business = {"create_task", "update_task", "request_human_review", "schedule_review"}
+    referenced: set[str] = set()
+    for entry in executed:
+        if not entry.get("ok") or entry.get("tool") not in business:
+            continue
+        for source in (entry.get("args") or {}, entry.get("result") or {}):
+            single = source.get("event_id")
+            if isinstance(single, str):
+                referenced.add(single)
+            many = source.get("event_ids")
+            if isinstance(many, list):
+                referenced.update(item for item in many if isinstance(item, str))
+    if not referenced and len(events) == 1 and any(
+        entry.get("ok") and entry.get("tool") in business for entry in executed
+    ):
+        # 单事件场景且确有管理动作：可视为处理；纯读取仍保持 open
+        referenced = {events[0]["id"]}
+    targets = [event["id"] for event in events if event["id"] in referenced]
+    if targets:
+        mark_handled(conn, targets, run_id)
 
 
 def _result(

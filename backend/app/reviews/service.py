@@ -35,6 +35,10 @@ def default_delay_hours() -> int:
     return int(review_rules().get("default_review_delay_hours", 48))
 
 
+class ReviewError(ValueError):
+    pass
+
+
 def schedule_review(
     conn: sqlite3.Connection,
     patient_id: str,
@@ -47,13 +51,19 @@ def schedule_review(
     reason: str = "任务完成后安排复评",
 ) -> dict[str, Any]:
     get_patient(conn, patient_id)
+    if delay_hours is not None:
+        if delay_hours < 0 or delay_hours > 720:
+            raise ReviewError("delay_hours 必须在 0~720 小时之间")
+        if delay_hours == 0 and branch != "HUMAN_REVIEW":
+            raise ReviewError("delay_hours=0 只允许用于人工复核升级")
     due = now(conn) + timedelta(hours=delay_hours if delay_hours is not None else default_delay_hours())
     # A0-FULL-P2-02：同一患者、同一任务/事件、同一复评窗口只保留一条待复评，避免重复
     existing = conn.execute(
         """SELECT id FROM reviews WHERE patient_id=? AND status='scheduled'
            AND COALESCE(task_id,'')=? AND COALESCE(event_id,'')=?
-           AND scheduled_for<=? ORDER BY created_at DESC LIMIT 1""",
-        (patient_id, task_id or "", event_id or "", iso(due + timedelta(hours=24))),
+           AND ABS((julianday(scheduled_for) - julianday(?)) * 24) <= 1
+           ORDER BY created_at DESC LIMIT 1""",
+        (patient_id, task_id or "", event_id or "", iso(due)),
     ).fetchone()
     if existing:
         review = get_review(conn, existing["id"])
@@ -177,6 +187,8 @@ def resolve_human_review(conn: sqlite3.Connection, review_id: str, *, decision: 
         raise KeyError(f"复评不存在: {review_id}")
     if review["branch"] != "HUMAN_REVIEW":
         raise ValueError("只有 HUMAN_REVIEW 分支可以人工结案")
+    if review["status"] == "completed":
+        return {**review, "already_resolved": True}  # 不允许静默覆盖原决定
     ts = iso(now(conn))
     detail = dict(review["detail"])
     detail["human_decision"] = decision

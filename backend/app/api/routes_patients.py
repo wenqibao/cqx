@@ -29,7 +29,9 @@ def list_patients(conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any
 
 @router.post("/patients", tags=["patients"], status_code=201, summary="F01/F02 新建演示患者")
 def create_patient(payload: PatientCreate, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
-    return patient_service.create_patient(conn, payload.model_dump())
+    if payload.is_synthetic is False:
+        raise HTTPException(status_code=422, detail="演示系统只允许合成患者（is_synthetic 必须为 true）")
+    return patient_service.create_patient(conn, {**payload.model_dump(), "is_synthetic": True})
 
 
 @router.get("/patients/{patient_id}", tags=["patients"], summary="F02 患者档案")

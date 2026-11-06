@@ -83,6 +83,12 @@ def get_task(task_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> dict
 def complete_task(
     task_id: str, payload: TaskCompleteRequest, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    prior = tasks.get_task(conn, task_id)
+    if not prior:
+        raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+    if prior["status"] == "done":
+        # COMPLETE-IDEMP-01：重复完成只返回现状，不再触发复评或模型
+        return {"task": prior, "versions": tasks.versions(conn, task_id), "already_done": True, "run": None}
     try:
         task = tasks.complete_task(conn, task_id, changed_by=payload.changed_by, note=payload.note)
     except tasks.TaskError as exc:
@@ -134,6 +140,8 @@ def answer_question(
         question = questioning.answer_question(
             conn, question_id, answer_text=text, answer_value=payload.answer_value
         )
+    except questioning.QuestionExpired as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except questioning.QuestionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     result: dict[str, Any] = {"question": question, "resume": None}

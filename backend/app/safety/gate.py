@@ -9,7 +9,7 @@ from backend.app.config import safety_rules
 from backend.app.db.connection import dumps, iso, now
 
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
-DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺", "不制定", "不设置", "不设", "不开具", "不开展", "不建议", "不予", "不要", "不用", "不必", "勿", "不可以")
+DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺", "不制定", "不设置", "不设", "不开具", "不开展", "不建议", "不予", "不要", "不用", "不必", "勿", "不可以", "不新增", "不减少", "不替换", "不更换", "不改变", "不变更")
 DISCLAIMER_WINDOW = 24
 # 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
 CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
@@ -80,6 +80,18 @@ INQUIRY_CUES = re.compile(r"(?:是否|有没有|有无|曾否|是否曾)")
 # "评估是否需要调整监测或治疗方案"属于请专业人员判断，不是系统执行改药
 INQUIRY_CONDITIONAL = re.compile(r"(?:是否|有无)(?:需要|应|应当|要|需|必要)[^，。；！？\n]{0,6}$")
 INQUIRY_PROTECTED = ("停", "加", "减", "多打", "少打", "剂量", "注射", "换药")
+# 动词前直接否定："不调整用药""未改变方案""别换药"——否定词与动词同在一个词里，
+# 左侧窗口取不到，需要看命中位置前 1-2 个字符。
+DIRECT_NEGATION = ("不", "未", "别", "勿")
+DIRECT_NEGATION_PAIRS = ("不再", "无需", "并未", "从没", "绝不", "均不")
+
+
+def _is_directly_negated(text: str, start: int) -> bool:
+    if start <= 0:
+        return False
+    if text[start - 1] in DIRECT_NEGATION:
+        return True
+    return text[max(0, start - 2) : start] in DIRECT_NEGATION_PAIRS
 
 
 def _is_question_inquiry(text: str, start: int, end: int) -> bool:
@@ -104,6 +116,8 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
             if _is_referral(text, m.start(), m.end()):
                 continue
             if _is_question_inquiry(text, m.start(), m.end()):
+                continue
+            if _is_directly_negated(text, m.start()):
                 continue
             return m.start(), m.group(0)
     return None
@@ -131,6 +145,8 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
                 if _is_referral(lowered, match.start(), match.end()):
                     continue
                 if _is_question_inquiry(lowered, match.start(), match.end()):
+                    continue
+                if _is_directly_negated(lowered, match.start()):
                     continue
                 return {
                     "allowed": False,

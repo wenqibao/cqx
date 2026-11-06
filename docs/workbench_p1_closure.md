@@ -428,3 +428,34 @@ BLOCK | 建议把降糖药停掉 / 开具处方
 - `request_human_review.reason` 走安全门且放行；
 - 条件式/真实改药仍 BLOCK；
 - 拒绝轨迹包含 `round/call_index/call_id`。
+
+## 22. REL-02 动词前直接否定（2026-11-06 最终）
+
+### 真实原句
+`近 7 天空腹血糖 3 次为 6.0/8.2/10.5 mmol/L…；不调整任何用药。`
+命中 `调整…用药`，但否定词"不"与动词同在一个词里，左侧窗口取不到，因此仍被拦。
+
+### 修复
+- 新增 `_is_directly_negated()`：命中位置前 1 个字符为 `不/未/别/勿`，或前 2 字符为
+  `不再/无需/并未/从没/绝不/均不` 时，视为否定语境；
+- 否定词表补充 `不新增/不减少/不替换/不更换/不改变/不变更`，覆盖"不新增、不减少或替换药物"这类并列。
+- 该判定只影响"动词被直接否定"的情形；`请换一种药`、`给我开点药`、`是否需要停药` 等仍拦截。
+
+### 实测
+```
+ALLOW | 近 7 天…；不调整任何用药。
+ALLOW | 按原治疗方案继续记录，不改变用药。
+ALLOW | 本任务仅做监测与记录，不调整现有用药方案。
+ALLOW | 继续按当前方案执行，不新增、不减少或替换药物。
+BLOCK/CHANGE_MEDICATION | 帮我把降糖药停了吧
+BLOCK/CHANGE_MEDICATION | 请把用药方案改成早晚各一次
+BLOCK/CHANGE_MEDICATION | 是否需要停药
+BLOCK/INSULIN_DOSE      | 是否需要增加胰岛素剂量 / 请增加胰岛素剂量
+BLOCK/CHANGE_MEDICATION | 请换一种药
+BLOCK/PRESCRIPTION      | 给我开点药
+```
+
+### 预算项（不改）
+`TOO_MANY_ACTIONS`（单次运行动作上限 = `max_tasks_per_run + 3 = 8`）属于预算策略，
+本轮**不修改**：新增单测证明该拒绝码是 `TOO_MANY_ACTIONS` 且不含 `FORBIDDEN_ACTION`，
+与 REL-02 安全门区分统计。若后续要改上限，需另立 Expected 并证明重试不会重复建动作。

@@ -253,15 +253,21 @@ def build_knowledge_plan(
 
 
 def parse_constraint(message: str) -> dict[str, Any]:
-    """F23 解析患者的时间约束，例如"19:00 上班，改成 08:00 记录步数"。"""
+    """F23 解析患者的时间约束，例如"19:00 上班，改成 08:00 记录步数"。
+
+    必须保留分钟：只取小时会把"20:30"错误解析成 20:00（A0-FULL-P1-03）。
+    """
     msg = message or ""
-    times = TIME_RE.findall(msg)
+    matches = list(TIME_RE.finditer(msg))
     target_hour = None
+    target_minute = 0
     m = re.search(r"(?:改成|改到|调整到|换到|提前到|推迟到)\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)", msg)
     if m:
         target_hour = int(m.group(1))
-    elif times:
-        target_hour = int(times[-1][0])
+        target_minute = int(m.group(2))
+    elif matches:
+        target_hour = int(matches[-1].group("h"))
+        target_minute = int(matches[-1].group("m"))
     task_type = None
     mapping = {
         "步数": "record_activity",
@@ -278,7 +284,7 @@ def parse_constraint(message: str) -> dict[str, Any]:
             break
     return {
         "target_hour": target_hour,
-        "target_minute": int(m.group(2)) if m else 0,
+        "target_minute": target_minute,
         "task_type": task_type,
         "raw": msg,
         "confidence": 0.9 if target_hour is not None else 0.3,

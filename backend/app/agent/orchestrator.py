@@ -47,6 +47,13 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferences", "list_tasks"})
 ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review", "save_preference", "create_notification"})
 MAX_SEARCH_CALLS = 2
+_TOOL_LABELS = {
+    "create_task": "创建任务", "update_task": "更新任务", "complete_task": "完成任务",
+    "save_preference": "保存偏好", "create_notification": "创建站内提醒",
+    "schedule_review": "安排复评", "request_human_review": "提交人工复核",
+    "parse_constraint": "解析时间约束", "search_knowledge": "检索知识",
+    "query_history": "查询历史", "get_preferences": "读取偏好", "list_tasks": "查看任务",
+}
 
 
 def _state_brief(state: dict[str, Any]) -> str:
@@ -490,11 +497,16 @@ def _result(
 
 
 # 声称已执行的句式：模型措辞多变，固定短语会漏；同一分句含否定词时不算声称。
+# 对象名词用命名组 obj 区分：站内提醒/通知属于 create_notification，不是 create_task（A0-FULL-P1-02）。
 _CLAIM_PATTERNS = {
     "create_task": (
         r"(?:已|已经|已为你|已帮你|已经帮你|已经为你|给你|帮你)[^，。；！？\n]{0,10}(?:创建|新建|建立|生成|添加|安排|设置|建好|建了|设好)"
-        r"[^，。；！？\n]{0,10}(?:任务|提醒|复评)",
-        r"(?:任务|提醒|复评)[^，。；！？\n]{0,4}(?:已|已经)?[^，。；！？\n]{0,4}(?:创建|新建|建立|生成)",
+        r"[^，。；！？\n]{0,10}(?P<obj>任务|待办|复评|提醒(?!任务)|通知|消息)",
+        r"(?P<obj>任务|待办)[^，。；！？\n]{0,4}(?:已|已经)?[^，。；！？\n]{0,4}(?:创建|新建|建立|生成)",
+    ),
+    "create_notification": (
+        r"(?:已|已经|已为你|已帮你|已经帮你|已经为你)[^，。；！？\n]{0,10}(?:发送|推送|创建|发出|生成)"
+        r"[^，。；！？\n]{0,10}(?P<obj>提醒(?!任务)|通知|消息)",
     ),
     "update_task": (
         r"(?:已|已经)[^，。；！？\n]{0,10}(?:调整|修改|改期|改到|推迟|提前|更新|挪到)[^，。；！？\n]{0,10}(?:任务|时间|计划)",
@@ -511,6 +523,7 @@ _CLAIM_PATTERNS = {
     ),
 }
 _CLAIM_NEGATIONS = ("不能", "无法", "未能", "没有", "尚未", "不会", "不需要", "无需")
+_CLAIM_OBJECT_TO_TOOL = {"提醒": "create_notification", "通知": "create_notification", "消息": "create_notification"}
 
 
 def _claimed_state_changes(text: str) -> set[str]:
@@ -522,7 +535,8 @@ def _claimed_state_changes(text: str) -> set[str]:
                 start = max(text.rfind(mark, 0, match.start()) for mark in "，。；！？\n") + 1
                 if any(neg in text[start:match.start()] for neg in _CLAIM_NEGATIONS):
                     continue
-                claimed.add(tool)
+                obj = (match.groupdict().get("obj") or "")
+                claimed.add(_CLAIM_OBJECT_TO_TOOL.get(obj, tool))
                 break
     return claimed
 
@@ -570,6 +584,7 @@ def _run_real_llm(
     search_calls = 0
     nudges = 0
     claim_texts: list[str] = []
+    responded = False
     question_created = False
     rounds = []
     user = "\n".join([
@@ -658,6 +673,8 @@ def _run_real_llm(
                     question_created = True
                 if result.get('text') and result.get('ok'):
                     responses.append(result['text'])
+                    if call.name == 'respond':
+                        responded = True
             # 实际工具返回（包括知识片段/出处、实际任务ID）传回模型，不能只给命中数量。
             history.append({"role": "tool", "tool_call_id": tool_call_id,
                             "content": json.dumps(result, ensure_ascii=False)})
@@ -675,11 +692,20 @@ def _run_real_llm(
                 "content": "本轮只有读取动作，没有产生任何管理动作。请立即执行 create_task / ask_user / request_human_review，"
                            "或说明为什么无法继续；不要再次检索同一主题。",
             })
+        # A0-FULL-P1-04：respond 成功后不再进入下一轮，避免"工具轮 + 纯文本轮"重复答复
+        if responded:
+            break
         # 整轮都被拒绝或工具失败时停止收费循环，先交给操作者核对。
         if outcomes and not any(o['ok'] for o in outcomes):
             break
     if not executed and not responses and not rejections:
         reject([{"code": validators.TOOL_EXECUTION_FAILED, "message": "模型没有返回可执行工具或说明"}])
+    # A0-FULL-P1-04：动作成功但模型没给最终答复时，由系统输出确定性收尾（只陈述实际执行的动作）
+    if not responses and not question_created and not rejections:
+        done = [_TOOL_LABELS.get(e["tool"], e["tool"]) for e in executed
+                if e.get("ok") and e["tool"] in ACTION_TOOLS]
+        if done:
+            responses.append("本轮已完成：" + "、".join(dict.fromkeys(done)) + "。如需调整，请告诉我。")
     # B16：整次运行结束后再核对"声称已执行"，避免 respond 排在同轮 create_task 之前被误判
     for text in claim_texts:
         for item in _unsupported_claims(text, executed):
@@ -692,7 +718,11 @@ def _run_real_llm(
     if intent == "knowledge_question" and not evidence:
         reject([{"code": validators.NO_EVIDENCE,
                  "message": "知识问答未检索到可引用证据，不能生成结论，也不应改用追问代替"}])
-    if intent in ('event_response', 'negotiate_plan') and not question_created and not any(
+    # A0-FULL-P1-03：用户明确"只解析、不要修改"时，parse_constraint + respond 即算完成
+    parse_only = bool(message) and any(
+        cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")
+    ) and any(e.get("ok") and e["tool"] == "parse_constraint" for e in executed)
+    if intent in ('event_response', 'negotiate_plan') and not question_created and not parse_only and not any(
         e.get('ok') and e['tool'] in ('create_task', 'update_task', 'request_human_review') for e in executed
     ):
         reject([{"code": validators.POSTCHECK_MISMATCH, "message": "所需业务动作未执行，不能标记完成"}])

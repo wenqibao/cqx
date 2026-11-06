@@ -74,6 +74,21 @@ def _is_referral(text: str, start: int, end: int) -> bool:
     return bool(LEFT_CUES.search(left)) or any(cue in right for cue in ("需求", "不适", "想"))
 
 
+# 问诊式询问（B #10 残余）："您最近有没有更改用药方案？"是在采集病史，不是执行/建议改药。
+# 仅当整句是疑问、且命中词不涉及停药/加减量/剂量时豁免，避免"是否要停药？"被放过。
+INQUIRY_CUES = re.compile(r"(?:是否|有没有|有无|曾否|是否曾)")
+INQUIRY_PROTECTED = ("停", "加", "减", "多打", "少打", "剂量", "注射", "换药")
+
+
+def _is_question_inquiry(text: str, start: int, end: int) -> bool:
+    if not re.match(r"^[？?]", text[end : end + 2]):
+        return False
+    clause_start = max(text.rfind(mark, 0, start) for mark in "，。；！？\n") + 1
+    if not INQUIRY_CUES.search(text[clause_start:start]):
+        return False
+    return not any(word in text[start:end] for word in INQUIRY_PROTECTED)
+
+
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
@@ -84,6 +99,8 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
             if _is_disclaimer(text, m.start(), generated=generated):
                 continue
             if _is_referral(text, m.start(), m.end()):
+                continue
+            if _is_question_inquiry(text, m.start(), m.end()):
                 continue
             return m.start(), m.group(0)
     return None
@@ -109,6 +126,8 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
                 if _is_disclaimer(lowered, match.start(), generated=generated):
                     continue
                 if _is_referral(lowered, match.start(), match.end()):
+                    continue
+                if _is_question_inquiry(lowered, match.start(), match.end()):
                     continue
                 return {
                     "allowed": False,

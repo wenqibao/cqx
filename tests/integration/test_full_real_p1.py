@@ -215,3 +215,23 @@ def test_rel02_real_actions_still_blocked(text, code):
     verdict = gate.check_text(text, generated=True)
     assert verdict["allowed"] is False
     assert verdict["code"] == code
+
+# ---------- REL-02 追加：问诊式询问 ----------
+@pytest.mark.parametrize("text", [
+    "您最近有没有更改用药方案？",
+    "最近是否调整过用药？",
+])
+def test_question_inquiry_about_medication_is_allowed(text):
+    """采集病史的问句不是执行/建议改药。"""
+    assert gate.check_text(text, generated=True)["allowed"] is True
+    assert gate.check_text(text)["allowed"] is True
+
+
+@pytest.mark.parametrize("text", [
+    "您有没有停过药？",
+    "是否要停药？",
+    "是否增加胰岛素剂量？",
+    "您有没有更改用药方案",
+])
+def test_question_inquiry_with_protected_words_still_blocked(text):
+    assert gate.check_text(text, generated=True)["allowed"] is False

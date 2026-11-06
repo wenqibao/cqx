@@ -21,8 +21,10 @@ class _ScriptedLLM:
     def __init__(self, responses):
         self.responses = list(responses)
         self.calls = 0
+        self.seen: list[list[dict]] = []
 
-    def plan_actions(self, **kwargs):
+    def plan_actions(self, *, system=None, user=None, tools=None, extra_messages=None):
+        self.seen.append(list(extra_messages or []))
         index = min(self.calls, len(self.responses) - 1)
         self.calls += 1
         return self.responses[index]
@@ -128,3 +130,40 @@ def test_review_schedule_is_idempotent(conn):
     assert second["id"] == first["id"]
     total = conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='RV1'").fetchone()["c"]
     assert total == 1
+
+# ---------- B 残余观察项 ----------
+def test_no_evidence_stops_further_actions(conn):
+    """知识问答无证据后立刻收口：不再执行后续 create_task 等重试动作。"""
+    patients.create_patient(conn, {"id": "NE1", "name": "无证据", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    llm = _ScriptedLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("search_knowledge", {"query": "XQZ-999 生物标志物"}, "c1")], raw={}),
+        LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+            "patient_id": "NE1", "task_type": "record_glucose", "title": "核实",
+            "due_at": (now() + timedelta(days=1)).isoformat()}, "c2")], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "NE1", trigger_type="user_request",
+                                    message="XQZ-999 在稳定期 2 型糖尿病中的特异性是多少", llm=llm)
+    assert result["status"] == "failed"
+    assert any(r["code"] == "NO_EVIDENCE" for r in result["rejections"])
+    assert conn.execute("SELECT COUNT(*) c FROM tasks").fetchone()["c"] == 0, "无证据后不应再执行建任务"
+    assert any("没有足够资料" in r for r in result["responses"])
+
+
+def test_past_due_returns_correctable_hint_then_model_retries(conn):
+    """过期 due_at 的拒绝结果要带可修正提示，模型能据此重试成功。"""
+    patients.create_patient(conn, {"id": "DUE1", "name": "到期", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    past = (now() - timedelta(hours=2)).isoformat()
+    future = (now() + timedelta(days=1)).isoformat()
+    llm = _ScriptedLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+            "patient_id": "DUE1", "task_type": "record_glucose", "title": "补录", "due_at": past}, "c1")], raw={}),
+        LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+            "patient_id": "DUE1", "task_type": "record_glucose", "title": "补录", "due_at": future}, "c2")], raw={}),
+        LLMResponse(content="已创建补录任务。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "DUE1", trigger_type="user_request", message="帮我建个补录任务", llm=llm)
+    # 当前语义：只要发生过拒绝，run 仍记 failed（保守），但模型应能据提示重试成功
+    assert any(r["code"] == "INVALID_DUE" for r in result["rejections"])
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='DUE1'").fetchone()["c"] == 1
+    second_round = " ".join(str(m) for m in llm.seen[1])
+    assert "INVALID_DUE" in second_round and "hint" in second_round

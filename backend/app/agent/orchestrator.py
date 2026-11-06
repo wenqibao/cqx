@@ -659,7 +659,12 @@ def _run_real_llm(
                                                claims_out=claim_texts))
             if errors:
                 reject(errors, call.name)
-                result = {"ok": False, "error": "rejected by safety gate", "code": errors[0]['code']}
+                result = {"ok": False, "error": errors[0].get('message') or "rejected by safety gate",
+                          "code": errors[0]['code']}
+                if errors[0]['code'] == validators.INVALID_DUE:
+                    # 给模型可修正的窗口，而不是只回一个错误码
+                    result["server_now"] = iso(now(conn))
+                    result["hint"] = "due_at 必须在当前时间之后、720 小时以内，请按此重新生成"
             else:
                 accepted_actions.append(action)
                 trace.add_step(conn, run_id, phase="validate", kind="validation", tool_name=call.name, payload={"ok": True})
@@ -678,8 +683,15 @@ def _run_real_llm(
             # 实际工具返回（包括知识片段/出处、实际任务ID）传回模型，不能只给命中数量。
             history.append({"role": "tool", "tool_call_id": tool_call_id,
                             "content": json.dumps(result, ensure_ascii=False)})
-            outcomes.append({"tool": call.name, "ok": result.get('ok')})
+            outcomes.append({"tool": call.name, "ok": result.get('ok'), "code": result.get('code')})
         rounds.append({"round": round_no, "tools": outcomes})
+        # 知识问答已确认无证据：立即收口，避免模型继续重试被拒动作（B 残余观察项 1）
+        if intent == "knowledge_question" and not evidence and any(
+            o["tool"] == "search_knowledge" and o["ok"] for o in outcomes
+        ):
+            trace.add_step(conn, run_id, phase="plan", kind="no_evidence_stop",
+                           payload={"round": round_no, "message": "知识检索无证据，提前结束模型轮次"})
+            break
         # A-WB-01：整轮只有读取动作时推一把，避免"只看不做"耗尽轮数
         action_ok = any(o["tool"] in ACTION_TOOLS and o["ok"] for o in outcomes)
         only_read = bool(outcomes) and all(o["tool"] in READ_ONLY_TOOLS for o in outcomes)
@@ -695,8 +707,9 @@ def _run_real_llm(
         # A0-FULL-P1-04：respond 成功后不再进入下一轮，避免"工具轮 + 纯文本轮"重复答复
         if responded:
             break
-        # 整轮都被拒绝或工具失败时停止收费循环，先交给操作者核对。
-        if outcomes and not any(o['ok'] for o in outcomes):
+        # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA}
+        if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:
         reject([{"code": validators.TOOL_EXECUTION_FAILED, "message": "模型没有返回可执行工具或说明"}])
@@ -718,6 +731,9 @@ def _run_real_llm(
     if intent == "knowledge_question" and not evidence:
         reject([{"code": validators.NO_EVIDENCE,
                  "message": "知识问答未检索到可引用证据，不能生成结论，也不应改用追问代替"}])
+        # 确定性答复：明确告知资料不足，不猜测、不生成健康结论
+        if not responses:
+            responses.append("现有知识库没有足够资料回答这个问题，我不会猜测；建议咨询医生，或补充资料后再问。")
     # A0-FULL-P1-03：用户明确"只解析、不要修改"时，parse_constraint + respond 即算完成
     parse_only = bool(message) and any(
         cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")

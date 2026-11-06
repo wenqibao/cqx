@@ -327,3 +327,24 @@ API 的 `actions` 字段逐条返回 `ok/result`，前端应展示「部分成�
 `tests/integration/test_full_real_p1.py` 增补 2 项：
 - 无证据 → 只执行 1 次检索、0 任务、`NO_EVIDENCE`、含"没有足够资料"的答复；
 - 过期 due_at → 下一轮收到 `INVALID_DUE` + `hint` 并重试成功、任务落库。
+
+## 18. 无证据收口的矛盾拒绝修复（2026-11-06 追加）
+
+### 现象
+`RUN-872fcb529e77`（XQZ-999）：无证据提前停止后，系统先写入确定性「没有足够资料」答复，
+但"只读无结论"的后置检查在这之前执行，又追加了 `POSTCHECK_MISMATCH：只执行了读取动作，没有给出结论`
+——与事实矛盾，且被前端当作主要失败原因展示。
+
+### 修复
+- 计算 `no_evidence = intent == "knowledge_question" and not evidence`；
+  "只读无结论"检查在该情形下跳过，最终只保留 `NO_EVIDENCE`；
+- 确定性答复照常写入 `responses`。
+
+### 附带（B 的可选增强）
+`INVALID_DUE` 的 `server_now` / `hint` 会先写入 rejection 字典再 `reject()`，
+因此脱敏后的 hint 会进入 `agent_steps.payload`，技术日志可核对"实际发给模型的提示"。
+
+### 回归
+`test_full_real_p1.py` 更新：
+- 无证据 → `rejections == {"NO_EVIDENCE"}`、`responses` 非空、0 任务；
+- 过期 due_at → 轨迹中存在带 `hint` 的 `INVALID_DUE` step。

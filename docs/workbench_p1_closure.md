@@ -484,3 +484,39 @@ BLOCK/PRESCRIPTION      | 给我开点药
 - 15 条真实改药/漏拦 → BLOCK（含 `增加用药`、`不调整用药，但是增加剂量`、
   `未调整过用药，现在改为一天两次`）；
 - 6 个文本字段（title/description/text/question/body/reason）逐一验证拒绝与 detail。
+
+## 24. 历史潜伏问题专项（2026-11-06，19 项结构修复）
+
+B 在 REL-02 关闭后做了 20 个隔离探针，确认 19 项历史问题。按结构批次修复：
+
+### 数据与时间边界
+- **DATA-SYN-01**：`create_patient` 强制 `is_synthetic=1`；API 对 `false` 返回 422。
+- **RECORD-TIME-01**：`recorded_at` 晚于当前时间 5 分钟以上拒绝；状态聚合与事件扫描
+  统一加 `recorded_at <= now` 上界，未来记录不再进入当前 7 天或触发事件。
+- **STATE-LAST-01**：`_aggregate` 的 `last/last_at` 改取同一指标记录，不再用全表最后一行。
+
+### 幂等与去重
+- **TASK-DEDUPE-01**：改期原子更新 `due_at + dedupe_key`，新键冲突时明确拒绝。
+- **TASK-MERGE-01**：合并候选增加 `due_at` 距离约束（与创建窗口同一上限）。
+- **TASK-DUE-01**：服务层 `_check_due` 与 Agent 工具共用"未来 0~720 小时"契约，API 改期同样生效。
+- **REV-DEDUPE-01/02**：复评去重改为以目标时间为中心 ±1h 的对称窗口，48→24、48→168 不再被 48 吞掉。
+- **REVIEW-DUE-01**：`delay_hours` 限定 0~720，且 0 只允许 `HUMAN_REVIEW`。
+- **JOB-DEDUPE-01**：`uq_jobs_key` 改为 `COALESCE(patient_id,'')` 表达式唯一索引，系统作业不再重复入队。
+- **COMPLETE-IDEMP-01**：HTTP 层对已完成任务直接返回 `already_done`，不再触发复评或模型调用。
+- **QUESTION-DEDUPE-01**：同字段问题合并关联事件到 `resume_payload.event_ids`。
+
+### 状态机与事件
+- **QUESTION-EXP-01**：过期答复返回 422，不保存答案、不恢复；问题标记 expired。
+- **REVIEW-RESOLVE-01**：已完成人工复核再次结案返回原结论（`already_resolved=true`），不覆盖。
+- **JOB-RECOVERY-01**：`recover_stale_jobs` 回收超时 running 作业（默认 30 分钟），tick 自动调用。
+- **EVENT-RECURRENCE-01**：已处理事件同一小时再次异常时创建新的 open 事件。
+- **EVENT-FINALIZE-01**：只关闭被成功动作 `event_id/event_ids` 明确关联的事件；
+  单事件且确有管理动作时保持旧语义；纯读取不关闭。
+
+### 任务作用域与偏好
+- **PREF-TIME-01**：`_apply_preference` 复用 `HH:MM` 解析，20:30 不再变 20:00。
+- **PREF-SCOPE-01**：`review_*` 前缀任务不受普通时间偏好重排。
+
+### 回归
+`tests/integration/test_latent_issues.py`（22 项）覆盖上述全部条目；
+全量 `pytest` 359 passed，Mock 场景 33/33 PASS。

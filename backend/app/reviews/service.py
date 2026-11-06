@@ -48,6 +48,18 @@ def schedule_review(
 ) -> dict[str, Any]:
     get_patient(conn, patient_id)
     due = now(conn) + timedelta(hours=delay_hours if delay_hours is not None else default_delay_hours())
+    # A0-FULL-P2-02：同一患者、同一任务/事件、同一复评窗口只保留一条待复评，避免重复
+    existing = conn.execute(
+        """SELECT id FROM reviews WHERE patient_id=? AND status='scheduled'
+           AND COALESCE(task_id,'')=? AND COALESCE(event_id,'')=?
+           AND scheduled_for<=? ORDER BY created_at DESC LIMIT 1""",
+        (patient_id, task_id or "", event_id or "", iso(due + timedelta(hours=24))),
+    ).fetchone()
+    if existing:
+        review = get_review(conn, existing["id"])
+        if review:
+            review["duplicate"] = True
+            return review
     rid = new_id("review")
     conn.execute(
         """INSERT INTO reviews(id,patient_id,task_id,event_id,run_id,branch,status,reason,detail,scheduled_for,created_at)

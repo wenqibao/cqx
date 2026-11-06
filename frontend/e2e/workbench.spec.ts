@@ -111,9 +111,9 @@ test("主动提问、不确定模拟答复与恢复 [F08 F21 F26]", async ({
   const answer = await (await answerResponse).json();
   expect(answer.question.answer.uncertain).toBe(true);
   expect(answer.resume.run.run_id).toMatch(/^RUN-/);
-  await expect(page.getByTestId("write-result")).toContainText(
-    answer.resume.run.run_id,
-  );
+  await page.getByTestId("write-result").getByRole("button", { name: "查看本次操作日志" }).click();
+  await expect(page.getByRole("dialog", { name: "技术日志", exact: true }).locator("pre")).toContainText(answer.resume.run.run_id);
+  await page.keyboard.press("Escape");
   const records = await json(request, `/patients/${pid}/records`);
   expect(
     records.items.filter(
@@ -270,10 +270,9 @@ test("人工复核结案与B24拒绝审计 [F12 F13 F26]", async ({ page, reques
   await visit(page, "/audit", safetyPid);
   await page.getByLabel("筛选审计").fill(safetyPid);
   await expect(page.locator("main")).toContainText("调整胰岛素剂量请求已拦截");
-  await page.getByRole("row").filter({ hasText: safetyPid }).first().getByRole("button", { name: /展开|Expand/ }).click();
-  const auditTechnical = page.locator("details").filter({ hasText: "审计编号" }).first();
-  await auditTechnical.locator("summary").click();
-  await expect(auditTechnical).toContainText("INSULIN_DOSE");
+  await page.getByRole("button", { name: "审计日志", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "技术日志", exact: true }).locator("pre")).toContainText("INSULIN_DOSE");
+  await page.keyboard.press("Escape");
   const tasks = await json(request, `/patients/${safetyPid}/tasks`);
   expect(tasks.items).toHaveLength(0);
   await evidence("reviews-safety-api", { pid, review, safetyPid, unsafe });
@@ -370,8 +369,9 @@ test("跨患者深链接拒绝混用、模型失败与无工具结果如实展�
     }),
   );
   await visit(page, `/agent?run=${run.run_id}`, pid);
-  await expect(page.getByRole("dialog")).toContainText("没有实际工具返回记录");
-  await expect(page.getByRole("dialog")).toContainText(
-    "未返回足以核验原生调用来源",
-  );
+  await expect(page.getByRole("dialog")).toContainText("本次没有返回动作结果");
+  await page.getByRole("dialog").getByRole("button", { name: "运行日志", exact: true }).click();
+  const raw = page.getByRole("dialog", { name: "技术日志", exact: true }).locator("pre");
+  await expect(raw).toContainText('"steps": []');
+  await expect(raw).toContainText('"llm_mode": "real"');
 });

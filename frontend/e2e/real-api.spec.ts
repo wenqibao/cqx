@@ -28,18 +28,26 @@ test("真实后端：录入→自动触发→轨迹→人工改期→任务完�
   ).toContain("GLUCOSE_RISING");
   expect(saved.automation.runs.length).toBeGreaterThan(0);
   expect(agentPosts).toEqual([]);
-  await expect(page.getByTestId("write-result")).toContainText(
-    String(saved.record.id),
-  );
+  const writeResult = page.getByTestId("write-result");
+  await expect(writeResult).toContainText("已保存记录");
+  await writeResult.getByRole("button", { name: "查看本次操作日志" }).click();
+  const writeLog = page.getByRole("dialog", { name: "技术日志", exact: true });
+  expect(
+    JSON.parse((await writeLog.locator("pre").textContent())!).record.id,
+  ).toBe(saved.record.id);
+  await page.keyboard.press("Escape");
   const runId = saved.automation.runs[0].run_id;
   await visit(page, `/agent?run=${runId}`, pid);
   const drawer = page.getByRole("dialog");
-  const runTechnical = drawer.locator("details").last();
-  await runTechnical.locator("summary").click();
-  await expect(runTechnical).toContainText(runId);
-  await runTechnical.getByText("技术详情：完整原始 JSON", { exact: true }).click();
-  await expect(drawer).toContainText("后端确定性 Mock 规划器");
-  await expect(drawer).toContainText("tool_result");
+  await drawer.getByRole("button", { name: "运行日志", exact: true }).click();
+  const runTechnical = page.getByRole("dialog", {
+    name: "技术日志",
+    exact: true,
+  });
+  await expect(runTechnical.locator("pre")).toContainText(runId);
+  await expect(runTechnical.locator("pre")).toContainText('"llm_mode": "mock"');
+  await expect(runTechnical.locator("pre")).toContainText("tool_result");
+  await page.keyboard.press("Escape");
   await page.screenshot({
     path: "docs/evidence/workbench/trace-mock-1440.png",
     fullPage: true,
@@ -51,8 +59,14 @@ test("真实后端：录入→自动触发→轨迹→人工改期→任务完�
   );
   expect(target).toBeTruthy();
   await visit(page, `/tasks?task=${target.id}`, pid);
-  await page.getByRole("dialog").locator("details").first().locator("summary").click();
-  await expect(page.getByRole("dialog")).toContainText(target.id);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "任务日志", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "技术日志", exact: true }).locator("pre"),
+  ).toContainText(target.id);
+  await page.keyboard.press("Escape");
   const due = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 16);
   await page.getByLabel("新的截止时间（本地时间）").fill(due);
   await page
@@ -118,6 +132,7 @@ test("患者切换及三种桌面尺寸页面 [F01 F02 F04 F15]", async ({ page 
   await expect(page.locator("body")).not.toContainText("我的健康空间");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByLabel("当前演示患者").click();
+  await page.getByLabel("当前演示患者").fill("P002");
   await page
     .locator(".ant-select-dropdown:visible")
     .getByText("李秀英（虚构） · P002", { exact: true })

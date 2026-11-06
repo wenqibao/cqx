@@ -1,0 +1,168 @@
+{
+  "pid": "WB-case-mw4c2ekt-quhn",
+  "results": [
+    {
+      "record": {
+        "id": 155,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "fasting_glucose",
+        "label": "空腹血糖",
+        "value": 7.1,
+        "unit": "mmol/L",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-06T02:06:20Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 156,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "postprandial_glucose",
+        "label": "餐后血糖",
+        "value": 8.2,
+        "unit": "mmol/L",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-06T02:06:21Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 157,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "steps",
+        "label": "步数",
+        "value": 4000,
+        "unit": "步",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-06T02:06:22Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 158,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "weight",
+        "label": "体重",
+        "value": 72.5,
+        "unit": "kg",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-06T02:06:23Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 159,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "medication_taken",
+        "label": "服药确认",
+        "value": 1,
+        "unit": "",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-06T02:06:24Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 160,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "symptom",
+        "label": "症状记录",
+        "value": null,
+        "unit": "",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {
+          "text": "无明显不适（合成）"
+        },
+        "created_at": "2026-11-06T02:06:24Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 161,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "meal",
+        "label": "饮食记录",
+        "value": null,
+        "unit": "",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {
+          "text": "合成早餐记录"
+        },
+        "created_at": "2026-11-06T02:06:25Z",
+        "duplicate": false
+      },
+      "automation": null
+    },
+    {
+      "record": {
+        "id": 162,
+        "patient_id": "WB-case-mw4c2ekt-quhn",
+        "kind": "bp",
+        "label": "血压",
+        "value": null,
+        "unit": "mmHg",
+        "recorded_at": "2026-11-05T18:06:00Z",
+        "source": "manual",
+        "note": null,
+        "payload": {
+          "diastolic": 80,
+          "systolic": 120
+        },
+        "created_at": "2026-11-06T02:06:26Z",
+        "duplicate": false
+      },
+      "automation": null
+    }
+  ],
+  "duplicate": {
+    "record": {
+      "id": 162,
+      "patient_id": "WB-case-mw4c2ekt-quhn",
+      "kind": "bp",
+      "label": "血压",
+      "value": null,
+      "unit": "mmHg",
+      "recorded_at": "2026-11-05T18:06:00Z",
+      "source": "manual",
+      "note": null,
+      "payload": {
+        "diastolic": 80,
+        "systolic": 120
+      },
+      "created_at": "2026-11-06T02:06:26Z",
+      "duplicate": true
+    },
+    "automation": null
+  }
+}

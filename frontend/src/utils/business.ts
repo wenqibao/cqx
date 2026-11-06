@@ -1,6 +1,22 @@
 import type { Run, Trace } from "../api/types";
 import { array, name, obj } from "./format";
 
+export function relatedQuestions(
+  run: Record<string, unknown>,
+  questions: Record<string, unknown>[],
+) {
+  const runId = run.id || run.run_id;
+  const actions = array(obj(run.output).actions ?? run.actions).map(obj);
+  const ids = actions
+    .map((a) => obj(a.result).question_id || obj(obj(a.result).question).id)
+    .filter(Boolean);
+  return questions.filter(
+    (q) =>
+      q.patient_id === run.patient_id &&
+      (q.run_id === runId || ids.includes(q.id)),
+  );
+}
+
 export const toolDescriptions: Record<string, string> = {
   search_knowledge: "检索知识依据",
   ask_user: "向患者补充提问",
@@ -33,7 +49,7 @@ export function businessText(
         (name(token) !== token
           ? name(token)
           : token.includes("_") || /^[A-Z]{3,}$/.test(token)
-            ? "未映射业务字段（见技术详情）"
+            ? "信息待核实（见日志）"
             : token),
     );
 }
@@ -44,7 +60,7 @@ export function businessName(value: unknown): string {
     (name(value) !== value
       ? name(value)
       : /^[\w.-]+$/.test(value)
-        ? "未映射业务字段（见技术详情）"
+        ? "信息待核实（见日志）"
         : businessText(value))
   );
 }
@@ -61,12 +77,8 @@ export function actionSummary(
     result.ok === false ||
     check.ok === false
   )
-    return businessText(
-      check.message || result.error,
-      "动作未成功，请人工核查；未将其计为完成",
-    );
-  if (status !== "ok" && result.ok !== true)
-    return "尚无足够执行结果，不能确认成功";
+    return businessText(check.message || result.error, "处理未完成，请核查");
+  if (status !== "ok" && result.ok !== true) return "处理结果待核实";
   const task = obj(result.task),
     question = obj(result.question);
   if (task.title || question.question)
@@ -79,10 +91,12 @@ export function actionSummary(
       : array(result.hits).length
         ? `返回 ${array(result.hits).length} 条知识片段`
         : "检索已返回，依据详见知识证据";
-  if (result.task_id) return "已返回关联管理任务，具体内容请查看任务列表";
-  if (result.review_id) return "已返回复核或复评记录，请跟进处理";
-  if (result.notification_id) return "已返回站内提醒记录";
-  return "动作已返回成功；具体保存对象及核对结果见技术详情";
+  if (tool === "query_history") return "已查阅健康记录";
+  if (tool === "get_preferences") return "已查阅患者偏好";
+  if (result.task_id) return "已保存管理任务";
+  if (result.review_id) return "已安排复核或复评";
+  if (result.notification_id) return "已发送站内提醒";
+  return "处理完成";
 }
 
 // 模板摘要依据已返回结果生成，不额外调用模型，不把计划动作视为已执行。
@@ -143,17 +157,27 @@ export function runNarrative(run: Run, trace?: Trace) {
   const next = human
     ? "请医护人员查看待复核事项并记录处理结果。"
     : incomplete
-      ? "请人工核查失败或拦截原因及已保存对象；不要据此确认整次业务完成。"
+      ? "请人工核查未完成的事项及已保存结果。"
       : run.status === "waiting_user"
-        ? "请补充随访答复；不确定的信息保持未知。"
+        ? "请回答下方随访问题。"
         : trace?.tasks.some((t) => ["pending", "missed"].includes(t.status))
           ? "请跟进待完成任务及截止时间。"
-          : "请查看实际管理说明；未返回新的人工待办。";
+          : "请查看本次回复，当前未新增待办。";
   return {
     title,
     reason,
     next,
     incomplete,
-    summary: `${successful.length ? `已返回成功的动作：${successful.join("、")}` : "尚未返回可确认成功的动作"}；${incomplete ? "存在失败或拦截，处理未全部完成。" : businessName(run.status) + "。"}`,
+    summary: `${successful.length ? `已完成：${successful.join("、")}` : "暂无已完成的动作"}；${incomplete ? "部分处理未完成，请跟进。" : businessName(run.status) + "。"}`,
   };
+}
+
+export function runHasFailure(run: Record<string, unknown>) {
+  return (
+    ["failed", "blocked"].includes(String(run.status)) ||
+    array(run.rejections).length > 0 ||
+    array(run.actions).some(
+      (a) => obj(a).ok === false || obj(obj(a).post_check).ok === false,
+    )
+  );
 }

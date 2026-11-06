@@ -741,9 +741,14 @@ textarea.ant-input {
 
 /* 业务信息先读，验收标识按需展开。 */
 .business-summary { max-width: 44rem; margin: 4px 0 10px; line-height: 1.65; white-space: normal; }
-.technical-details { margin: 10px 0; color: #52676e; font-size: 12px; overflow-wrap: anywhere; }
-.technical-details > summary { cursor: pointer; width: fit-content; padding: 5px 0; }
-.technical-details > summary:focus-visible { outline: 2px solid #087f8c; outline-offset: 3px; }
-.technical-details > .ant-collapse { margin-top: 8px; }
-.technical-id { font-size: 11px; color: #52676e; overflow-wrap: anywhere; }
-.business-overview .ant-descriptions-item-content { line-height: 1.8; }
+
+/* 本次沟通优先：只显示已有消息与回答，不补造对话。 */
+.run-conversation { display: grid; gap: 14px; margin: 8px 0 18px; }
+.conversation-message { max-width: 92%; padding: 16px 20px; border-radius: 14px; overflow-wrap: anywhere; line-height: 1.75; }
+.conversation-message p, .conversation-message h3 { margin: 6px 0 10px; white-space: pre-wrap; }
+.agent-message { background: #edf6f5; color: #153f42; border: 1px solid #d8e9e6; }
+.patient-message { background: #f1f4f8; color: #263b51; margin-left: auto; width: fit-content; }
+.message-speaker { display: block; font-size: 12px; font-weight: 600; color: #52676e; }
+.next-action { padding: 12px 0; margin-bottom: 2px; }
+.run-result + .run-result { margin-top: 20px; border-top: 1px solid #d8e9e6; padding-top: 16px; }
+@media(max-width: 768px) { .conversation-message { max-width: 100%; padding: 12px 14px; } }

@@ -1,0 +1,397 @@
+{
+  "pid": "WB-case-mw4c0o25-w2zj",
+  "saved": {
+    "record": {
+      "id": 150,
+      "patient_id": "WB-case-mw4c0o25-w2zj",
+      "kind": "fasting_glucose",
+      "label": "空腹血糖",
+      "value": 9.6,
+      "unit": "mmol/L",
+      "recorded_at": "2026-11-06T02:04:59Z",
+      "source": "manual",
+      "note": null,
+      "payload": {},
+      "created_at": "2026-11-06T02:04:59Z",
+      "duplicate": false
+    },
+    "automation": {
+      "patient_id": "WB-case-mw4c0o25-w2zj",
+      "records": 1,
+      "events_created": [
+        {
+          "id": "EVT-69ec3e9c7b04",
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "code": "GLUCOSE_RISING",
+          "severity": "medium",
+          "status": "open",
+          "message": "近 7 天空腹血糖较此前上升，需要核实记录与用药执行情况。",
+          "evidence": {
+            "delta": 2.6,
+            "first": 7,
+            "last": 9.6,
+            "points": 5,
+            "trigger": "record_created",
+            "window_days": 7
+          },
+          "source_record_id": null,
+          "detected_at": "2026-11-06T02:04:59Z",
+          "handled_at": null,
+          "handled_by_run": null
+        }
+      ],
+      "jobs": [
+        {
+          "id": "JOB-9ee09ce7157d",
+          "kind": "agent_run",
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "ref_id": "EVT-69ec3e9c7b04",
+          "payload": "{\"event_id\": \"EVT-69ec3e9c7b04\", \"source\": \"record_created\", \"trigger_type\": \"event_detected\"}",
+          "run_at": "2026-11-06T02:04:59Z",
+          "status": "pending",
+          "attempts": 0,
+          "last_error": null,
+          "created_at": "2026-11-06T02:04:59Z",
+          "updated_at": "2026-11-06T02:04:59Z"
+        }
+      ],
+      "runs": [
+        {
+          "run_id": "RUN-8c644ca820e2",
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "status": "completed",
+          "llm_mode": "mock",
+          "model": "deterministic-planner",
+          "intent": "event_response",
+          "reasoning": [
+            "GLUCOSE_RISING（medium）→ 2 个动作"
+          ],
+          "actions": [
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-bbd7dbfe48fa",
+                "created": true,
+                "version": 1,
+                "status": "pending",
+                "title": "核实近 3 天服药执行情况"
+              }
+            },
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-1056ce519bec",
+                "created": true,
+                "version": 1,
+                "status": "pending",
+                "title": "补录 2 次空腹血糖"
+              }
+            }
+          ],
+          "responses": [],
+          "evidence": [
+            {
+              "id": "EVD-c80558f9327f",
+              "doc_id": "KD-001",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "publisher": "中华医学会糖尿病学分会",
+              "anchor": "#1-自我血糖监测的意义-2",
+              "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·#1-自我血糖监测的意义-2",
+              "quote": "连续、可对比的记录比单次测量更有意义。记录时间点应尽量固定（例如每日早餐前），以便判断变化是真实趋势还是测量误差。",
+              "score": 27.7414
+            },
+            {
+              "id": "EVD-655dd9cf98e3",
+              "doc_id": "KD-001",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "publisher": "中华医学会糖尿病学分会",
+              "anchor": "#1-自我血糖监测的意义-1",
+              "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·#1-自我血糖监测的意义-1",
+              "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+              "score": 18.3014
+            }
+          ],
+          "rejections": [],
+          "waiting_user": false,
+          "priority_order": [
+            "GLUCOSE_RISING"
+          ]
+        }
+      ]
+    }
+  },
+  "runId": "RUN-8c644ca820e2",
+  "task": "TSK-bbd7dbfe48fa",
+  "updated": {
+    "task": {
+      "id": "TSK-bbd7dbfe48fa",
+      "patient_id": "WB-case-mw4c0o25-w2zj",
+      "task_type": "confirm_medication",
+      "title": "核实近 3 天服药执行情况",
+      "description": "请核对是否按时服药，并记录一次服药确认。",
+      "status": "pending",
+      "priority": 66,
+      "due_at": "2026-11-07T18:05:00Z",
+      "event_id": "EVT-69ec3e9c7b04",
+      "source_run_id": "RUN-8c644ca820e2",
+      "version": 2,
+      "required_fields": [
+        "medication_taken"
+      ],
+      "meta": {
+        "event_code": "GLUCOSE_RISING",
+        "event_ids": [
+          "EVT-69ec3e9c7b04"
+        ],
+        "knowledge_query": "连续血糖记录 意义",
+        "severity": "medium"
+      },
+      "created_at": "2026-11-06T02:04:59Z",
+      "updated_at": "2026-11-06T02:05:05Z",
+      "completed_at": null
+    },
+    "versions": [
+      {
+        "version": 1,
+        "change_kind": "create",
+        "reason": "任务创建",
+        "changed_by": "agent",
+        "run_id": "RUN-8c644ca820e2",
+        "created_at": "2026-11-06T02:04:59Z",
+        "snapshot": {
+          "completed_at": null,
+          "created_at": "2026-11-06T02:04:59Z",
+          "description": "请核对是否按时服药，并记录一次服药确认。",
+          "due_at": "2026-11-07T02:04:59Z",
+          "event_id": "EVT-69ec3e9c7b04",
+          "id": "TSK-bbd7dbfe48fa",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-69ec3e9c7b04"
+            ],
+            "knowledge_query": "连续血糖记录 意义",
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "priority": 66,
+          "required_fields": [
+            "medication_taken"
+          ],
+          "source_run_id": "RUN-8c644ca820e2",
+          "status": "pending",
+          "task_type": "confirm_medication",
+          "title": "核实近 3 天服药执行情况",
+          "updated_at": "2026-11-06T02:04:59Z",
+          "version": 1
+        }
+      },
+      {
+        "version": 2,
+        "change_kind": "reschedule",
+        "reason": "合成病例演示，工作人员确认时间（原时间 2026-11-07T02:04:59Z）",
+        "changed_by": "staff_demo",
+        "run_id": null,
+        "created_at": "2026-11-06T02:05:06Z",
+        "snapshot": {
+          "completed_at": null,
+          "created_at": "2026-11-06T02:04:59Z",
+          "description": "请核对是否按时服药，并记录一次服药确认。",
+          "due_at": "2026-11-07T18:05:00Z",
+          "event_id": "EVT-69ec3e9c7b04",
+          "id": "TSK-bbd7dbfe48fa",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-69ec3e9c7b04"
+            ],
+            "knowledge_query": "连续血糖记录 意义",
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "priority": 66,
+          "required_fields": [
+            "medication_taken"
+          ],
+          "source_run_id": "RUN-8c644ca820e2",
+          "status": "pending",
+          "task_type": "confirm_medication",
+          "title": "核实近 3 天服药执行情况",
+          "updated_at": "2026-11-06T02:05:05Z",
+          "version": 2
+        }
+      }
+    ]
+  },
+  "complete": {
+    "task_id": "TSK-bbd7dbfe48fa",
+    "reviews": [
+      {
+        "id": "REV-5cb04bdfe47d",
+        "patient_id": "WB-case-mw4c0o25-w2zj",
+        "task_id": "TSK-bbd7dbfe48fa",
+        "event_id": "EVT-69ec3e9c7b04",
+        "run_id": "RUN-8c644ca820e2",
+        "branch": "CLOSED",
+        "status": "completed",
+        "reason": "任务已完成且所需数据齐备",
+        "detail": {
+          "closer": "staff_demo",
+          "event_code": "GLUCOSE_RISING",
+          "event_severity": "medium",
+          "glucose_points_7d": 5,
+          "missing_required_fields": [],
+          "steps_points_3d": 1,
+          "task_status": "done",
+          "task_type": "confirm_medication"
+        },
+        "scheduled_for": "2026-11-08T02:04:59Z",
+        "created_at": "2026-11-06T02:04:59Z",
+        "resolved_at": "2026-11-06T02:05:07Z"
+      }
+    ],
+    "task": {
+      "id": "TSK-bbd7dbfe48fa",
+      "patient_id": "WB-case-mw4c0o25-w2zj",
+      "task_type": "confirm_medication",
+      "title": "核实近 3 天服药执行情况",
+      "description": "请核对是否按时服药，并记录一次服药确认。",
+      "status": "done",
+      "priority": 66,
+      "due_at": "2026-11-07T18:05:00Z",
+      "event_id": "EVT-69ec3e9c7b04",
+      "source_run_id": "RUN-8c644ca820e2",
+      "version": 3,
+      "required_fields": [
+        "medication_taken"
+      ],
+      "meta": {
+        "event_code": "GLUCOSE_RISING",
+        "event_ids": [
+          "EVT-69ec3e9c7b04"
+        ],
+        "knowledge_query": "连续血糖记录 意义",
+        "severity": "medium"
+      },
+      "created_at": "2026-11-06T02:04:59Z",
+      "updated_at": "2026-11-06T02:05:07Z",
+      "completed_at": "2026-11-06T02:05:07Z"
+    }
+  },
+  "versions": {
+    "task_id": "TSK-bbd7dbfe48fa",
+    "versions": [
+      {
+        "version": 1,
+        "change_kind": "create",
+        "reason": "任务创建",
+        "changed_by": "agent",
+        "run_id": "RUN-8c644ca820e2",
+        "created_at": "2026-11-06T02:04:59Z",
+        "snapshot": {
+          "completed_at": null,
+          "created_at": "2026-11-06T02:04:59Z",
+          "description": "请核对是否按时服药，并记录一次服药确认。",
+          "due_at": "2026-11-07T02:04:59Z",
+          "event_id": "EVT-69ec3e9c7b04",
+          "id": "TSK-bbd7dbfe48fa",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-69ec3e9c7b04"
+            ],
+            "knowledge_query": "连续血糖记录 意义",
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "priority": 66,
+          "required_fields": [
+            "medication_taken"
+          ],
+          "source_run_id": "RUN-8c644ca820e2",
+          "status": "pending",
+          "task_type": "confirm_medication",
+          "title": "核实近 3 天服药执行情况",
+          "updated_at": "2026-11-06T02:04:59Z",
+          "version": 1
+        }
+      },
+      {
+        "version": 2,
+        "change_kind": "reschedule",
+        "reason": "合成病例演示，工作人员确认时间（原时间 2026-11-07T02:04:59Z）",
+        "changed_by": "staff_demo",
+        "run_id": null,
+        "created_at": "2026-11-06T02:05:06Z",
+        "snapshot": {
+          "completed_at": null,
+          "created_at": "2026-11-06T02:04:59Z",
+          "description": "请核对是否按时服药，并记录一次服药确认。",
+          "due_at": "2026-11-07T18:05:00Z",
+          "event_id": "EVT-69ec3e9c7b04",
+          "id": "TSK-bbd7dbfe48fa",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-69ec3e9c7b04"
+            ],
+            "knowledge_query": "连续血糖记录 意义",
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "priority": 66,
+          "required_fields": [
+            "medication_taken"
+          ],
+          "source_run_id": "RUN-8c644ca820e2",
+          "status": "pending",
+          "task_type": "confirm_medication",
+          "title": "核实近 3 天服药执行情况",
+          "updated_at": "2026-11-06T02:05:05Z",
+          "version": 2
+        }
+      },
+      {
+        "version": 3,
+        "change_kind": "complete",
+        "reason": "医护演示工作人员人工确认完成",
+        "changed_by": "staff_demo",
+        "run_id": null,
+        "created_at": "2026-11-06T02:05:07Z",
+        "snapshot": {
+          "completed_at": "2026-11-06T02:05:07Z",
+          "created_at": "2026-11-06T02:04:59Z",
+          "description": "请核对是否按时服药，并记录一次服药确认。",
+          "due_at": "2026-11-07T18:05:00Z",
+          "event_id": "EVT-69ec3e9c7b04",
+          "id": "TSK-bbd7dbfe48fa",
+          "meta": {
+            "event_code": "GLUCOSE_RISING",
+            "event_ids": [
+              "EVT-69ec3e9c7b04"
+            ],
+            "knowledge_query": "连续血糖记录 意义",
+            "severity": "medium"
+          },
+          "patient_id": "WB-case-mw4c0o25-w2zj",
+          "priority": 66,
+          "required_fields": [
+            "medication_taken"
+          ],
+          "source_run_id": "RUN-8c644ca820e2",
+          "status": "done",
+          "task_type": "confirm_medication",
+          "title": "核实近 3 天服药执行情况",
+          "updated_at": "2026-11-06T02:05:07Z",
+          "version": 3
+        }
+      }
+    ]
+  },
+  "agentPosts": [],
+  "patientIsolation": true
+}

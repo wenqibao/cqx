@@ -5,6 +5,8 @@ import {
   businessName,
   businessText,
   runNarrative,
+  relatedQuestions,
+  runHasFailure,
 } from "./business";
 
 const run: Run = {
@@ -53,7 +55,7 @@ describe("业务展示保持结果边界", () => {
       ...run,
       plan: { actions: [{ tool: "create_task" }] },
     });
-    expect(n.summary).toContain("尚未返回可确认成功");
+    expect(n.summary).toContain("暂无已完成");
     expect(n.summary).not.toContain("安排健康管理任务");
   });
   it("执行后核对失败优先于工具返回成功", () => {
@@ -64,7 +66,7 @@ describe("业务展示保持结果边界", () => {
       },
     });
     expect(n.incomplete).toBe(true);
-    expect(n.summary).not.toContain("已返回成功的动作");
+    expect(n.summary).not.toContain("已完成：");
     expect(
       actionSummary(
         "create_task",
@@ -92,8 +94,8 @@ describe("业务展示保持结果边界", () => {
     expect(raw).toContain("RUN-123");
   });
   it("未知枚举不猜测含义，原文通过技术详情保留", () => {
-    expect(businessName("future_action")).toContain("未映射");
-    expect(businessText("future_action")).toContain("技术详情");
+    expect(businessName("future_action")).toContain("信息待核实");
+    expect(businessText("future_action")).toContain("日志");
   });
   it("知识无命中不写成已有依据", () => {
     expect(
@@ -103,5 +105,82 @@ describe("业务展示保持结果边界", () => {
         "ok",
       ),
     ).toBe("未检索到匹配依据");
+  });
+});
+
+describe("待回答问题关联", () => {
+  const q = {
+    id: "Q-one",
+    patient_id: "P001",
+    run_id: "RUN-test",
+    status: "waiting",
+  };
+  it("按当前运行和患者匹配问题", () => {
+    expect(
+      relatedQuestions({ id: "RUN-test", patient_id: "P001" }, [q]),
+    ).toEqual([q]);
+  });
+  it("复用已有问题时按实际动作结果的question_id关联", () => {
+    expect(
+      relatedQuestions(
+        {
+          run_id: "RUN-new",
+          patient_id: "P001",
+          actions: [{ result: { question_id: q.id } }],
+        },
+        [q],
+      ),
+    ).toEqual([q]);
+  });
+  it("不把其他患者或其他运行的问题作为本次问题", () => {
+    expect(
+      relatedQuestions({ id: "RUN-new", patient_id: "P001" }, [
+        q,
+        { ...q, patient_id: "P002", run_id: "RUN-new" },
+      ]),
+    ).toEqual([]);
+  });
+  it("只计划提问没有实际结果时不编造问题关联", () => {
+    expect(
+      relatedQuestions(
+        {
+          id: "RUN-new",
+          patient_id: "P001",
+          plan: { actions: [{ tool: "ask_user" }] },
+        },
+        [q],
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("操作结果不掩盖失败", () => {
+  it("后端整体completed但动作失败时仍提示未完成", () => {
+    expect(
+      runHasFailure({ status: "completed", actions: [{ ok: false }] }),
+    ).toBe(true);
+    expect(
+      runHasFailure({
+        status: "completed",
+        actions: [{ ok: true, post_check: { ok: false } }],
+      }),
+    ).toBe(true);
+  });
+  it("拦截和拒绝保留失败提示", () => {
+    expect(runHasFailure({ status: "blocked" })).toBe(true);
+    expect(
+      runHasFailure({
+        status: "completed",
+        rejections: [{ code: "FORBIDDEN_ACTION" }],
+      }),
+    ).toBe(true);
+  });
+  it("成功动作不制造失败提示", () => {
+    expect(
+      runHasFailure({
+        status: "completed",
+        actions: [{ ok: true, post_check: { ok: true } }],
+      }),
+    ).toBe(false);
   });
 });

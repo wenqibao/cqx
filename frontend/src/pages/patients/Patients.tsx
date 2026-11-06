@@ -17,15 +17,16 @@ import { api } from "../../api/workbench";
 import { useResource } from "../../hooks/useResource";
 import {
   DataView,
-  Debug,
+  TechnicalLog,
   ErrorBox,
   Heading,
   PatientScope,
   Status,
   RunLink,
 } from "../../components/common";
+import { businessName, businessText } from "../../utils/business";
 import { TrendChart } from "../../components/TrendChart";
-import { link, name, text, when } from "../../utils/format";
+import { link, name, recordContent, text, when } from "../../utils/format";
 import { Tabs, Descriptions, Select, Alert } from "antd";
 export default function Patients() {
   const { boot, busy, perform, refresh } = useWorkbench();
@@ -37,7 +38,7 @@ export default function Patients() {
     <>
       <Heading
         title="患者管理"
-        description="仅管理合成病例，档案与操作始终绑定患者 ID。"
+        description="查找合成患者，查看健康档案与管理进度。"
         extra={
           <Button type="primary" onClick={() => setOpen(true)}>
             新建合成患者
@@ -206,8 +207,13 @@ function Detail() {
     <>
       <Heading
         title="患者健康档案"
-        description={`${patient?.name || id} · ${id} · 合成病例；档案暂为只读，未实现不存在的保存接口。`}
-        extra={<Button onClick={resource.reload}>刷新档案</Button>}
+        description={`${patient?.name || id} · 健康档案与近期记录`}
+        extra={
+          <>
+            <Button onClick={resource.reload}>刷新档案</Button>
+            <TechnicalLog value={resource.data} label="档案日志" />
+          </>
+        }
       />
       <DataView resource={resource}>
         {(d) => (
@@ -271,18 +277,18 @@ function Detail() {
                             },
                             {
                               key: "trend",
-                              label: "后端趋势",
-                              children: text(d.state.trend),
+                              label: "近 7 天空腹血糖趋势",
+                              children:
+                                (
+                                  {
+                                    rising: "上升",
+                                    falling: "下降",
+                                    stable: "平稳",
+                                  } as Record<string, string>
+                                )[String(d.state.trend.fasting_glucose_7d)] ||
+                                "记录不足",
                             },
                           ]}
-                        />
-                        <Alert
-                          type="info"
-                          title="以上为后端健康管理状态，不是医学诊断。"
-                        />
-                        <Debug
-                          value={d.state.aggregates}
-                          label="查看后端 3日/7日/14日聚合"
                         />
                       </Card>
                       <Card title="当前有效偏好">
@@ -296,7 +302,11 @@ function Detail() {
                           columns={[
                             { title: "类型", dataIndex: "kind", render: name },
                             { title: "值", dataIndex: "value" },
-                            { title: "来源", dataIndex: "source" },
+                            {
+                              title: "来源",
+                              dataIndex: "source",
+                              render: businessName,
+                            },
                           ]}
                         />
                         <Link
@@ -339,10 +349,7 @@ function Detail() {
                           },
                           {
                             title: "值 / 内容",
-                            render: (_, r) =>
-                              r.value === null
-                                ? text(r.payload)
-                                : `${r.value} ${r.unit}`,
+                            render: (_, r) => recordContent(r),
                           },
                           {
                             title: "记录时间",
@@ -368,7 +375,7 @@ function Detail() {
                           {
                             title: "管理事件",
                             dataIndex: "code",
-                            render: name,
+                            render: businessName,
                           },
                           {
                             title: "规则级别",
@@ -380,18 +387,17 @@ function Detail() {
                             dataIndex: "status",
                             render: (v) => <Status value={v} />,
                           },
-                          { title: "触发原因", dataIndex: "message" },
+                          {
+                            title: "触发原因",
+                            dataIndex: "message",
+                            render: (v) => businessText(v),
+                          },
                           {
                             title: "关联运行",
                             dataIndex: "handled_by_run",
                             render: (v) => <RunLink id={v} patient={id} />,
                           },
                         ]}
-                        expandable={{
-                          expandedRowRender: (r) => (
-                            <Debug value={r.evidence} label="事件规则依据" />
-                          ),
-                        }}
                       />
                     </Card>
                   ),
@@ -469,10 +475,7 @@ function Detail() {
                   label: "状态快照",
                   children: (
                     <Card title="已保存的状态版本">
-                      <Alert
-                        type="info"
-                        title="当前接口仅返回版本号与保存时间，不提供旧快照正文。"
-                      />
+                      <Alert type="info" title="查看已保存版本的编号与时间。" />
                       <Table
                         rowKey="version"
                         dataSource={d.history.snapshots}

@@ -23,14 +23,21 @@ import { useResource } from "../../hooks/useResource";
 import {
   CostNotice,
   DataView,
-  Debug,
+  TechnicalLog,
   ErrorBox,
   Heading,
   RunLink,
   Status,
   WriteResult,
 } from "../../components/common";
-import { importRows, name, text, when } from "../../utils/format";
+import { businessName, businessText } from "../../utils/business";
+import {
+  importRows,
+  name,
+  recordContent,
+  text,
+  when,
+} from "../../utils/format";
 export default function Monitoring() {
   const { patientId, patient, busy, perform } = useWorkbench();
   const [params, setParams] = useSearchParams();
@@ -84,7 +91,12 @@ export default function Monitoring() {
       <Heading
         title="健康监测"
         description={`${patient?.name} · ${patientId}；新增记录由后端检测事件并按实际规则触发 Agent。`}
-        extra={<Button onClick={resource.reload}>重新读取状态</Button>}
+        extra={
+          <>
+            <Button onClick={resource.reload}>重新读取状态</Button>
+            <TechnicalLog value={resource.data} label="监测日志" />
+          </>
+        }
       />
       <CostNotice />
       <Tabs
@@ -298,15 +310,12 @@ export default function Monitoring() {
             label: "事件中心",
             children: (
               <>
-                <Alert
-                  type="info"
-                  title="严重程度是版本化规则的管理事件级别，不是 AI 疾病诊断或临床分级。"
-                />
+                <p className="action-note">事件级别来自健康管理规则。</p>
                 <Card
                   title="事件与多事件协调"
                   extra={
                     <Popconfirm
-                      title="仅手动扫描规则，不代表后台持续调度，也不额外运行 Agent。"
+                      title="扫描当前记录并更新管理事件？"
                       onConfirm={() => act(() => api.scan(patientId))}
                     >
                       <Button disabled={busy}>演示：手动扫描事件</Button>
@@ -321,15 +330,9 @@ export default function Monitoring() {
                         scroll={{ x: 1000 }}
                         columns={[
                           {
-                            title: "事件名称 / 代码",
-                            render: (_, e) => (
-                              <>
-                                {name(e.code)}
-                                <small className="block mono muted">
-                                  {e.code} · {e.id}
-                                </small>
-                              </>
-                            ),
+                            title: "事件名称",
+                            dataIndex: "code",
+                            render: businessName,
                           },
                           {
                             title: "规则级别",
@@ -341,7 +344,11 @@ export default function Monitoring() {
                             dataIndex: "status",
                             render: (v) => <Status value={v} />,
                           },
-                          { title: "触发原因", dataIndex: "message" },
+                          {
+                            title: "触发原因",
+                            dataIndex: "message",
+                            render: (v) => businessText(v),
+                          },
                           {
                             title: "检测时间",
                             dataIndex: "detected_at",
@@ -355,14 +362,6 @@ export default function Monitoring() {
                             ),
                           },
                         ]}
-                        expandable={{
-                          expandedRowRender: (e) => (
-                            <Debug
-                              value={e.evidence}
-                              label="实际规则依据 / 去重信息"
-                            />
-                          ),
-                        }}
                       />
                     )}
                   </DataView>
@@ -385,12 +384,10 @@ export default function Monitoring() {
               dataSource={d.records}
               scroll={{ x: 800 }}
               columns={[
-                { title: "ID", dataIndex: "id" },
                 { title: "类型", dataIndex: "kind", render: name },
                 {
                   title: "数值 / 内容",
-                  render: (_, r) =>
-                    r.value === null ? text(r.payload) : `${r.value} ${r.unit}`,
+                  render: (_, r) => recordContent(r),
                 },
                 { title: "记录时间", dataIndex: "recorded_at", render: when },
                 { title: "备注", dataIndex: "note", render: text },

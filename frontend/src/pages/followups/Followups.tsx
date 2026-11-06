@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Alert,
   Button,
   Card,
   Checkbox,
@@ -23,7 +22,7 @@ import {
   RunLink,
   Status,
   WriteResult,
-  TechnicalDetails,
+  TechnicalLog,
 } from "../../components/common";
 import { businessName, businessText } from "../../utils/business";
 import { name, when } from "../../utils/format";
@@ -37,6 +36,15 @@ export default function Followups() {
     questions: await api.questions(patientId, s),
     preferences: await api.preferences(patientId, s),
   }));
+  useEffect(() => {
+    const id = params.get("question");
+    if (!id || !resource.data?.questions.some((q) => q.id === id)) return;
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ block: "center", behavior: "auto" });
+    el?.querySelector<HTMLTextAreaElement>("textarea")?.focus({
+      preventScroll: true,
+    });
+  }, [params, resource.data]);
   async function act(action: () => Promise<unknown>) {
     setError(undefined);
     setResult(undefined);
@@ -51,8 +59,16 @@ export default function Followups() {
     <>
       <Heading
         title="智能随访"
-        description={`${patient?.name} · ${patientId}；查看 Agent 的真实追问，记录合成患者的模拟反馈与偏好。`}
-        extra={<Button onClick={resource.reload}>刷新随访</Button>}
+        description={`${patient?.name} · 回答随访问题，跟进健康管理安排`}
+        extra={
+          <>
+            <Button onClick={resource.reload}>刷新随访</Button>
+            <TechnicalLog
+              value={{ ...resource.data, last_result: result }}
+              label="随访日志"
+            />
+          </>
+        }
       />
       <Tabs
         activeKey={tab}
@@ -67,75 +83,73 @@ export default function Followups() {
             label: "主动提问与答复",
             children: (
               <>
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="模拟患者答复，仅用于合成病例演示。"
-                  description="本界面由工作人员模拟输入，不是患者本人在线确认；当前回答 API 无独立操作者来源字段。"
-                />
+                <p className="action-note">当前以工作人员身份模拟患者答复。</p>
                 <CostNotice />
                 <DataView resource={resource}>
                   {(d) =>
                     d.questions.length ? (
-                      d.questions.map((q) => (
-                        <Card
-                          title={
-                            <>
-                              <Status value={q.status} />{" "}
-                              {q.target_field
-                                ? name(q.target_field)
-                                : "随访问题"}
-                            </>
-                          }
-                          key={q.id}
-                          id={q.id}
-                          className={
-                            params.get("question") === q.id
-                              ? "focused-object"
-                              : ""
-                          }
-                        >
-                          <h3>{businessText(q.question)}</h3>
-                          <p className="muted">
-                            {when(q.created_at)} · 来源{" "}
-                            <RunLink id={q.run_id} patient={patientId} />
-                          </p>
-                          {q.status === "waiting" ? (
-                            <AnswerForm
-                              question={q}
-                              busy={busy}
-                              submit={(answer) =>
-                                act(() => api.answer(q.id, answer))
-                              }
-                            />
-                          ) : (
-                            <>
-                              <p>
-                                实际已保存答复：{q.answer_text || "未提供文本"}{" "}
-                                {q.answer &&
-                                typeof q.answer === "object" &&
-                                "uncertain" in q.answer &&
-                                q.answer.uncertain === true
-                                  ? "（患者表示不确定，尚未补全为服药事实）"
-                                  : ""}
-                              </p>
-                            </>
-                          )}
-                          <TechnicalDetails
-                            value={q}
-                            ids={{
-                              问题编号: q.id,
-                              来源运行编号: q.run_id,
-                              原始字段: q.target_field,
-                            }}
-                          />
-                        </Card>
-                      ))
+                      [...d.questions]
+                        .sort(
+                          (a, b) =>
+                            Number(b.id === params.get("question")) -
+                            Number(a.id === params.get("question")),
+                        )
+                        .map((q) => (
+                          <Card
+                            title={
+                              <>
+                                <Status value={q.status} />{" "}
+                                {q.target_field
+                                  ? name(q.target_field)
+                                  : "随访问题"}
+                              </>
+                            }
+                            key={q.id}
+                            id={q.id}
+                            className={
+                              params.get("question") === q.id
+                                ? "focused-object"
+                                : ""
+                            }
+                          >
+                            <div className="conversation-message agent-message">
+                              <span className="message-speaker">
+                                Agent 提问
+                              </span>
+                              <h3>{businessText(q.question)}</h3>
+                            </div>
+                            <p className="muted">
+                              {when(q.created_at)} · 来源{" "}
+                              <RunLink id={q.run_id} patient={patientId} />
+                            </p>
+                            {q.status === "waiting" ? (
+                              <AnswerForm
+                                question={q}
+                                busy={busy}
+                                submit={(answer) =>
+                                  act(() => api.answer(q.id, answer))
+                                }
+                              />
+                            ) : (
+                              <>
+                                <p className="conversation-message patient-message">
+                                  患者答复：{q.answer_text || "未提供文本"}{" "}
+                                  {q.answer &&
+                                  typeof q.answer === "object" &&
+                                  "uncertain" in q.answer &&
+                                  q.answer.uncertain === true
+                                    ? "（尚不确定）"
+                                    : ""}
+                                </p>
+                              </>
+                            )}
+                          </Card>
+                        ))
                     ) : (
                       <Card>
                         <p className="muted">
                           暂无随访问题；前往 Agent
-                          决策中心发起一次健康记录缺项核实。界面不会自行生成问题。
+                          决策中心发起一次健康记录缺项核实。
                         </p>
                       </Card>
                     )
@@ -149,10 +163,6 @@ export default function Followups() {
             label: "长期偏好与历史",
             children: (
               <>
-                <Alert
-                  type="info"
-                  title="偏好只来自明确反馈。模拟确认也只是合成病例演示，不代表正式患者授权或机构权限。"
-                />
                 <div className="two-columns">
                   <Card title="保存模拟患者偏好">
                     <Form
@@ -334,12 +344,12 @@ function AnswerForm({
       >
         <Input.TextArea
           rows={2}
-          placeholder="如：记不清；不确定的回答不会被前端补成事实"
+          placeholder="请输入答复，如：记不清"
           maxLength={500}
         />
       </Form.Item>
       <p className="action-note">
-        后端给出的选项：
+        可参考：
         {question.options.length
           ? question.options.join(" / ")
           : "无预设选项，可使用文字答复"}

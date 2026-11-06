@@ -67,5 +67,8 @@ test("八种真实记录类型、重复处理和类型切换不残留数值 [F03
     "后端判定为重复记录",
   );
   await expect(page.getByTestId("write-result")).not.toContainText("RUN-");
+  await expect(
+    page.getByRole("row").filter({ hasText: "120/80 mmHg" }),
+  ).toHaveCount(1);
   await evidence("record-types-api", { pid, results, duplicate: same });
 });

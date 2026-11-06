@@ -69,7 +69,7 @@ export async function visit(page: Page, path: string, patient?: string) {
   );
   await expect(page.locator("header")).toContainText("后端已连接");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.locator("main .ant-spin-spinning")).toHaveCount(0);
+  await expect(page.locator("main .ant-spin-spinning")).toHaveCount(0, { timeout: 30000 });
 }
 export async function evidence(name: string, data: unknown) {
   await fs.mkdir("docs/evidence/workbench", { recursive: true });

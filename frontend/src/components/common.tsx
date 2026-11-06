@@ -3,16 +3,19 @@ import {
   Button,
   Card,
   Collapse,
+  Drawer,
+  Input,
   Empty,
   Spin,
   Tag,
   Typography,
 } from "antd";
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { RunConversation } from "./RunConversation";
 import { ApiError } from "../api/httpAdapter";
 import { useWorkbench } from "../app/WorkbenchContext";
-import { businessName, businessText } from "../utils/business";
+import { businessName, businessText, runHasFailure } from "../utils/business";
 import { array, link, obj, text } from "../utils/format";
 export function Json({ value }: { value: unknown }) {
   return <pre className="json">{JSON.stringify(value, null, 2)}</pre>;
@@ -82,14 +85,27 @@ export function ErrorBox({
       role="alert"
       showIcon
       type="error"
-      title={error instanceof Error ? error.message : "请求失败"}
+      title={
+        error instanceof SyntaxError
+          ? "无法解析 JSON"
+          : error instanceof Error
+            ? businessText(error.message, "请求失败")
+            : "请求失败"
+      }
       description={
         <>
           {error instanceof ApiError && (
-            <>
-              <code>{error.code}</code>
-              <Debug value={error.detail} label="错误详情" />
-            </>
+            <TechnicalLog
+              value={{
+                code: error.code,
+                message: error.message,
+                detail: error.detail,
+              }}
+              label="错误日志"
+            />
+          )}
+          {error instanceof SyntaxError && (
+            <TechnicalLog value={{ message: error.message }} label="错误日志" />
           )}
           {retry && <Button onClick={retry}>重新读取</Button>}
         </>
@@ -150,43 +166,64 @@ export function PatientScope({ children }: { children: ReactNode }) {
     return <Alert type="error" title="此工作台仅支持合成患者演示" />;
   return <div key={patientId}>{children}</div>;
 }
-export function TechnicalDetails({
+export function TechnicalLog({
   value,
-  ids = {},
-  children,
+  label = "查看日志",
+  onFindRun,
 }: {
   value: unknown;
-  ids?: Record<string, unknown>;
-  children?: ReactNode;
+  label?: string;
+  onFindRun?: (runId: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const raw = JSON.stringify(value, null, 2) || "null";
+  function download() {
+    const url = URL.createObjectURL(
+      new Blob([raw], { type: "application/json;charset=utf-8" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "agent-log.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
   return (
-    <details className="technical-details">
-      <summary>技术详情（编号、参数与原始数据）</summary>
-      {Object.entries(ids).map(([label, id]) =>
-        id ? (
-          <p key={label}>
-            {label}：
-            <Typography.Text className="mono" copyable={{ text: String(id) }}>
-              {String(id)}
-            </Typography.Text>
-          </p>
-        ) : null,
-      )}
-      {children}
-      <Debug value={value} />
-    </details>
+    <>
+      <Button size="small" onClick={() => setOpen(true)}>
+        {label}
+      </Button>
+      <Drawer
+        title="技术日志"
+        open={open}
+        onClose={() => setOpen(false)}
+        width={860}
+        destroyOnHidden
+      >
+        <div className="toolbar">
+          <Typography.Text copyable={{ text: raw }}>
+            复制完整原始 JSON
+          </Typography.Text>
+          <Button onClick={download}>下载日志 JSON</Button>
+        </div>
+        {onFindRun && (
+          <Input.Search
+            aria-label="查询运行编号"
+            placeholder="输入运行编号"
+            onSearch={(id) => {
+              if (!id.trim()) return;
+              setOpen(false);
+              onFindRun(id.trim());
+            }}
+          />
+        )}
+        <Json value={value} />
+      </Drawer>
+    </>
   );
 }
 export function RunLink({ id, patient }: { id: unknown; patient: string }) {
   return typeof id === "string" && id ? (
-    <span className="run-reference">
-      <Link to={link("/agent", patient, { run: id })}>查看处理经过</Link>
-      <small className="block muted">
-        <Typography.Text className="technical-id" copyable={{ text: id }}>
-          {id}
-        </Typography.Text>
-      </small>
-    </span>
+    <Link to={link("/agent", patient, { run: id })}>查看处理经过</Link>
   ) : (
     <span className="muted">无关联运行</span>
   );
@@ -194,17 +231,10 @@ export function RunLink({ id, patient }: { id: unknown; patient: string }) {
 export function CostNotice() {
   const { boot } = useWorkbench();
   return boot?.mode.llm_mode === "real" ? (
-    <Alert
-      type="warning"
-      showIcon
-      title="真实模型模式：触发 Agent 或恢复答复可能产生 DeepSeek API 费用。一次操作可能包含多轮厂商请求，请勿重复提交。"
-    />
-  ) : (
-    <Alert
-      type="info"
-      title="后端确定性 Mock 规划器：工具与数据库真实执行，不调用厂商模型。"
-    />
-  );
+    <p className="action-note">
+      本次操作可能产生 DeepSeek API 费用，请确认后提交。
+    </p>
+  ) : null;
 }
 export function WriteResult({
   value,
@@ -224,29 +254,18 @@ export function WriteResult({
     ...array(resume.runs),
   ].map(obj);
   const hasFailure =
-    runs.some((r) => ["failed", "blocked"].includes(String(r.status))) ||
-    array(root.rejections).length > 0;
+    runs.some(runHasFailure) || array(root.rejections).length > 0;
   const record = obj(root.record),
     task = obj(root.task);
   return (
-    <Card
-      title="后端实际返回结果"
-      className="result"
-      data-testid="write-result"
-    >
-      <Alert
-        type={hasFailure ? "warning" : "info"}
-        title={
-          hasFailure
-            ? "业务请求已返回；Agent 存在失败或拦截，请核查详情"
-            : "接口已返回，请以保存对象与重新读取结果为准"
-        }
-      />
+    <Card title="本次处理结果" className="result" data-testid="write-result">
+      {hasFailure && (
+        <Alert type="warning" title="部分处理未完成，请查看原因" />
+      )}
       {record.id !== undefined && (
         <p>
-          记录 ID：<strong>{text(record.id)}</strong> ·{" "}
-          {record.duplicate ? "后端判定为重复记录" : "已保存记录"} · 患者{" "}
-          {text(record.patient_id)}
+          {record.duplicate ? "后端判定为重复记录" : "已保存记录"} ·{" "}
+          {businessName(record.kind)}
         </p>
       )}
       {!!task.id && (
@@ -265,7 +284,12 @@ export function WriteResult({
         <Alert
           key={i}
           type="error"
-          title={"第 " + text(obj(e).row) + " 行：" + text(obj(e).error)}
+          title={
+            "第 " +
+            text(obj(e).row) +
+            " 行：" +
+            businessText(obj(e).error, "请核查记录内容")
+          }
         />
       ))}
       {root.automation !== undefined && (
@@ -278,17 +302,24 @@ export function WriteResult({
         </p>
       )}
       {runs.map((r, i) => (
-        <p key={i}>
-          <RunLink id={r.run_id} patient={patientId} />{" "}
-          {!!r.status && <Status value={String(r.status)} />}
-        </p>
+        <section key={i} className="run-result">
+          <div className="toolbar">
+            {runHasFailure(r) ? (
+              <Tag color="error">部分处理未完成</Tag>
+            ) : (
+              <Status value={String(r.status)} />
+            )}
+            <RunLink id={r.run_id} patient={patientId} />
+          </div>
+          <RunConversation run={r} patientId={patientId} />
+        </section>
       ))}
       {array(root.reviews).map((r, i) => (
         <p key={i}>
           复评结果 · <Status value={String(obj(r).branch)} />
         </p>
       ))}
-      <TechnicalDetails value={value} ids={{ 任务编号: task.id }} />
+      <TechnicalLog value={value} label="查看本次操作日志" />
     </Card>
   );
 }

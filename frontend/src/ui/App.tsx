@@ -95,7 +95,7 @@ function Shell() {
       <div className="workspace">
         <header>
           <div className="header-location">
-            智能监测与随访监管<span>仅限本机合成病例演示</span>
+            智能监测与随访监管<span>医护健康管理工作台</span>
           </div>
           <div className="header-status">
             <Tag color={client.mode === "http" ? "cyan" : "orange"}>
@@ -121,6 +121,10 @@ function Shell() {
                 label: `${p.name} · ${p.id}`,
               }))}
               className="patient-select"
+              getPopupContainer={(trigger) => trigger}
+              styles={{
+                popup: { root: { inset: "calc(100% + 4px) auto auto 0" } },
+              }}
             />
             <Link to={"/notifications" + navigationQuery} aria-label="通知中心">
               <Button icon={<BellOutlined />} />
@@ -128,14 +132,14 @@ function Shell() {
           </div>
         </header>
         <div className="disclosure">
-          <span>参赛演示 · 合成患者数据 · 非医疗器械</span>
+          <span>合成数据演示 · 不提供诊断、处方或用药调整</span>
           <span>
             {busy
-              ? "业务请求处理中，请等待实际结果，勿重复提交"
+              ? "正在处理，请勿重复提交"
               : boot?.mode.llm_mode === "mock"
-                ? "确定性规划器运行；工具与 SQLite 实际执行"
+                ? "确定性演示模式"
                 : boot?.mode.llm_mode === "real"
-                  ? "真实模型已配置；每次运行来源以轨迹证据为准"
+                  ? "真实模型模式"
                   : "等待后端返回模式"}
           </span>
         </div>
@@ -228,8 +232,7 @@ function Shell() {
           )}
         </main>
         <footer>
-          糖衡智管 ·
-          健康管理事件与辅助行动均接受人工监督，不提供诊断或治疗决策。
+          <Link to="/system?tab=guide">使用说明与系统信息</Link>
         </footer>
       </div>
     </div>

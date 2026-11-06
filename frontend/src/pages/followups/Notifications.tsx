@@ -4,7 +4,14 @@ import { Link } from "react-router-dom";
 import { api } from "../../api/workbench";
 import { useWorkbench } from "../../app/WorkbenchContext";
 import { useResource } from "../../hooks/useResource";
-import { DataView, ErrorBox, Heading, Status } from "../../components/common";
+import {
+  DataView,
+  ErrorBox,
+  Heading,
+  Status,
+  TechnicalLog,
+} from "../../components/common";
+import { businessText } from "../../utils/business";
 import { noticeLink, when } from "../../utils/format";
 export default function Notifications() {
   const { patientId, patient, busy, perform } = useWorkbench();
@@ -16,8 +23,13 @@ export default function Notifications() {
     <>
       <Heading
         title="通知中心"
-        description={`${patient?.name} · ${patientId}；已读状态实际保存到后端，不通过隐藏消息模拟。`}
-        extra={<Button onClick={resource.reload}>刷新通知</Button>}
+        description={`${patient?.name} · 查看提醒与待办`}
+        extra={
+          <>
+            <Button onClick={resource.reload}>刷新通知</Button>
+            <TechnicalLog value={resource.data} label="通知日志" />
+          </>
+        }
       />
       {error && <ErrorBox error={error} />}
       <Card>
@@ -59,15 +71,13 @@ export default function Notifications() {
                     <List.Item.Meta
                       title={
                         <>
-                          <Status value={n.status} /> {n.title}
+                          <Status value={n.status} /> {businessText(n.title)}
                         </>
                       }
                       description={
                         <>
-                          <p>{n.body}</p>
-                          <small>
-                            {n.patient_id} · {when(n.created_at)} · {n.id}
-                          </small>
+                          <p>{businessText(n.body)}</p>
+                          <small>{when(n.created_at)}</small>
                         </>
                       }
                     />

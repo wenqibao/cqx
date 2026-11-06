@@ -177,3 +177,31 @@ export function importRows(raw: string): Record<string, unknown>[] {
     throw new Error("JSON需为1–1000条记录对象的数组");
   return parsed.map((r) => ({ ...obj(r), ...obj(obj(r).payload) }));
 }
+
+export function recordContent(record: {
+  kind: string;
+  value: number | null;
+  unit: string;
+  payload?: unknown;
+}) {
+  const payload = obj(record.payload);
+  if (record.kind === "medication_taken") {
+    if (record.value === 1) return "已确认服药";
+    if (record.value === 0) return "未服药";
+  }
+  if (record.kind === "bp") {
+    const [systolic, diastolic] = [payload.systolic, payload.diastolic].map(
+      (value) =>
+        typeof value === "number" || (typeof value === "string" && value.trim())
+          ? Number(value)
+          : NaN,
+    );
+    if (Number.isFinite(systolic) && Number.isFinite(diastolic)) {
+      return `${systolic}/${diastolic} mmHg`;
+    }
+  }
+  if (record.value !== null) return `${record.value} ${record.unit}`.trim();
+  return typeof payload.text === "string" && payload.text.trim()
+    ? payload.text
+    : "未填写";
+}

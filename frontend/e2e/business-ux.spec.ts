@@ -14,33 +14,33 @@ test("业务层解释随访与任务，技术层保留编号和可复制原文",
   const run = await runResponse.json();
   await visit(page, `/agent?run=${run.run_id}`, pid);
   const dialog = page.getByRole("dialog");
-  await expect(dialog.locator(".business-overview")).toContainText(
-    "为什么触发",
-  );
-  await expect(dialog.locator(".business-overview")).toContainText("人工待办");
+  await expect(dialog.locator(".business-overview")).toContainText("触发原因");
+  await expect(dialog.locator(".business-overview")).toContainText("接下来");
   await expect(dialog.locator(".business-overview")).not.toContainText(
     /RUN-|EVT-|TSK-/,
   );
   await expect(dialog).toContainText("向患者补充提问");
-  const details = dialog.locator("details").last();
-  await expect(details).not.toHaveAttribute("open");
-  await details.locator("summary").click();
-  await expect(details).toContainText(run.run_id);
-  await details.getByText("技术详情：完整原始 JSON", { exact: true }).click();
+  await expect(dialog.locator("details")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "运行日志", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "技术日志", exact: true });
+  await expect(details.locator("pre")).toContainText(run.run_id);
   await expect(details.locator("pre")).toContainText("ask_user");
   await expect(details.getByText("复制完整原始 JSON")).toBeVisible();
-  await details.locator("summary").click();
-  await dialog.locator(".ant-drawer-body").evaluate((e) => e.scrollTo(0, 0));
+  await page.keyboard.press("Escape");
   await page.screenshot({
-    path: "docs/evidence/ux/trace-1440.png",
+    path: "docs/evidence/ux-followup/trace-1440.png",
     fullPage: true,
+    animations: "disabled",
   });
   const questions = await json(request, `/patients/${pid}/questions`);
   await visit(page, "/followups", pid);
   const card = page.locator(`[id="${questions.items[0].id}"]`);
   await expect(card).toContainText("是否按时服药");
-  await card.locator("details > summary").click();
-  await expect(card.locator("details")).toContainText(questions.items[0].id);
+  await expect(card.locator("details")).toHaveCount(0);
+  await page.getByRole("button", { name: "随访日志", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "技术日志", exact: true }).locator("pre"),
+  ).toContainText(questions.items[0].id);
 });
 
 test("实际安全拦截用业务文字呈现，审计原码仍可查", async ({
@@ -58,17 +58,15 @@ test("实际安全拦截用业务文字呈现，审计原码仍可查", async ({
   const row = page.getByRole("row").filter({ hasText: pid }).first();
   await expect(row).toContainText("拦截越权请求");
   await expect(row).toContainText("调整胰岛素剂量请求已拦截");
-  await row.getByRole("button", { name: /展开|Expand/ }).click();
-  const technical = page
-    .locator("details")
-    .filter({ hasText: "审计编号" })
-    .first();
-  await technical.locator("summary").click();
-  await expect(technical).toContainText("INSULIN_DOSE");
-  await expect(technical).toContainText(run.run_id);
+  await page.getByRole("button", { name: "审计日志", exact: true }).click();
+  const technical = page.getByRole("dialog", { name: "技术日志", exact: true });
+  await expect(technical.locator("pre")).toContainText("INSULIN_DOSE");
+  await expect(technical.locator("pre")).toContainText(run.run_id);
+  await page.keyboard.press("Escape");
   await page.screenshot({
-    path: "docs/evidence/ux/audit-1440.png",
+    path: "docs/evidence/ux-followup/audit-1440.png",
     fullPage: true,
+    animations: "disabled",
   });
 });
 
@@ -94,19 +92,18 @@ test("保存的真实失败轨迹只读回放，失败原因及原始参数均�
   await visit(page, `/agent?run=${trace.run.id}`, pid);
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("处理未全部完成");
-  await expect(dialog).toContainText("执行结果与实际保存状态不一致");
+  await expect(dialog).toContainText("所需业务动作未执行");
   await expect(dialog.locator(".business-overview")).toContainText("人工核查");
-  const details = dialog.locator("details").last();
-  await details.locator("summary").click();
-  await details.getByText("技术详情：完整原始 JSON", { exact: true }).click();
+  await dialog.getByRole("button", { name: "运行日志", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "技术日志", exact: true });
   await expect(details.locator("pre")).toContainText("POSTCHECK_MISMATCH");
   await expect(details.locator("pre")).toContainText("tool_call");
   expect(posts).toBe(0);
-  await details.locator("summary").click();
-  await dialog.locator(".ant-drawer-body").evaluate((e) => e.scrollTo(0, 0));
+  await page.keyboard.press("Escape");
   await page.screenshot({
-    path: "docs/evidence/ux/real-failure-replay.png",
+    path: "docs/evidence/ux-followup/real-failure-replay.png",
     fullPage: true,
+    animations: "disabled",
   });
 });
 
@@ -127,15 +124,17 @@ test("任务业务标题与完整技术对象均可读取，三个桌面尺寸�
   await expect(dialog.getByRole("heading", { level: 2 })).toContainText(
     task.title,
   );
-  const technical = dialog.locator("details").first();
-  await expect(technical).not.toHaveAttribute("open");
-  await technical.locator("summary").click();
-  await expect(technical).toContainText(task.id);
+  await expect(dialog.locator("details")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "任务日志", exact: true }).click();
+  const technical = page.getByRole("dialog", { name: "技术日志", exact: true });
+  await expect(technical.locator("pre")).toContainText(task.id);
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await technical.locator(".ant-typography-copy").first().click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    task.id,
+  const copied = JSON.parse(
+    await page.evaluate(() => navigator.clipboard.readText()),
   );
+  expect(copied.task.id).toBe(task.id);
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   for (const width of [1920, 1440, 1366]) {
     await page.setViewportSize({ width, height: width === 1366 ? 768 : 900 });
@@ -150,7 +149,8 @@ test("任务业务标题与完整技术对象均可读取，三个桌面尺寸�
     }
   }
   await page.screenshot({
-    path: "docs/evidence/ux/audit-1366.png",
+    path: "docs/evidence/ux-followup/audit-1366.png",
     fullPage: true,
+    animations: "disabled",
   });
 });

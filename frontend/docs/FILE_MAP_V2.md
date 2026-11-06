@@ -28,6 +28,9 @@
 | `src/utils/business.ts`、`src/utils/business.test.ts` | 中文业务映射、忠实运行摘要、正常/失败/未知字段边界测试 |
 | `e2e/business-ux.spec.ts` | 四项双层展示验收、复制与三尺寸验证、历史Real失败只读回放 |
 | `docs/C_UX_01_ACCEPTANCE.md`、`docs/evidence/ux/` | 本次C-UX-01验证说明、19项回归结果与保留的历史失败轨迹 |
+| `src/components/RunConversation.tsx` | 实际消息/提问/回复气泡、真实待答状态与一键回答入口 |
+| `e2e/reply-guidance.spec.ts` | 回复置顶、问题定位、不确定答复恢复及问题读取异常验证 |
+| `docs/C_TO_B_UX_FOLLOWUP.md`、`docs/review/B_REPORT_V3_UX_2026-11-05.md`、`docs/evidence/ux-followup/` | B反馈原文、C修复交接、独立验证和初次失败记录 |
 | `src/data/scenarios.json` | 从实际33个evaluation场景提取目录，不含假运行结果 |
 | `src/api/*.test.ts`、`src/utils/reports.test.ts` | 原11项及新增19项前端单测 |
 | `e2e/real-api.spec.ts`、`e2e/record-types.spec.ts` | 保留并适配原4类真实后端浏览器覆盖 |
@@ -42,6 +45,7 @@
 | `docs/INTEGRATION_REPORT_V2.md`、`docs/TEST_REPORT_V2.md` | 本轮联调、自动化、Real/Mock独立结果 |
 | `docs/BACKEND_DEPENDENCIES.md` | 已复现的A依赖、当前替代展示与严重度 |
 | `docs/A_NEXT_EXECUTION.md` | 给A的完整独立执行指令：版本保护、三项P1修复、离线回归与交接 |
+| `docs/B_V3_ACCEPTANCE_TASK.md` | B的V3独立验收执行书：精确SHA、隔离命令、18项UX用例、功能回归与三级结论 |
 | `docs/B_NEXT_EXECUTION.md` | 给B的完整独立执行指令：隔离环境、独立复验、Real预算、发布门槛与PR顺序 |
 | `docs/DEMO_WORKFLOW.md`、`docs/UI_DESIGN_SPEC.md` | 可录制流程及统一设计规范 |
 | `docs/evidence/workbench/` | 本轮实际脱敏JSON、命令输出、XML、截图；不覆盖第一阶段历史证据 |

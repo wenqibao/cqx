@@ -25,7 +25,7 @@ import {
   RunLink,
   Status,
   WriteResult,
-  TechnicalDetails,
+  TechnicalLog,
 } from "../../components/common";
 import { businessText, businessName } from "../../utils/business";
 import { link, name, text, when } from "../../utils/format";
@@ -63,8 +63,16 @@ export default function Tasks() {
     <>
       <Heading
         title="任务与复评"
-        description={`${patient?.name} · ${patientId}；任务依据、计划版本与后续复评均来自实际业务记录。`}
-        extra={<Button onClick={resource.reload}>刷新任务与复评</Button>}
+        description={`${patient?.name} · 跟进任务、调整时间和查看复评`}
+        extra={
+          <>
+            <Button onClick={resource.reload}>刷新任务与复评</Button>
+            <TechnicalLog
+              value={{ ...resource.data, last_result: result }}
+              label="任务与复评日志"
+            />
+          </>
+        }
       />
       <Tabs
         activeKey={tab}
@@ -154,21 +162,14 @@ export default function Tasks() {
                               {d.events.find((e) => e.id === t.event_id)
                                 ?.message || "未返回关联事件说明"}
                             </p>
-                            <TechnicalDetails
-                              value={t}
-                              ids={{
-                                任务编号: t.id,
-                                来源运行编号: t.source_run_id,
-                                事件编号: t.event_id,
-                              }}
-                            />
+
                             <p>
                               已确认偏好：
                               {d.preferences
                                 .filter((p) => p.status === "active")
                                 .map((p) => `${name(p.kind)}：${p.value}`)
                                 .join("；") || "无生效偏好"}
-                              （展示当前上下文，不推断它们曾影响此任务）
+                              （当前生效偏好）
                             </p>
                             <p>完成时间：{when(t.completed_at)}</p>
                             <Link
@@ -192,10 +193,6 @@ export default function Tasks() {
             label: "动态复评与人工复核",
             children: (
               <>
-                <Alert
-                  type="info"
-                  title="复评分为正常关闭、补充数据和人工复核，仅展示实际返回的结果。人工结案内容由工作人员填写。"
-                />
                 <DataView resource={resource}>
                   {(d) => (
                     <>
@@ -301,14 +298,8 @@ function TaskDetail({
         <>
           <h2>{d.task.title}</h2>
           <p>{businessText(d.task.description)}</p>
-          <TechnicalDetails
-            value={d}
-            ids={{
-              任务编号: d.task.id,
-              来源运行编号: d.task.source_run_id,
-              事件编号: d.task.event_id,
-            }}
-          />
+          <TechnicalLog value={d} label="任务日志" />
+
           <Descriptions
             column={1}
             items={[
@@ -332,10 +323,7 @@ function TaskDetail({
             ]}
           />
           <Card title="医护工作人员直接调整普通管理任务">
-            <Alert
-              type="info"
-              title="由医护演示工作人员直接调整；此操作不是 DeepSeek 自主规划。"
-            />
+            <p className="action-note">本次改期由工作人员确认并记录。</p>
             <Form
               layout="vertical"
               onFinish={(v) =>
@@ -384,7 +372,7 @@ function TaskDetail({
                       {name(v.snapshot.status)}
                     </p>
                     <p>{businessText(v.reason)}</p>
-                    <TechnicalDetails value={v} />
+
                     <RunLink id={v.run_id} patient={patientId} />
                   </>
                 ),
@@ -439,20 +427,14 @@ export function ReviewCard({
         )}{" "}
         · <RunLink id={r.run_id} patient={patientId} />
       </p>
-      <TechnicalDetails
-        value={r}
-        ids={{ 复评编号: r.id, 任务编号: r.task_id, 运行编号: r.run_id }}
-      />
+
       {r.branch === "HUMAN_REVIEW" && r.status === "pending_human" && (
         <Form
           layout="vertical"
           onFinish={(v) => resolve(v.decision, v.note)}
           style={{ marginTop: 18 }}
         >
-          <Alert
-            type="warning"
-            title="人工复核结案需工作人员确认。此记录不等于提供医疗处置，接口暂不含独立工作人员身份字段。"
-          />
+          <Alert type="warning" title="请核查相关记录后填写复核结论。" />
           <Form.Item
             label="人工复核结论"
             name="decision"

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert, Button, Card, Input, List } from "antd";
 import { api } from "../../api/workbench";
 import { useResource } from "../../hooks/useResource";
-import { DataView, Heading, TechnicalDetails } from "../../components/common";
+import { DataView, Heading, TechnicalLog } from "../../components/common";
 export default function Knowledge() {
   const [query, setQuery] = useState("");
   const [searched, setSearched] = useState("");
@@ -14,12 +14,17 @@ export default function Knowledge() {
     <>
       <Heading
         title="知识依据"
-        description="查询系统已有的有限知识包与可定位段落；检索是业务 API 操作，不是模型生成新的医学来源。"
+        description="查阅知识包、引用片段与资料出处。"
+        extra={
+          <TechnicalLog
+            value={{ documents: docs.data, search: search.data }}
+            label="知识检索日志"
+          />
+        }
       />
-      <Alert
-        type="info"
-        title="知识包为带来源的摘编，不代表实时临床指南。本页独立检索不关联某次 Agent 运行；运行证据须在对应处理经过中核验。"
-      />
+      <p className="action-note">
+        资料为已收录内容的摘编，来源与版本随条目列出。
+      </p>
       <Card title="检索知识片段">
         <Input.Search
           aria-label="知识检索关键词"
@@ -42,10 +47,7 @@ export default function Knowledge() {
                         <p className="muted">
                           {h.publisher} · 版本 {h.version}
                         </p>
-                        <TechnicalDetails
-                          value={h}
-                          ids={{ 知识编号: h.doc_id, 段落锚点: h.anchor }}
-                        />
+
                         <blockquote className="evidence-quote">
                           {h.quote}
                         </blockquote>
@@ -88,7 +90,6 @@ export default function Knowledge() {
                     description={
                       <>
                         {d.publisher} · 版本 {d.version} · 发布 {d.published_at}
-                        <TechnicalDetails value={d} ids={{ 知识编号: d.id }} />
                         <p>
                           {d.source_url.startsWith("https://") && (
                             <a

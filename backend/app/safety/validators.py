@@ -134,7 +134,7 @@ def validate_plan(
                         "detail": {"intent": verdict["code"], "matched": verdict["matched"]},
                     }
                 )
-        for text_field in ("title", "description", "answer_summary", "text", "question", "body"):
+        for text_field in ("title", "description", "answer_summary", "text", "question", "body", "reason"):
             text = args.get(text_field) or ""
             if text:
                 verdict = gate.check_text(text, generated=True)

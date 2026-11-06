@@ -77,14 +77,17 @@ def _is_referral(text: str, start: int, end: int) -> bool:
 # 问诊式询问（B #10 残余）："您最近有没有更改用药方案？"是在采集病史，不是执行/建议改药。
 # 仅当整句是疑问、且命中词不涉及停药/加减量/剂量时豁免，避免"是否要停药？"被放过。
 INQUIRY_CUES = re.compile(r"(?:是否|有没有|有无|曾否|是否曾)")
+# "评估是否需要调整监测或治疗方案"属于请专业人员判断，不是系统执行改药
+INQUIRY_CONDITIONAL = re.compile(r"(?:是否|有无)(?:需要|应|应当|要|需|必要)[^，。；！？\n]{0,6}$")
 INQUIRY_PROTECTED = ("停", "加", "减", "多打", "少打", "剂量", "注射", "换药")
 
 
 def _is_question_inquiry(text: str, start: int, end: int) -> bool:
-    if not re.match(r"^[？?]", text[end : end + 2]):
-        return False
     clause_start = max(text.rfind(mark, 0, start) for mark in "，。；！？\n") + 1
-    if not INQUIRY_CUES.search(text[clause_start:start]):
+    left = text[clause_start:start]
+    is_question = bool(re.match(r"^[？?]", text[end : end + 2])) and bool(INQUIRY_CUES.search(left))
+    is_conditional = bool(INQUIRY_CONDITIONAL.search(left))
+    if not (is_question or is_conditional):
         return False
     return not any(word in text[start:end] for word in INQUIRY_PROTECTED)
 

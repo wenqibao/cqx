@@ -673,6 +673,12 @@ def _run_real_llm(
                                                intent=intent, evidence=evidence, executed=executed,
                                                claims_out=claim_texts))
             if errors:
+                # 方便定位是哪一轮、第几个工具调用触发的拒绝（B 的轨迹对齐问题）
+                for item in errors:
+                    item.setdefault("tool", call.name)
+                    item["round"] = round_no
+                    item["call_index"] = index
+                    item["call_id"] = tool_call_id
                 if errors[0]['code'] == validators.INVALID_DUE:
                     # 可修正提示：既回给模型，也脱敏写入拒绝轨迹，便于技术日志核对
                     errors[0]["server_now"] = iso(now(conn))

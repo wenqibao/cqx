@@ -10,7 +10,7 @@ from backend.app.agent.llm import LLMResponse, ToolCall
 from backend.app.db.connection import iso, now
 from backend.app.planning import planner
 from backend.app.reviews import service as reviews
-from backend.app.safety import gate
+from backend.app.safety import gate, validators
 from backend.app.services import patients
 
 
@@ -235,3 +235,48 @@ def test_question_inquiry_about_medication_is_allowed(text):
 ])
 def test_question_inquiry_with_protected_words_still_blocked(text):
     assert gate.check_text(text, generated=True)["allowed"] is False
+
+# ---------- REL-02 真实原句（B 提供） ----------
+REL02_REASON = "近7天空腹血糖呈上升趋势（均值8.23 mmol/L，最近一次10.5 mmol/L为最高值），同时存在血糖波动事件与用药不依从记录，需专业人员复核血糖趋势与用药情况，并评估是否需要调整监测或治疗方案。系统不提供任何用药调整建议。"
+REL02_DESCRIPTION = "系统记录显示最近一次用药记录为未服药，且存在用药不依从事件。请患者核实近7天是否按时按量服药，记录漏服次数与原因。本任务仅做提醒与核实，不涉及任何改药、停药或剂量调整建议。"
+
+
+@pytest.mark.parametrize("text", [REL02_REASON, REL02_DESCRIPTION])
+def test_rel02_real_texts_are_allowed(text):
+    assert gate.check_text(text, generated=True)["allowed"] is True
+    assert gate.check_text(text)["allowed"] is True
+
+
+def test_review_reason_is_checked_and_allowed(conn):
+    """request_human_review.reason 也走同一安全门，且合规文本放行。"""
+    patients.create_patient(conn, {"id": "RV2", "name": "复核", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    action = {"tool": "request_human_review", "args": {"patient_id": "RV2", "reason": REL02_REASON, "severity": "high"}}
+    result = validators.validate_plan(conn, patient_id="RV2", plan={"actions": [action]}, state={})
+    assert result["ok"] is True, result["rejections"]
+
+
+@pytest.mark.parametrize("text,code", [
+    ("是否需要停药", "CHANGE_MEDICATION"),
+    ("是否需要增加胰岛素剂量", "INSULIN_DOSE"),
+    ("请把用药方案改成早晚各一次", "CHANGE_MEDICATION"),
+    ("评估是否需要停用二甲双胍", "CHANGE_MEDICATION"),
+])
+def test_conditional_and_real_changes_still_blocked(text, code):
+    verdict = gate.check_text(text, generated=True)
+    assert verdict["allowed"] is False
+    assert verdict["code"] == code
+
+
+def test_rejection_trace_carries_tool_call_attribution(conn):
+    """拒绝轨迹要能定位到具体轮次/工具调用（B 的 index 对不上问题）。"""
+    patients.create_patient(conn, {"id": "AT1", "name": "定位", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    llm = _ScriptedLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+            "patient_id": "AT1", "task_type": "record_glucose", "title": "补录",
+            "description": "建议把降糖药停掉", "due_at": (now() + timedelta(days=1)).isoformat()}, "c1")], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "AT1", trigger_type="user_request", message="帮我建个任务", llm=llm)
+    row = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='rejection' LIMIT 1",
+                       (result["run_id"],)).fetchone()
+    payload = str(row["payload"])
+    assert "call_index" in payload and "call_id" in payload and "round" in payload

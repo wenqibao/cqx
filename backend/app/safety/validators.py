@@ -145,6 +145,7 @@ def validate_plan(
                             "message": f"动作文本包含被禁止的医疗动作: {verdict['name']}",
                             "index": idx,
                             "tool": tool,
+                            "detail": {"intent": verdict["code"], "matched": verdict.get("matched"), "field": text_field},
                         }
                     )
         if action.get("requires_evidence") and not evidence:

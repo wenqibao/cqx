@@ -22,6 +22,10 @@ class QuestionError(ValueError):
     pass
 
 
+class QuestionExpired(QuestionError):
+    pass
+
+
 def _row(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "id": row["id"],
@@ -57,17 +61,39 @@ def create_question(
 ) -> tuple[dict[str, Any], bool]:
     """创建待答复问题；同一患者同一字段只有一条等待中的问题（幂等）。"""
     get_patient(conn, patient_id)
+    if not target_field:
+        target_field = "general"
     if target_field:
         dup = conn.execute(
-            "SELECT * FROM questions WHERE patient_id=? AND target_field=? AND status='waiting'",
+            "SELECT * FROM questions WHERE patient_id=? AND COALESCE(target_field,'')=? AND status='waiting'",
             (patient_id, target_field),
         ).fetchone()
         if dup:
-            return _row(dup), False
+            # QUESTION-DEDUPE-01：同字段合并关联事件，不能丢掉新事件的上下文
+            merged = _row(dup)
+            payload = dict(merged.get("resume_payload") or {})
+            ids = set(payload.get("event_ids", []))
+            if event_id:
+                ids.add(event_id)
+            if ids:
+                payload["event_ids"] = sorted(ids)
+                payload["merged"] = True
+            conn.execute(
+                "UPDATE questions SET resume_payload=?, event_id=COALESCE(event_id,?) WHERE id=?",
+                (dumps(payload), event_id, merged["id"]),
+            )
+            return get_question(conn, merged["id"]) or merged, False
     ts = now(conn)
     qid = new_id("question")
+    # QUESTION-DEDUPE-02：单数 event_id 在入口即并入 event_ids
+    normalized = dict(resume_payload or {})
+    ids = set(normalized.get("event_ids", []))
+    if event_id:
+        ids.add(event_id)
+    if ids:
+        normalized["event_ids"] = sorted(ids)
     conn.execute(
-        """INSERT INTO questions(id,patient_id,run_id,event_id,kind,question,options,target_field,status,
+        """INSERT OR IGNORE INTO questions(id,patient_id,run_id,event_id,kind,question,options,target_field,status,
                 resume_payload,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,'waiting',?,?,?)""",
         (
             qid,
@@ -78,13 +104,16 @@ def create_question(
             question,
             dumps(options or []),
             target_field,
-            dumps(resume_payload or {}),
+            dumps(normalized),
             iso(ts),
             iso(ts + timedelta(hours=ttl_hours)),
         ),
     )
-    row = conn.execute("SELECT * FROM questions WHERE id=?", (qid,)).fetchone()
-    return _row(row), True
+    row = conn.execute(
+        "SELECT * FROM questions WHERE patient_id=? AND COALESCE(target_field,'')=? AND status='waiting'",
+        (patient_id, target_field),
+    ).fetchone()
+    return _row(row), row["id"] == qid
 
 
 def list_questions(
@@ -123,16 +152,25 @@ def answer_question(
         raise QuestionError(f"问题状态为 {q['status']}，不能重复回答")
     ts = now(conn)
     expires = parse_ts(q["expires_at"])
+    if q["status"] != "waiting":
+        raise QuestionError(f"问题状态为 {q['status']}，不能重复回答")
+    if expires and ts > expires:
+        # QUESTION-EXP-01：过期答复不保存、不恢复，避免 expired + resume 矛盾状态
+        conn.execute("UPDATE questions SET status='expired' WHERE id=?", (question_id,))
+        raise QuestionExpired("问题已过期，请重新发起")
     payload = answer if answer is not None else {
         "text": answer_text,
         "value": answer_value,
         "uncertain": (answer_text or "").strip() in {"不知道", "记不清", "不确定", "unknown", "skip"},
     }
     status = "expired" if expires and ts > expires else "answered"
-    conn.execute(
-        "UPDATE questions SET status=?, answer=?, answer_text=?, answered_at=? WHERE id=?",
+    # QUESTION-ANSWER-RACE-01：只有第一个请求能从 waiting 转换到 answered
+    cur = conn.execute(
+        "UPDATE questions SET status=?, answer=?, answer_text=?, answered_at=? WHERE id=? AND status='waiting'",
         (status, dumps(payload), answer_text or "", iso(ts), question_id),
     )
+    if cur.rowcount == 0:
+        raise QuestionError("问题已被其他请求答复")
     updated = get_question(conn, question_id)
     if updated is None:
         raise QuestionError("问题读取失败")

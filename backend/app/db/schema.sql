@@ -259,8 +259,22 @@ CREATE TABLE IF NOT EXISTS automation_jobs (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_jobs_key ON automation_jobs(kind, patient_id, ref_id, run_at);
+-- JOB-DEDUPE-01 的唯一索引由 backend/app/db/migrations.py 在清理旧数据后创建
 CREATE INDEX IF NOT EXISTS idx_jobs_due ON automation_jobs(status, run_at);
+
+-- 自动化副作用 outbox（业务写入成功后，副作用失败可重试补偿）
+CREATE TABLE IF NOT EXISTS automation_outbox (
+    id          TEXT PRIMARY KEY,
+    kind        TEXT NOT NULL,      -- after_records / after_preference / after_task_completed / scan_later
+    patient_id  TEXT NOT NULL,
+    payload     TEXT,
+    status      TEXT NOT NULL,      -- pending / done / failed
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    last_error  TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_outbox_pending ON automation_outbox(status, created_at);
 
 -- 幂等键（重复提交不重复执行）
 CREATE TABLE IF NOT EXISTS idempotency_keys (

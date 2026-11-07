@@ -14,8 +14,9 @@ SEVERITY_ORDER = {"high": 3, "medium": 2, "low": 1}
 
 def _rows(conn: sqlite3.Connection, patient_id: str, kind: str, since: datetime) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT * FROM health_records WHERE patient_id=? AND kind=? AND recorded_at>=? ORDER BY recorded_at",
-        (patient_id, kind, iso(since)),
+        "SELECT * FROM health_records WHERE patient_id=? AND kind=? AND recorded_at>=? AND recorded_at<=? "
+        "ORDER BY recorded_at",
+        (patient_id, kind, iso(since), iso(now(conn))),
     ).fetchall()
 
 
@@ -126,6 +127,10 @@ def detect_events(
         if not hit:
             continue
         dedupe = f"{patient_id}:{code}:{bucket}"
+        # EVENT-RECURRENCE-02：dedupe 绑定到最新证据记录，重复扫描不会无限新建
+        record_ids = evidence.get("record_ids") or []
+        fingerprint = str(record_ids[-1]) if record_ids else (str(rows[-1]["id"]) if rows else "none")
+        dedupe = f"{dedupe}:{fingerprint}"
         event_id = new_id("event")
         cur = conn.execute(
             """INSERT OR IGNORE INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,

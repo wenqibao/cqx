@@ -37,6 +37,7 @@ def set_preference(
     if source not in ALLOWED_SOURCES:
         raise PreferenceError("偏好来源必须是患者明确确认，Agent 不得推断未提供的事实")
     ts = iso(now(conn))
+    conn.execute("BEGIN IMMEDIATE")
     old = conn.execute(
         "SELECT id FROM preferences WHERE patient_id=? AND kind=? AND status='active'", (patient_id, kind)
     ).fetchone()
@@ -51,6 +52,7 @@ def set_preference(
            VALUES(?,?,?,?,?,'active',?,?)""",
         (pid, patient_id, kind, value, source, ts, ts),
     )
+    conn.execute("COMMIT")
     row = conn.execute("SELECT * FROM preferences WHERE id=?", (pid,)).fetchone()
     return dict(row)
 

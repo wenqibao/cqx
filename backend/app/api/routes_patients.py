@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.api.deps import get_conn
-from backend.app.automation import triggers
+from backend.app.automation import scheduler, triggers
 from backend.app.db.connection import iso, now
 from backend.app.events.detector import detect_events, list_events
 from backend.app.knowledge import search as knowledge_search
@@ -29,7 +29,12 @@ def list_patients(conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any
 
 @router.post("/patients", tags=["patients"], status_code=201, summary="F01/F02 新建演示患者")
 def create_patient(payload: PatientCreate, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
-    return patient_service.create_patient(conn, payload.model_dump())
+    if payload.is_synthetic is False:
+        raise HTTPException(status_code=422, detail="演示系统只允许合成患者（is_synthetic 必须为 true）")
+    try:
+        return patient_service.create_patient(conn, {**payload.model_dump(), "is_synthetic": True})
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=f"患者 ID 已存在: {payload.id}") from exc
 
 
 @router.get("/patients/{patient_id}", tags=["patients"], summary="F02 患者档案")
@@ -51,6 +56,7 @@ def get_state(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> 
 
 @router.get("/patients/{patient_id}/state/history", tags=["state"], summary="F04 历史状态快照")
 def state_history(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     rows = conn.execute(
         "SELECT version, created_at FROM state_snapshots WHERE patient_id=? ORDER BY version DESC LIMIT 20",
         (patient_id,),
@@ -80,11 +86,29 @@ def add_record(
         record = record_service.add_record(conn, patient_id, payload.model_dump())
     except patient_service.PatientNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except record_service.RecordValidationError as exc:
+    except (record_service.RecordValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     result: dict[str, Any] = {"record": record, "automation": None}
+    from backend.app.automation import outbox
+    from backend.app.db.connection import parse_ts
+
+    recorded = parse_ts(record.get("recorded_at"))
+    if recorded and recorded > now(conn):
+        # RECORD-TOLERANCE-01：设备误差窗口内的未来记录，到点后补一次事件扫描
+        scheduler.enqueue_job(
+            conn, kind="event_scan", patient_id=patient_id,
+            ref_id=f"tolerance-{record['id']}", run_at=iso(recorded + timedelta(seconds=1)),
+            payload={"reason": "future_tolerance"},
+        )
     if payload.trigger_agent and not record.get("duplicate"):
-        result["automation"] = triggers.after_records(conn, patient_id, [record], source="record_created")
+        outbox_id = outbox.enqueue(conn, "after_records", patient_id,
+                                   {"records": [record], "source": "record_created"})
+        try:
+            result["automation"] = outbox.process(conn, outbox_id)
+        except Exception as exc:
+            result["partial_success"] = True
+            result["outbox_id"] = outbox_id
+            result["error"] = f"{type(exc).__name__}: {exc}"
     return result
 
 
@@ -109,12 +133,14 @@ def import_records(
 def get_events(
     patient_id: str, status: str | None = None, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     items = list_events(conn, patient_id, status=status)
     return {"patient_id": patient_id, "count": len(items), "items": items}
 
 
 @router.post("/patients/{patient_id}/events/scan", tags=["events"], summary="F05 手动触发事件检测（演示用）")
 def scan_events(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     return detect_events(conn, patient_id, trigger="manual_scan")
 
 

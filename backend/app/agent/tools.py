@@ -30,7 +30,7 @@ TOOL_SPECS: dict[str, dict[str, Any]] = {
         "parameters": {"patient_id": "string", "question": "string", "target_field": "string?", "options": "array?"},
     },
     "create_task": {
-        "description": "创建健康管理任务（不是医疗处置）",
+        "description": "创建健康管理任务（不是医疗处置）；正式复评/随访请用 schedule_review，不要用任务替代",
         "parameters": {
             "patient_id": "string",
             "task_type": "string",
@@ -60,7 +60,7 @@ TOOL_SPECS: dict[str, dict[str, Any]] = {
     },
     "create_notification": {
         "description": "创建站内提醒",
-        "parameters": {"patient_id": "string", "title": "string", "body": "string?", "kind": "string?"},
+        "parameters": {"patient_id": "string", "title": "string", "body": "string?", "kind": "string?", "ref_type": "string?", "ref_id": "string?"},
     },
     "request_human_review": {
         "description": "创建人工专业复核事项（不给出医疗结论）",
@@ -236,7 +236,24 @@ def _complete_task(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     task = tasks.complete_task(
         ctx.conn, args["task_id"], changed_by=args.get("changed_by", "patient"), run_id=ctx.run_id
     )
-    return _ok(task_id=task["id"], status=task["status"], version=task["version"])
+    result: dict[str, Any] = {
+        "task_id": task["id"], "status": task["status"], "version": task["version"],
+        "changed": bool(task.get("changed", True)),
+    }
+    if result["changed"]:
+        # 与 POST /tasks/{id}/complete 同一副作用：走 outbox，可失败补偿
+        from backend.app.automation import outbox
+
+        outbox_id = outbox.enqueue(ctx.conn, "after_task_completed", ctx.patient_id,
+                                   {"task_id": task["id"], "changed_by": args.get("changed_by", "patient"),
+                                    "run_agent": False})
+        try:
+            outbox.process(ctx.conn, outbox_id)
+        except Exception as exc:
+            result["partial_success"] = True
+            result["outbox_id"] = outbox_id
+            result["automation_error"] = f"{type(exc).__name__}: {exc}"
+    return _ok(**result)
 
 
 def _query_history(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:

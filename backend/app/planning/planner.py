@@ -39,6 +39,7 @@ def _apply_preference(due: datetime, preference: str | None) -> datetime:
         return due
     pref = preference.lower()
     target_hour = None
+    target_minute = 0
     if "morning" in pref or "早" in pref:
         target_hour = 8
     elif "evening" in pref or "晚" in pref:
@@ -49,9 +50,10 @@ def _apply_preference(due: datetime, preference: str | None) -> datetime:
         m = TIME_RE.search(preference)
         if m:
             target_hour = int(m.group("h"))
+            target_minute = int(m.group("m"))
     if target_hour is None:
         return due
-    adjusted = due.replace(hour=target_hour, minute=0, second=0, microsecond=0)
+    adjusted = due.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
     if adjusted <= due:
         adjusted = adjusted + timedelta(days=1)
     return adjusted

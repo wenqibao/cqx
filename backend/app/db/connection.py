@@ -52,6 +52,12 @@ def connect(db_path: Path | str | None = None) -> sqlite3.Connection:
 def init_db(conn: sqlite3.Connection) -> None:
     sql = SCHEMA_PATH.read_text(encoding="utf-8")
     conn.executescript(sql)
+    # 迁移只在版本落后时执行一次，普通连接不重复做破坏性 DDL
+    from backend.app.db import migrations
+
+    migrations.migrate(conn)
+    # 启动自检：硬边界不依赖"只保护未来写入"，历史数据也强制合成标识
+    conn.execute("UPDATE patients SET is_synthetic=1 WHERE is_synthetic<>1")
 
 
 @contextmanager

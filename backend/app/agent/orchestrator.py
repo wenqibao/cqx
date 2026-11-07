@@ -37,9 +37,11 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
   只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
 - search_knowledge 最多调用 2 次；拿到证据后立即行动，不要反复检索同一主题。
 - 知识问答检索不到可引用证据时，直接用 respond 说明"没有足够资料"，不要改用 ask_user 追问无关问题。
+- 安排复评/随访时必须调用 schedule_review（正式复评记录），不要用 create_task 代替。
 - 保存时间偏好时 kind 必须用 preferred_time_window，value 用 24 小时制 HH:MM（如 08:00）；
   不要用 kind=note 记录具体时间。
 - respond 的 text 只写自然语言结论；不要把 JSON、plan_id、data_snapshot、actions_taken 等内部字段写进 respond。
+- 发送与任务/复核相关的站内提醒时，带上 ref_type 与 ref_id（来自工具返回的 task_id/review_id），避免重复提醒。
 - 无法继续时，用 respond 说明原因，或 request_human_review 升级，不要沉默。
 请始终以工具调用的方式行动。"""
 
@@ -76,7 +78,11 @@ def _state_brief(state: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def run_agent(
+class EventScopeError(ValueError):
+    pass
+
+
+def _run_agent_body(
     conn: sqlite3.Connection,
     patient_id: str,
     *,
@@ -98,10 +104,19 @@ def run_agent(
         answered = get_question(conn, trigger_ref)
         if answered and answered['patient_id'] == patient_id:
             state['answer_context'] = {k: answered.get(k) for k in ('id', 'question', 'target_field', 'answer', 'answer_text')}
-    events = [get_event(conn, eid) for eid in (event_ids or []) if get_event(conn, eid)]
-    if not events:
+    if event_ids:
+        resolved = []
+        for eid in event_ids:
+            event = get_event(conn, eid)
+            if not event:
+                raise EventScopeError(f"事件不存在: {eid}")
+            if event.get("patient_id") != patient_id:
+                raise EventScopeError(f"事件不属于当前患者: {eid}")
+            resolved.append(event)
+        events = [e for e in resolved if e.get("status") == "open"]
+    else:
         events = [dict(e) for e in state["open_events"][:5]]
-    events = [e for e in events if e and e.get("status") == "open"]
+        events = [e for e in events if e and e.get("status") == "open"]
 
     run = trace.start_run(
         conn,
@@ -199,18 +214,24 @@ def run_agent(
             no_evidence_blocked = intent == "knowledge_question" and any(
                 r.get("code") == validators.NO_EVIDENCE for r in rejections
             )
+            # C06：可修正的拒绝若随后被同一工具成功纠正，不再把整次运行判失败
+            resolved_indexes = _resolved_rejection_indexes(rejections, executed)
+            hard_rejections = [r for i, r in enumerate(rejections) if i not in resolved_indexes]
+            warnings = [{**r, "resolved": True} for i, r in enumerate(rejections) if i in resolved_indexes]
             trace.finish_run(
                 conn,
                 run_id,
-                status="failed" if no_evidence_blocked or (rejections and not question_created)
-                else _status_for(executed, rejections, question_created),
+                status="failed" if no_evidence_blocked or (hard_rejections and not question_created)
+                else _status_for(executed, hard_rejections, question_created),
                 plan=plan,
-                output={"responses": responses, "rejections": rejections, "actions": executed},
+                output={"responses": responses, "rejections": rejections, "warnings": warnings,
+                        "actions": executed},
                 intent=plan.get("intent"),
             )
             _finalize_events(conn, run_id, events, question_created, executed)
             state_service.save_snapshot(conn, patient_id)
-            return _result(conn, run_id, patient_id, plan, evidence, responses, rejections, executed, question_created)
+            return _result(conn, run_id, patient_id, plan, evidence, responses, rejections, executed, question_created,
+                           warnings=warnings)
 
         plan, evidence = _build_mock_plan(conn, patient_id, state, events, message, intent, run_id)
         trace.add_step(
@@ -453,6 +474,26 @@ def _safety_plan(
     }
 
 
+CORRECTABLE_CODES = {
+    validators.INVALID_DUE,
+    validators.MISSING_REQUIRED_DATA,
+    validators.TOOL_EXECUTION_FAILED,
+    "TOOL_CHOICE_INVALID",
+}
+
+
+def _resolved_rejection_indexes(rejections: list[dict[str, Any]], executed: list[dict[str, Any]]) -> set[int]:
+    """可修正拒绝若随后被同一工具成功纠正，返回其下标。安全类拒绝永不豁免。"""
+    resolved: set[int] = set()
+    for index, rejection in enumerate(rejections):
+        if rejection.get("code") not in CORRECTABLE_CODES:
+            continue
+        tool = rejection.get("tool")
+        if tool and any(entry.get("ok") and entry.get("tool") == tool for entry in executed):
+            resolved.add(index)
+    return resolved
+
+
 def _finalize_events(
     conn: sqlite3.Connection,
     run_id: str,
@@ -460,11 +501,29 @@ def _finalize_events(
     question_created: bool,
     executed: list[dict[str, Any]],
 ) -> None:
+    """EVENT-FINALIZE-01：只关闭由成功动作明确关联的事件，未关联的保持 open。"""
     if not events or question_created:
         return
-    handled_ok = any(e.get("ok") and e.get("tool") in ("create_task", "update_task", "request_human_review") for e in executed)
-    if handled_ok:
-        mark_handled(conn, [e["id"] for e in events], run_id)
+    business = {"create_task", "update_task", "request_human_review", "schedule_review"}
+    referenced: set[str] = set()
+    for entry in executed:
+        if not entry.get("ok") or entry.get("tool") not in business:
+            continue
+        for source in (entry.get("args") or {}, entry.get("result") or {}):
+            single = source.get("event_id")
+            if isinstance(single, str):
+                referenced.add(single)
+            many = source.get("event_ids")
+            if isinstance(many, list):
+                referenced.update(item for item in many if isinstance(item, str))
+    if not referenced and len(events) == 1 and any(
+        entry.get("ok") and entry.get("tool") in business for entry in executed
+    ):
+        # 单事件场景且确有管理动作：可视为处理；纯读取仍保持 open
+        referenced = {events[0]["id"]}
+    targets = [event["id"] for event in events if event["id"] in referenced]
+    if targets:
+        mark_handled(conn, targets, run_id)
 
 
 def _result(
@@ -477,6 +536,7 @@ def _result(
     rejections: list[dict[str, Any]],
     executed: list[dict[str, Any]],
     waiting: bool,
+    warnings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     run = trace.get_run(conn, run_id) or {}
     return {
@@ -491,6 +551,7 @@ def _result(
         "responses": responses,
         "evidence": evidence,
         "rejections": rejections,
+        "warnings": warnings or [],
         "waiting_user": waiting,
         "priority_order": plan.get("priority_order", []),
     }
@@ -523,7 +584,8 @@ _CLAIM_PATTERNS = {
     ),
 }
 _CLAIM_NEGATIONS = ("不能", "无法", "未能", "没有", "尚未", "不会", "不需要", "无需")
-_CLAIM_OBJECT_TO_TOOL = {"提醒": "create_notification", "通知": "create_notification", "消息": "create_notification"}
+_CLAIM_OBJECT_TO_TOOL = {"提醒": "create_notification", "通知": "create_notification", "消息": "create_notification",
+                        "复评": "schedule_review"}
 
 
 def _claimed_state_changes(text: str) -> set[str]:
@@ -633,6 +695,19 @@ def _run_real_llm(
         outcomes = []
         for index, call in enumerate(response.tool_calls):
             tool_call_id = call.id or f"call_{round_no}_{index}"
+            # REL-01：正式复评必须用 schedule_review，普通任务不能替代（软拒绝，允许下一轮纠正）
+            if call.name == "create_task" and isinstance(call.arguments, dict):
+                task_type = str(call.arguments.get("task_type") or "").lower()
+                title = str(call.arguments.get("title") or "")
+                if task_type in {"follow_up_review", "followup_review", "review"}:
+                    guidance = {"ok": False, "code": "TOOL_CHOICE_INVALID",
+                                "error": "task_type 不能是复评类型；如先建关联任务，请用普通 task_type，再用 schedule_review"}
+                    trace.add_step(conn, run_id, phase="validate", kind="tool_choice", tool_name=call.name,
+                                   payload=guidance, status="skipped", code="TOOL_CHOICE_INVALID")
+                    history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                    "content": json.dumps(guidance, ensure_ascii=False)})
+                    outcomes.append({"tool": call.name, "ok": False, "code": "TOOL_CHOICE_INVALID"})
+                    continue
             # A-WB-01：只读检索次数封顶，防止模型反复检索、始终不采取管理动作
             if call.name == "search_knowledge" and search_calls >= MAX_SEARCH_CALLS:
                 limited = {
@@ -658,6 +733,12 @@ def _run_real_llm(
                                                intent=intent, evidence=evidence, executed=executed,
                                                claims_out=claim_texts))
             if errors:
+                # 方便定位是哪一轮、第几个工具调用触发的拒绝（B 的轨迹对齐问题）
+                for item in errors:
+                    item.setdefault("tool", call.name)
+                    item["round"] = round_no
+                    item["call_index"] = index
+                    item["call_id"] = tool_call_id
                 if errors[0]['code'] == validators.INVALID_DUE:
                     # 可修正提示：既回给模型，也脱敏写入拒绝轨迹，便于技术日志核对
                     errors[0]["server_now"] = iso(now(conn))
@@ -711,7 +792,7 @@ def _run_real_llm(
         if responded:
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
-        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA}
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED, "TOOL_CHOICE_INVALID"}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:
@@ -754,3 +835,31 @@ def _run_real_llm(
             "actions": [{"tool": e['tool']} for e in executed], "tool_rounds": rounds,
             "priority_order": [e['id'] for e in events]}
     return plan, evidence, responses, question_created, executed, rejections
+
+
+def run_agent(
+    conn: sqlite3.Connection,
+    patient_id: str,
+    *,
+    trigger_type: str = "user_request",
+    trigger_ref: str | None = None,
+    message: str | None = None,
+    event_ids: list[str] | None = None,
+    llm: llm_module.LLMClient | None = None,
+) -> dict[str, Any]:
+    """统一异常收口：已创建的 run 绝不能停留在 running。"""
+    try:
+        return _run_agent_body(conn, patient_id, trigger_type=trigger_type, trigger_ref=trigger_ref,
+                               message=message, event_ids=event_ids, llm=llm)
+    except Exception as exc:
+        row = conn.execute(
+            "SELECT id FROM agent_runs WHERE patient_id=? AND status='running' ORDER BY started_at DESC LIMIT 1",
+            (patient_id,),
+        ).fetchone()
+        if row:
+            trace.add_step(conn, row["id"], phase="error", kind="exception", status="failed",
+                           code=validators.TOOL_EXECUTION_FAILED,
+                           payload={"error": f"{type(exc).__name__}: {exc}"})
+            trace.finish_run(conn, row["id"], status="failed", error=f"{type(exc).__name__}: {exc}",
+                             intent=None)
+        raise

@@ -67,6 +67,12 @@ def create_app() -> FastAPI:
     # 兜底 500 处理器：Starlette 的 ServerErrorMiddleware 位于 CORS 之外，
     # 未捕获异常返回的 500 不带 CORS 头，浏览器会显示成"CORS 失败"（C-API-001 的次生现象）。
     # 这里显式回填该请求来源的 CORS 头，并返回结构化错误而不是空正文。
+    from backend.app.services.patients import PatientNotFound
+
+    @app.exception_handler(PatientNotFound)
+    async def patient_not_found(request: Request, exc: PatientNotFound) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
+
     @app.exception_handler(Exception)
     async def unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
         headers: dict[str, str] = {}

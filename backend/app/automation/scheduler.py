@@ -60,6 +60,17 @@ def _claim(conn: sqlite3.Connection, job_id: str) -> bool:
     return cur.rowcount == 1
 
 
+def recover_stale_jobs(conn: sqlite3.Connection, *, stale_minutes: int = 30) -> int:
+    """JOB-RECOVERY-01：进程在 claim 后中断，running 作业超时后重新入队。"""
+    cutoff = iso(now(conn) - timedelta(minutes=stale_minutes))
+    cur = conn.execute(
+        "UPDATE automation_jobs SET status='pending', last_error='stale running recovered', updated_at=? "
+        "WHERE status='running' AND updated_at<?",
+        (iso(now(conn)), cutoff),
+    )
+    return cur.rowcount
+
+
 def _finish(conn: sqlite3.Connection, job_id: str, status: str, detail: dict[str, Any], error: str | None = None) -> None:
     conn.execute(
         "UPDATE automation_jobs SET status=?, payload=?, last_error=?, updated_at=? WHERE id=?",
@@ -78,6 +89,10 @@ def tick(conn: sqlite3.Connection, *, limit: int = 50) -> dict[str, Any]:
     from backend.app.tasks import service as tasks
 
     processed: list[dict[str, Any]] = []
+    from backend.app.automation import outbox
+
+    outbox_result = outbox.process_pending(conn)
+    recovered_jobs = recover_stale_jobs(conn)
     expired_questions = questioning.expire_stale(conn)
     # 每日一次到期扫描：把超期未完成的任务标记为 missed 并提醒（幂等，按天去重）
     day_key = iso(now(conn))[:10]
@@ -182,6 +197,8 @@ def tick(conn: sqlite3.Connection, *, limit: int = 50) -> dict[str, Any]:
         "at": iso(now(conn)),
         "processed": processed,
         "expired_questions": expired_questions,
+        "recovered_jobs": recovered_jobs,
+        "outbox": outbox_result,
         "pending_jobs": conn.execute(
             "SELECT COUNT(*) AS c FROM automation_jobs WHERE status='pending'"
         ).fetchone()["c"],

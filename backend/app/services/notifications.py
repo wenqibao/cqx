@@ -2,10 +2,29 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import timedelta
 from typing import Any
 
 from backend.app.db.connection import iso, now
 from backend.app.util import new_id
+
+
+def _duplicate_notification(conn, patient_id, *, kind, title, body, ref_type, ref_id):
+    """同一引用或 5 分钟内完全相同的文案只保留一条。"""
+    if ref_type and ref_id:
+        row = conn.execute(
+            "SELECT * FROM notifications WHERE patient_id=? AND ref_type=? AND ref_id=? AND kind=? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (patient_id, ref_type, ref_id, kind),
+        ).fetchone()
+        if row:
+            return dict(row)
+    row = conn.execute(
+        "SELECT * FROM notifications WHERE patient_id=? AND kind=? AND title=? AND COALESCE(body,'')=? "
+        "AND created_at>=? ORDER BY created_at DESC LIMIT 1",
+        (patient_id, kind, title, body or "", iso(now(conn) - timedelta(minutes=5))),
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def create_notification(
@@ -18,6 +37,11 @@ def create_notification(
     ref_type: str | None = None,
     ref_id: str | None = None,
 ) -> dict[str, Any]:
+    duplicate = _duplicate_notification(conn, patient_id, kind=kind, title=title, body=body,
+                                        ref_type=ref_type, ref_id=ref_id)
+    if duplicate:
+        duplicate["duplicate"] = True
+        return duplicate
     nid = new_id("notification")
     conn.execute(
         """INSERT INTO notifications(id,patient_id,kind,title,body,status,ref_type,ref_id,created_at)

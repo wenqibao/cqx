@@ -214,18 +214,24 @@ def _run_agent_body(
             no_evidence_blocked = intent == "knowledge_question" and any(
                 r.get("code") == validators.NO_EVIDENCE for r in rejections
             )
+            # C06：可修正的拒绝若随后被同一工具成功纠正，不再把整次运行判失败
+            resolved_indexes = _resolved_rejection_indexes(rejections, executed)
+            hard_rejections = [r for i, r in enumerate(rejections) if i not in resolved_indexes]
+            warnings = [{**r, "resolved": True} for i, r in enumerate(rejections) if i in resolved_indexes]
             trace.finish_run(
                 conn,
                 run_id,
-                status="failed" if no_evidence_blocked or (rejections and not question_created)
-                else _status_for(executed, rejections, question_created),
+                status="failed" if no_evidence_blocked or (hard_rejections and not question_created)
+                else _status_for(executed, hard_rejections, question_created),
                 plan=plan,
-                output={"responses": responses, "rejections": rejections, "actions": executed},
+                output={"responses": responses, "rejections": rejections, "warnings": warnings,
+                        "actions": executed},
                 intent=plan.get("intent"),
             )
             _finalize_events(conn, run_id, events, question_created, executed)
             state_service.save_snapshot(conn, patient_id)
-            return _result(conn, run_id, patient_id, plan, evidence, responses, rejections, executed, question_created)
+            return _result(conn, run_id, patient_id, plan, evidence, responses, rejections, executed, question_created,
+                           warnings=warnings)
 
         plan, evidence = _build_mock_plan(conn, patient_id, state, events, message, intent, run_id)
         trace.add_step(
@@ -468,6 +474,26 @@ def _safety_plan(
     }
 
 
+CORRECTABLE_CODES = {
+    validators.INVALID_DUE,
+    validators.MISSING_REQUIRED_DATA,
+    validators.TOOL_EXECUTION_FAILED,
+    "TOOL_CHOICE_INVALID",
+}
+
+
+def _resolved_rejection_indexes(rejections: list[dict[str, Any]], executed: list[dict[str, Any]]) -> set[int]:
+    """可修正拒绝若随后被同一工具成功纠正，返回其下标。安全类拒绝永不豁免。"""
+    resolved: set[int] = set()
+    for index, rejection in enumerate(rejections):
+        if rejection.get("code") not in CORRECTABLE_CODES:
+            continue
+        tool = rejection.get("tool")
+        if tool and any(entry.get("ok") and entry.get("tool") == tool for entry in executed):
+            resolved.add(index)
+    return resolved
+
+
 def _finalize_events(
     conn: sqlite3.Connection,
     run_id: str,
@@ -510,6 +536,7 @@ def _result(
     rejections: list[dict[str, Any]],
     executed: list[dict[str, Any]],
     waiting: bool,
+    warnings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     run = trace.get_run(conn, run_id) or {}
     return {
@@ -524,6 +551,7 @@ def _result(
         "responses": responses,
         "evidence": evidence,
         "rejections": rejections,
+        "warnings": warnings or [],
         "waiting_user": waiting,
         "priority_order": plan.get("priority_order", []),
     }
@@ -764,7 +792,7 @@ def _run_real_llm(
         if responded:
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
-        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, "TOOL_CHOICE_INVALID"}
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED, "TOOL_CHOICE_INVALID"}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:

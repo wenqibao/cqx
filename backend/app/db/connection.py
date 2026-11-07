@@ -56,6 +56,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     from backend.app.db import migrations
 
     migrations.migrate(conn)
+    # 启动自检：硬边界不依赖"只保护未来写入"，历史数据也强制合成标识
+    conn.execute("UPDATE patients SET is_synthetic=1 WHERE is_synthetic<>1")
 
 
 @contextmanager

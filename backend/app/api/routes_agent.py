@@ -89,18 +89,23 @@ def complete_task(
     prior = tasks.get_task(conn, task_id)
     if not prior:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
-    if prior["status"] == "done":
-        # COMPLETE-IDEMP-01：重复完成只返回现状，不再触发复评或模型
-        return {"task": prior, "versions": tasks.versions(conn, task_id), "already_done": True, "run": None}
     try:
         task = tasks.complete_task(conn, task_id, changed_by=payload.changed_by, note=payload.note)
     except tasks.TaskError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    result = triggers.after_task_completed(conn, task, changed_by=payload.changed_by)
-    if payload.run_agent:
-        result["run"] = orchestrator.run_agent(
-            conn, task["patient_id"], trigger_type="task_completed", trigger_ref=task_id
-        )
+    if not task.get("changed", True):
+        # COMPLETE-CONCURRENT-01：只有真正完成状态转换的请求才能触发副作用
+        return {"task": tasks.get_task(conn, task_id), "versions": tasks.versions(conn, task_id),
+                "already_done": True, "run": None}
+    from backend.app.automation import outbox
+
+    outbox_id = outbox.enqueue(conn, "after_task_completed", task["patient_id"],
+                               {"task_id": task_id, "changed_by": payload.changed_by, "run_agent": payload.run_agent})
+    try:
+        result = outbox.process(conn, outbox_id)
+    except Exception as exc:
+        return {"task": tasks.get_task(conn, task_id), "versions": tasks.versions(conn, task_id),
+                "partial_success": True, "outbox_id": outbox_id, "error": f"{type(exc).__name__}: {exc}"}
     return {**result, "task": tasks.get_task(conn, task_id)}
 
 
@@ -181,6 +186,7 @@ def list_notifications(
 ) -> dict[str, Any]:
     from backend.app.services import notifications as notification_service
 
+    patient_service.get_patient(conn, patient_id)
     items = notification_service.list_notifications(conn, patient_id, status=status)
     return {"patient_id": patient_id, "count": len(items), "items": items}
 

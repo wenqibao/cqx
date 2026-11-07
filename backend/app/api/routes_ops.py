@@ -21,6 +21,9 @@ router = APIRouter()
 def list_preferences(
     patient_id: str, include_history: bool = False, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    from backend.app.services import patients as patient_service
+
+    patient_service.get_patient(conn, patient_id)
     items = preferences.list_preferences(conn, patient_id, include_history=include_history)
     return {"patient_id": patient_id, "count": len(items), "items": items}
 
@@ -29,13 +32,22 @@ def list_preferences(
 def create_preference(
     patient_id: str, payload: PreferenceCreate, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    from backend.app.automation import outbox
+    from backend.app.services import patients as patient_service
+
+    patient_service.get_patient(conn, patient_id)
     try:
         pref = preferences.set_preference(
             conn, patient_id, kind=payload.kind, value=payload.value, source=payload.source
         )
     except preferences.PreferenceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    applied = triggers.after_preference_change(conn, patient_id)
+    outbox_id = outbox.enqueue(conn, "after_preference", patient_id, {})
+    try:
+        applied = outbox.process(conn, outbox_id)
+    except Exception as exc:
+        return {"preference": pref, "applied_to_tasks": [], "partial_success": True,
+                "outbox_id": outbox_id, "error": f"{type(exc).__name__}: {exc}"}
     return {"preference": pref, "applied_to_tasks": applied["updated"]}
 
 

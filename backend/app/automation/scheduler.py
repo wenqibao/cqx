@@ -89,6 +89,9 @@ def tick(conn: sqlite3.Connection, *, limit: int = 50) -> dict[str, Any]:
     from backend.app.tasks import service as tasks
 
     processed: list[dict[str, Any]] = []
+    from backend.app.automation import outbox
+
+    outbox_result = outbox.process_pending(conn)
     recovered_jobs = recover_stale_jobs(conn)
     expired_questions = questioning.expire_stale(conn)
     # 每日一次到期扫描：把超期未完成的任务标记为 missed 并提醒（幂等，按天去重）
@@ -195,6 +198,7 @@ def tick(conn: sqlite3.Connection, *, limit: int = 50) -> dict[str, Any]:
         "processed": processed,
         "expired_questions": expired_questions,
         "recovered_jobs": recovered_jobs,
+        "outbox": outbox_result,
         "pending_jobs": conn.execute(
             "SELECT COUNT(*) AS c FROM automation_jobs WHERE status='pending'"
         ).fetchone()["c"],

@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.api.deps import get_conn
-from backend.app.automation import triggers
+from backend.app.automation import scheduler, triggers
 from backend.app.db.connection import iso, now
 from backend.app.events.detector import detect_events, list_events
 from backend.app.knowledge import search as knowledge_search
@@ -89,8 +89,26 @@ def add_record(
     except (record_service.RecordValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     result: dict[str, Any] = {"record": record, "automation": None}
+    from backend.app.automation import outbox
+    from backend.app.db.connection import parse_ts
+
+    recorded = parse_ts(record.get("recorded_at"))
+    if recorded and recorded > now(conn):
+        # RECORD-TOLERANCE-01：设备误差窗口内的未来记录，到点后补一次事件扫描
+        scheduler.enqueue_job(
+            conn, kind="event_scan", patient_id=patient_id,
+            ref_id=f"tolerance-{record['id']}", run_at=iso(recorded + timedelta(seconds=1)),
+            payload={"reason": "future_tolerance"},
+        )
     if payload.trigger_agent and not record.get("duplicate"):
-        result["automation"] = triggers.after_records(conn, patient_id, [record], source="record_created")
+        outbox_id = outbox.enqueue(conn, "after_records", patient_id,
+                                   {"records": [record], "source": "record_created"})
+        try:
+            result["automation"] = outbox.process(conn, outbox_id)
+        except Exception as exc:
+            result["partial_success"] = True
+            result["outbox_id"] = outbox_id
+            result["error"] = f"{type(exc).__name__}: {exc}"
     return result
 
 

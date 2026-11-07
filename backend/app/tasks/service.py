@@ -94,7 +94,9 @@ def find_mergeable(
         (patient_id, key),
     ).fetchone()
     if row:
-        return _row(row)
+        # 旧版改期可能留下 stale key：日期不一致时不能复用
+        if not due_at or not row["due_at"] or row["due_at"][:10] == due_at[:10]:
+            return _row(row)
     if not mergeable:
         return None
     cutoff = iso(now(conn) - timedelta(hours=window_hours))
@@ -146,6 +148,10 @@ def create_task(
     ts = iso(now(conn))
     tid = new_id("task")
     key = _dedupe_key(patient_id, task_type, due_at)
+    # 旧版 stale key 可能仍占着目标键：先修复它的键，避免新任务插入冲突
+    holder = conn.execute("SELECT id, due_at FROM tasks WHERE dedupe_key=?", (key,)).fetchone()
+    if holder and (not holder["due_at"] or not due_at or holder["due_at"][:10] != due_at[:10]):
+        conn.execute("UPDATE tasks SET dedupe_key=? WHERE id=?", (f"{key}-{holder['id'][-6:]}", holder["id"]))
     meta = dict(meta or {})
     if event_id:
         meta.setdefault("event_ids", [event_id])

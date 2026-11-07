@@ -585,3 +585,37 @@ waiting/偏好唯一、事件第三次扫描不新建、作用域拒绝、API �
 回归 `tests/integration/test_outbox_and_migration.py`（8 项）：
 历史 `is_synthetic` 自检、stale key 修复、容差补扫、记录/偏好/完成三类副作用注入失败后
 tick 补偿、通知 404、重复完成无新增 run。全量 `pytest` 380 passed，Mock 场景 33/33 PASS。
+
+## 27. REL-REAL-01 处方语境误伤（2026-11-07）
+
+### 现象
+真实 R03-answer 恢复 run（`RUN-af3e0c4749f6`）：任务描述
+「请结合药盒/处方记录或家属协助……核对用药依从性……」被 `PRESCRIPTION` 拦截，
+`matched=处方`，run failed。
+
+### 根因
+`PRESCRIPTION` 的 keywords 含裸词「处方」，任何提及都会被判为开具处方。
+
+### 修复
+- 移除裸词「处方」关键词，保留 `开药/开点药/配药/prescribe/prescription`；
+- 新增「动作—对象」模式：
+  `(开具|开出|开个|开|写|修改|更改|调整|增加|减少|停用|更换)…处方` 与
+  `处方…(开具|修改|更改|调整|增加|减少|停用|更换|加量|减量)`；
+- 该规则排在 `intent_patterns` 最前，"增加处方药剂量"优先归 `PRESCRIPTION`；
+- 否定仍按分句/直接否定处理："查看处方记录，不修改处方" 放行。
+
+### 实测
+```
+ALLOW | 结合药盒/处方记录核实用药依从性
+ALLOW | 查看处方记录，不修改处方
+BLOCK/PRESCRIPTION | 开具处方
+BLOCK/PRESCRIPTION | 修改处方
+BLOCK/PRESCRIPTION | 增加处方药剂量
+BLOCK/PRESCRIPTION | 不含处方建议而是开具处方
+BLOCK/PRESCRIPTION | 帮开个处方
+```
+
+### 回归
+`tests/integration/test_prescription_context.py`（9 项）：含真实 R03 任务描述经
+`validators.validate_plan` 放行并落库；真实开/改/加量仍拦截。
+全量 `pytest` 389 passed，Mock 场景 33/33 PASS。

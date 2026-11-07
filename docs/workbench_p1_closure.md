@@ -564,3 +564,24 @@ waiting/偏好唯一、事件第三次扫描不新建、作用域拒绝、API �
 - `RECORD-PARTIAL-01` / `PREFERENCE-PARTIAL-01` / `TASK-COMPLETE-PARTIAL-01`：
   业务写入与自动化副作用的 outbox/补偿尚为"写后立即执行"，失败时无法自动补偿；
 - `RECORD-TOLERANCE-01`：允许 5 分钟内未来记录，但尚未安排到点扫描作业。
+
+## 26. 8 个残余根因收口（2026-11-07）
+
+| 根因 | 修复 |
+| --- | --- |
+| `COMPLETE-CONCURRENT-01` | 路由改用 `complete_task` 返回的 `changed`；未真正完成状态转换的请求不再触发复评/Agent |
+| `DATA-MIGRATION-01` | `connect()` 启动自检 `UPDATE patients SET is_synthetic=1 WHERE is_synthetic<>1`，历史数据也强制合成 |
+| `TASK-COMPLETE-PARTIAL-01` | 完成任务后副作用写入 `automation_outbox`；失败返回 `partial_success + outbox_id`，tick 自动补偿 |
+| `TASK-MIGRATION-01` | `find_mergeable` 与 `create_task` 识别 stale key（due 日期不一致），修复占用键后再插入新任务 |
+| `RECORD-TOLERANCE-01` | 未来 5 分钟容差记录写入时，入队 `event_scan` 作业到 `recorded_at+1s`，到点补扫 |
+| `RECORD-PARTIAL-01` | 记录保存后副作用走 outbox；失败返回 `partial_success`，不丢自动化 |
+| `PREFERENCE-PARTIAL-01` | 偏好保存后重排走 outbox；失败返回 `partial_success`，tick 补偿 |
+| `API-NOTFOUND-01` | `notifications` 与 `preferences` 列表显式校验患者，不存在返回 404 |
+
+新增 `automation_outbox` 表与 `backend/app/automation/outbox.py`：
+`after_records / after_preference / after_task_completed / scan_later` 四类副作用可重试，
+`tick` 每轮消费 pending 记录（最多 3 次尝试后标记 failed）。
+
+回归 `tests/integration/test_outbox_and_migration.py`（8 项）：
+历史 `is_synthetic` 自检、stale key 修复、容差补扫、记录/偏好/完成三类副作用注入失败后
+tick 补偿、通知 404、重复完成无新增 run。全量 `pytest` 380 passed，Mock 场景 33/33 PASS。

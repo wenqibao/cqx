@@ -520,3 +520,47 @@ B 在 REL-02 关闭后做了 20 个隔离探针，确认 19 项历史问题。�
 ### 回归
 `tests/integration/test_latent_issues.py`（22 项）覆盖上述全部条目；
 全量 `pytest` 359 passed，Mock 场景 33/33 PASS。
+
+## 25. 残余 30 项结构修复（2026-11-07）
+
+### 已完成的批次
+
+**1. 迁移层（P0）**
+- 新增 `backend/app/db/migrations.py`：`schema_version` 记录在 `app_meta`，只在版本落后时执行一次；
+- 迁移前清理：`automation_jobs` 重复业务键（含 NULL）、历史 `is_synthetic=0` 患者、
+  pending/missed 任务的 stale `dedupe_key`、重复 waiting 问题、重复 scheduled 复评、重复 active 偏好；
+- 清理后再建唯一索引（jobs 表达式索引、questions waiting 部分索引、reviews 窗口键、preferences active 索引）；
+- `connect()` 只跑建表脚本 + 迁移，不再每次连接做破坏性 DDL。
+
+**2. 数据库级原子幂等（P0/P1）**
+- `complete_task` 改为 `UPDATE ... WHERE status IN ('pending','missed')`，返回 `changed`；
+- 问题创建依赖 `uq_questions_waiting`，`INSERT OR IGNORE` 后合并；
+- 复评用 `review_key`（小时窗口）唯一索引，冲突返回 duplicate；
+- `answer_question` / `resolve_human_review` 用 CAS，后到请求得到冲突/`already_resolved`；
+- 偏好写入用 `BEGIN IMMEDIATE` + `uq_prefs_active`。
+
+**3. 事件证据版本（P1）**
+- 事件 `dedupe_key` 绑定最新证据记录 ID：handled 后新记录创建一次 open，无新证据的重复扫描返回 existing。
+
+**4. 患者作用域（P0/P1）**
+- Agent 入口逐项校验 `event_id` 归属；无效/跨患者抛出 `EventScopeError`（HTTP 422）；
+- `tasks.create_task`、`reviews.schedule_review` 在服务层校验 task/event 归属。
+
+**5. API 语义与输入边界（P1/P2）**
+- 全局 `PatientNotFound` → 404；`state/history`、`events`、`events/scan`、`runs` 显式校验患者；
+- 患者年龄/病程范围、重复 ID → 409；
+- 记录时间格式/时区、血压范围、空答复、空人工结论、空偏好、无时区 `due_at` → 422；
+- 版本元数据统一为 `0.2.1`。
+
+**6. 异常收口（P1）**
+- `run_agent` 外层包装：任何异常都会把最近创建的 running run 标为 `failed` 并写入 error/step。
+
+### 回归
+`tests/integration/test_structural_residuals.py`（13 项）：旧库迁移、跨连接 CAS、
+waiting/偏好唯一、事件第三次扫描不新建、作用域拒绝、API 输入边界、健康接口版本。
+全量 `pytest` 372 passed，Mock 场景 33/33 PASS。
+
+### 仍未完成（下一轮）
+- `RECORD-PARTIAL-01` / `PREFERENCE-PARTIAL-01` / `TASK-COMPLETE-PARTIAL-01`：
+  业务写入与自动化副作用的 outbox/补偿尚为"写后立即执行"，失败时无法自动补偿；
+- `RECORD-TOLERANCE-01`：允许 5 分钟内未来记录，但尚未安排到点扫描作业。

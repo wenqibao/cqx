@@ -645,3 +645,27 @@ BLOCK/PRESCRIPTION | 帮开个处方
 `tests/integration/test_combo_invariants.py`（6 项）：
 自动+显式复评合并为一条、无作用域拒绝、唯一待办自动关联、Agent 完成触发复评/outbox、
 同引用通知幂等、同文案通知幂等。全量 `pytest` 395 passed，Mock 场景 33/33 PASS。
+
+## 29. C05 否定免责声明 / C06 可修正拒绝口径（2026-11-07）
+
+### C05：否定语境仍被误判
+- 补充否定词：`未提供 / 未给出 / 未包含 / 未做 / 未进行 / 未调整 / 并未 / 未曾`；
+- 与既有"不提供/不涉及/不调整"共用同一分句作用域与直接否定规则；
+- 真实组合中的 `respond` 免责声明不再触发 `CHANGE_MEDICATION`，run 可正常 completed。
+
+### C06：可修正拒绝的最终状态（明确契约）
+采用 **"动作已修正成功，但保留警告"**：
+
+- 只有以下可修正码允许被后续同工具成功纠正：
+  `INVALID_DUE`、`MISSING_REQUIRED_DATA`、`TOOL_EXECUTION_FAILED`、`TOOL_CHOICE_INVALID`；
+- 纠正后 run 状态按实际动作计算（通常 `completed`），拒绝记录保留并在 `warnings` 中标记 `resolved=true`；
+- **安全类拒绝永不被豁免**（`FORBIDDEN_ACTION`、`INSULIN_DOSE`、`NO_EVIDENCE` 等仍判 failed）；
+- 模型在整轮工具失败后仍可继续下一轮重试（最多 3 轮）。
+
+前端展示口径：`status=completed` + `warnings` 非空时，显示"部分动作曾被拒绝后修正"，
+不要显示成全面失败；`status=failed` 仅代表存在未解决的安全/业务拒绝。
+
+### 回归
+`tests/integration/test_c05_c06.py`（7 项）：
+四条否定免责声明双路径放行、真实免责声明 run completed、可修正拒绝纠正后 completed+warnings、
+安全拒绝不被掩盖。全量 `pytest` 402 passed，Mock 场景 33/33 PASS。

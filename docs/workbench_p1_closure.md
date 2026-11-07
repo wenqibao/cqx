@@ -669,3 +669,27 @@ BLOCK/PRESCRIPTION | 帮开个处方
 `tests/integration/test_c05_c06.py`（7 项）：
 四条否定免责声明双路径放行、真实免责声明 run completed、可修正拒绝纠正后 completed+warnings、
 安全拒绝不被掩盖。全量 `pytest` 402 passed，Mock 场景 33/33 PASS。
+
+## 30. C06 根因：复评软拒绝误伤普通任务（2026-11-07）
+
+### 真实证据（`RUN-91ffc99efb4a`，9f56af2）
+- `schedule_review` 无 task_id → `TOOL_EXECUTION_FAILED`；
+- 模型第二轮提出 `create_task`（标题含"复评"），被编排器以 `TOOL_CHOICE_INVALID` 跳过，
+  导致没有关联任务可重试；
+- 第三轮把人工复核 ID 当 event_id 再调 `schedule_review` → `TASK_NOT_FOUND`；
+- run failed，warnings 为空。
+
+### 根因
+REL-01 的软拒绝条件写成 `task_type in (...) or "复评" in title`，把"标题含复评的普通任务"
+也拦掉了；模型无法先建关联任务。
+
+### 修复
+- 软拒绝只按 `task_type`（`follow_up_review / followup_review / review`）判断，
+  标题不再作为判定依据；
+- 提示语改为"如先建关联任务，请用普通 task_type，再用 schedule_review"。
+
+### 回归
+`tests/integration/test_c05_c06.py` 新增：
+`schedule_review` 无 task_id 拒绝 → 普通 `create_task`（标题含"复评"）成功 →
+带 task_id 的 `schedule_review` 成功 → run `completed` + `warnings`，任务 1 条、复评 1 条。
+全量 `pytest` 403 passed，Mock 场景 33/33 PASS。

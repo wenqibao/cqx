@@ -41,6 +41,7 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 - 保存时间偏好时 kind 必须用 preferred_time_window，value 用 24 小时制 HH:MM（如 08:00）；
   不要用 kind=note 记录具体时间。
 - respond 的 text 只写自然语言结论；不要把 JSON、plan_id、data_snapshot、actions_taken 等内部字段写进 respond。
+- 发送与任务/复核相关的站内提醒时，带上 ref_type 与 ref_id（来自工具返回的 task_id/review_id），避免重复提醒。
 - 无法继续时，用 respond 说明原因，或 request_human_review 升级，不要沉默。
 请始终以工具调用的方式行动。"""
 

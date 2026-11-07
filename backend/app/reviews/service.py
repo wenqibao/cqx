@@ -60,13 +60,60 @@ def schedule_review(
         row = conn.execute("SELECT patient_id FROM events WHERE id=?", (event_id,)).fetchone()
         if not row or row["patient_id"] != patient_id:
             raise ReviewError("event_id 不存在或不属于当前患者")
+    if not task_id and not event_id and branch != "HUMAN_REVIEW":
+        # 作用域：没有 task/event 的复评必须是"唯一待办任务"的复评，否则拒绝
+        candidates = conn.execute(
+            "SELECT id FROM tasks WHERE patient_id=? AND status IN ('pending','missed') ORDER BY due_at LIMIT 2",
+            (patient_id,),
+        ).fetchall()
+        if len(candidates) == 1:
+            task_id = candidates[0]["id"]
+        else:
+            raise ReviewError("安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）")
     if delay_hours is not None:
         if delay_hours < 0 or delay_hours > 720:
             raise ReviewError("delay_hours 必须在 0~720 小时之间")
         if delay_hours == 0 and branch != "HUMAN_REVIEW":
             raise ReviewError("delay_hours=0 只允许用于人工复核升级")
     due = now(conn) + timedelta(hours=delay_hours if delay_hours is not None else default_delay_hours())
-    # A0-FULL-P2-02：同一患者、同一任务/事件、同一复评窗口只保留一条待复评，避免重复
+    # 复评单一责任：同一 task/event 只保留一条 scheduled；显式时间覆盖自动时间
+    existing_scheduled = conn.execute(
+        """SELECT * FROM reviews WHERE patient_id=? AND status='scheduled'
+           AND COALESCE(task_id,'')=? AND COALESCE(event_id,'')=?
+           ORDER BY created_at LIMIT 1""",
+        (patient_id, task_id or "", event_id or ""),
+    ).fetchone()
+    if existing_scheduled:
+        same_window = abs((parse_ts(existing_scheduled["scheduled_for"]) - due).total_seconds()) <= 3600
+        if delay_hours is None or same_window:
+            review = get_review(conn, existing_scheduled["id"])
+            if review:
+                review["duplicate"] = True
+                return review
+        window_key = f"{patient_id}|{task_id or ''}|{event_id or ''}|{iso(due)[:13]}"
+        conn.execute(
+            "UPDATE reviews SET scheduled_for=?, review_key=?, reason=?, detail=? WHERE id=?",
+            (iso(due), window_key, reason, dumps({"scheduled_by": run_id or "system", "rescheduled": True}),
+             existing_scheduled["id"]),
+        )
+        _scheduler = __import__("backend.app.automation.scheduler", fromlist=["enqueue_job"])
+        job = conn.execute(
+            "SELECT id FROM automation_jobs WHERE kind='review_due' AND ref_id=? AND status='pending'"
+            " ORDER BY id DESC LIMIT 1",
+            (existing_scheduled["id"],),
+        ).fetchone()
+        if job:
+            conn.execute("UPDATE automation_jobs SET run_at=?, updated_at=? WHERE id=?",
+                         (iso(due), iso(now(conn)), job["id"]))
+        else:
+            _scheduler.enqueue_job(conn, kind="review_due", patient_id=patient_id,
+                                   ref_id=existing_scheduled["id"], run_at=iso(due),
+                                   payload={"branch": branch})
+        review = get_review(conn, existing_scheduled["id"])
+        if review:
+            review["updated"] = True
+        return review
+    # 同一窗口内的重复调度仍去重（兼容自动复评重复触发）
     existing = conn.execute(
         """SELECT id FROM reviews WHERE patient_id=? AND status='scheduled'
            AND COALESCE(task_id,'')=? AND COALESCE(event_id,'')=?

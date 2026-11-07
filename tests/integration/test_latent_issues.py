@@ -68,9 +68,10 @@ def test_review_window_is_symmetric(conn):
     same = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=48)
     assert same["id"] == auto["id"] and same["duplicate"] is True
     earlier = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=24)
-    assert earlier["id"] != auto["id"]
+    assert earlier["id"] == auto["id"], "同一任务只保留一条复评，显式时间覆盖自动时间"
+    assert earlier.get("updated") is True
     later = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=168)
-    assert later["id"] != auto["id"]
+    assert later["id"] == auto["id"]
 
 
 @pytest.mark.parametrize("delay", [-24, 100000])

@@ -186,14 +186,16 @@ def test_review_requires_schedule_review_tool(conn):
             "patient_id": "REL1", "task_type": "follow_up_review", "title": "24小时复评",
             "due_at": (now() + timedelta(hours=24)).isoformat()}, "c1")], raw={}),
         LLMResponse(content="", tool_calls=[
-            ToolCall("schedule_review", {"patient_id": "REL1", "delay_hours": 24, "reason": "完成任务后复评"}, "c2"),
-            ToolCall("respond", {"patient_id": "REL1", "text": "已安排 24 小时复评。"}, "c3"),
+            ToolCall("create_task", {"patient_id": "REL1", "task_type": "record_glucose", "title": "记录",
+                                     "due_at": (now() + timedelta(days=1)).isoformat()}, "c2"),
+            ToolCall("schedule_review", {"patient_id": "REL1", "delay_hours": 24, "reason": "完成任务后复评"}, "c3"),
+            ToolCall("respond", {"patient_id": "REL1", "text": "已安排 24 小时复评。"}, "c4"),
         ], raw={}),
     ])
     result = orchestrator.run_agent(conn, "REL1", trigger_type="user_request",
                                     message="完成任务后安排24小时复评", llm=llm)
     assert result["status"] == "completed", result
-    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='REL1'").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='REL1'").fetchone()["c"] == 1
     assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='REL1'").fetchone()["c"] == 1
     codes = [s["code"] for s in conn.execute(
         "SELECT code FROM agent_steps WHERE run_id=? AND kind='tool_choice'", (result["run_id"],)).fetchall()]

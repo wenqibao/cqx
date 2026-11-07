@@ -62,31 +62,40 @@ def test_future_record_does_not_enter_state_or_events(conn):
 # ---------- REV-DEDUPE-01/02 / REVIEW-DUE-01 / REVIEW-RESOLVE-01 ----------
 def test_review_window_is_symmetric(conn):
     _patient(conn)
-    auto = reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=48)
-    same = reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=48)
+    task, _ = tasks.create_task(conn, "L1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    auto = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=48)
+    same = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=48)
     assert same["id"] == auto["id"] and same["duplicate"] is True
-    earlier = reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=24)
+    earlier = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=24)
     assert earlier["id"] != auto["id"]
-    later = reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=168)
+    later = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=168)
     assert later["id"] != auto["id"]
 
 
 @pytest.mark.parametrize("delay", [-24, 100000])
 def test_review_delay_range_rejected(conn, delay):
     _patient(conn)
+    task, _ = tasks.create_task(conn, "L1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
     with pytest.raises(reviews.ReviewError):
-        reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=delay)
+        reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=delay)
 
 
 def test_human_review_can_use_zero_delay(conn):
     _patient(conn)
-    review = reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=0, branch="HUMAN_REVIEW")
+    task, _ = tasks.create_task(conn, "L1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    review = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=0, branch="HUMAN_REVIEW")
     assert review["scheduled_for"]
 
 
 def test_human_review_resolve_is_idempotent(conn):
     _patient(conn)
-    review = reviews.schedule_review(conn, "L1", task_id="T1", delay_hours=0, branch="HUMAN_REVIEW")
+    task, _ = tasks.create_task(conn, "L1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    review = reviews.schedule_review(conn, "L1", task_id=task["id"], delay_hours=0, branch="HUMAN_REVIEW")
+    conn.execute("UPDATE reviews SET status='pending_human' WHERE id=?", (review["id"],))
     first = reviews.resolve_human_review(conn, review["id"], decision="保持原计划")
     second = reviews.resolve_human_review(conn, review["id"], decision="改为其他结论")
     assert second.get("already_resolved") is True

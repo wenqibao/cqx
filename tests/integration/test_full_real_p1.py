@@ -12,6 +12,7 @@ from backend.app.planning import planner
 from backend.app.reviews import service as reviews
 from backend.app.safety import gate, validators
 from backend.app.services import patients
+from backend.app.tasks import service as tasks
 
 
 class _ScriptedLLM:
@@ -124,8 +125,10 @@ def test_entity_match_keeps_hits(conn):
 # ---------- P2-02 复评去重 ----------
 def test_review_schedule_is_idempotent(conn):
     patients.create_patient(conn, {"id": "RV1", "name": "复评", "age": 60, "duration_years": 5, "goals": ["稳定"]})
-    first = reviews.schedule_review(conn, "RV1", task_id="TSK-1", delay_hours=24)
-    second = reviews.schedule_review(conn, "RV1", task_id="TSK-1", delay_hours=24)
+    task, _ = tasks.create_task(conn, "RV1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    first = reviews.schedule_review(conn, "RV1", task_id=task["id"], delay_hours=24)
+    second = reviews.schedule_review(conn, "RV1", task_id=task["id"], delay_hours=24)
     assert second.get("duplicate") is True
     assert second["id"] == first["id"]
     total = conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='RV1'").fetchone()["c"]

@@ -699,9 +699,9 @@ def _run_real_llm(
             if call.name == "create_task" and isinstance(call.arguments, dict):
                 task_type = str(call.arguments.get("task_type") or "").lower()
                 title = str(call.arguments.get("title") or "")
-                if task_type in {"follow_up_review", "followup_review", "review"} or "复评" in title:
+                if task_type in {"follow_up_review", "followup_review", "review"}:
                     guidance = {"ok": False, "code": "TOOL_CHOICE_INVALID",
-                                "error": "正式复评必须调用 schedule_review；create_task 不能替代复评"}
+                                "error": "task_type 不能是复评类型；如先建关联任务，请用普通 task_type，再用 schedule_review"}
                     trace.add_step(conn, run_id, phase="validate", kind="tool_choice", tool_name=call.name,
                                    payload=guidance, status="skipped", code="TOOL_CHOICE_INVALID")
                     history.append({"role": "tool", "tool_call_id": tool_call_id,

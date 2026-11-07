@@ -101,3 +101,36 @@ def test_c06_safety_rejection_is_not_masked(conn):
     result = orchestrator.run_agent(conn, "C56", trigger_type="user_request", message="帮我建个任务", llm=llm)
     assert result["status"] == "failed"
     assert any(r["code"] == "FORBIDDEN_ACTION" for r in result["rejections"])
+
+def test_c06_create_task_with_review_title_is_not_blocked(conn):
+    """C06 真实失败根因：'复评'字样的普通任务被软拒绝，导致无法建关联任务重试。"""
+    _patient(conn)
+    due = iso(now(conn) + timedelta(days=1))
+
+    class ThreeRound:
+        mode = "real"
+        model_name = "three-round"
+
+        def __init__(self):
+            self.calls = 0
+
+        def plan_actions(self, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResponse(content="", tool_calls=[ToolCall(
+                    "schedule_review", {"patient_id": "C56", "delay_hours": 24}, "c1")], raw={})
+            if self.calls == 2:
+                return LLMResponse(content="", tool_calls=[ToolCall(
+                    "create_task", {"patient_id": "C56", "task_type": "record_glucose",
+                                     "title": "24小时复评安排任务", "due_at": due}, "c2")], raw={})
+            if self.calls == 3:
+                row = conn.execute("SELECT id FROM tasks WHERE patient_id='C56' ORDER BY created_at DESC LIMIT 1").fetchone()
+                return LLMResponse(content="", tool_calls=[ToolCall(
+                    "schedule_review", {"patient_id": "C56", "delay_hours": 24, "task_id": row["id"]}, "c3")], raw={})
+            return LLMResponse(content="任务已创建，复评已安排。", tool_calls=[], raw={})
+
+    result = orchestrator.run_agent(conn, "C56", trigger_type="user_request", message="安排复评", llm=ThreeRound())
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='C56'").fetchone()["c"] == 1
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='C56'").fetchone()["c"] == 1
+    assert result.get("warnings"), "第一次无 task_id 的拒绝应保留为 resolved warning"

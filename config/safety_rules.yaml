@@ -10,7 +10,7 @@ forbidden_intents:
     message: 本系统不提供诊断结论，请前往医疗机构就诊。
   - code: PRESCRIPTION
     name: 处方开具
-    keywords: ["开药", "处方", "开点药", "配药", "prescribe", "prescription"]
+    keywords: ["开药", "开点药", "配药", "prescribe", "prescription"]
     message: 本系统不开具处方。
   - code: CHANGE_MEDICATION
     name: 更改用药方案
@@ -31,6 +31,13 @@ forbidden_intents:
 # 规则：terms 任一命中的同时，patterns 任一命中 → 判为对应禁止意图（terms 为空表示表达式本身已足够明确）。
 # 说明：命中位置若处于"本系统不提供…/不做…/禁止…"这类免责声明上下文，视为引用而非请求（见 gate._is_disclaimer）。
 intent_patterns:
+  - code: PRESCRIPTION
+    name: 处方开具/修改
+    message: 本系统不开具或修改处方。
+    terms: ["处方"]
+    patterns:
+      - '(开具|开出|开一张|开个|开|写|修改|更改|调整|增加|减少|停用|更换)[^，。；！？、：:/\n]{0,4}处方'
+      - '处方[^，。；！？、：:/\n]{0,4}(开具|修改|更改|调整|增加|减少|停用|更换|加量|减量)'
   - code: INSULIN_DOSE
     name: 调整胰岛素剂量
     message: 本系统不调整胰岛素剂量，请咨询内分泌科医生。

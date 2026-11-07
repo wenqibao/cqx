@@ -619,3 +619,29 @@ BLOCK/PRESCRIPTION | 帮开个处方
 `tests/integration/test_prescription_context.py`（9 项）：含真实 R03 任务描述经
 `validators.validate_plan` 放行并落库；真实开/改/加量仍拦截。
 全量 `pytest` 389 passed，Mock 场景 33/33 PASS。
+
+## 28. 组合级不变量（2026-11-07）
+
+### 复评单一责任
+- `create_task` 自动复评与显式 `schedule_review` 不再叠加：
+  同一 `task_id + event_id` 已有 scheduled 复评时，显式调用**更新**其 `scheduled_for`
+  （`updated=true`），相同窗口则返回 `duplicate=true`；对应 `review_due` 作业同步改期。
+
+### 复评作用域
+- 缺少 `task_id` 且缺少 `event_id` 时：若患者只有一条 pending/missed 任务则自动关联；
+  否则抛 `ReviewError`，不再生成孤立患者级复评；`HUMAN_REVIEW` 分支豁免（本身是患者级升级）。
+
+### 完成任务副作用一致
+- Agent 工具 `complete_task` 在状态真正变化时，与 `POST /tasks/{id}/complete` 一样
+  写入 `after_task_completed` outbox 并立即执行；失败返回 `partial_success + outbox_id`。
+
+### 通知幂等
+- `create_notification` 先查重复：同 `ref_type + ref_id + kind` 复用已有记录；
+  无引用时，5 分钟内完全相同文案只保留一条（`duplicate=true`）。
+- `create_notification` 工具暴露 `ref_type/ref_id`，系统提示要求关联任务/复核时携带，
+  便于前端合并展示（C05 观察项的契约部分）。
+
+### 回归
+`tests/integration/test_combo_invariants.py`（6 项）：
+自动+显式复评合并为一条、无作用域拒绝、唯一待办自动关联、Agent 完成触发复评/outbox、
+同引用通知幂等、同文案通知幂等。全量 `pytest` 395 passed，Mock 场景 33/33 PASS。

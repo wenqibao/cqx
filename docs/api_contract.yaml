@@ -798,3 +798,23 @@ components:
               heading: { type: string }
               quote: { type: string }
               score: { type: number }
+
+x_contract_notes:
+  frozen_at: v0.2.1
+  run_result:
+    warnings: "可修正拒绝被后续同工具成功纠正时保留在 rejections，并在 warnings 标记 resolved=true"
+    status: "存在未解决的安全/业务拒绝才为 failed；可修正拒绝被纠正后按实际动作计算（通常 completed）"
+  task_completion:
+    already_done: "重复完成任务返回 true 且 run=null，不再触发复评或 Agent"
+  records_and_preferences:
+    partial_success: "业务写入成功但自动化副作用失败时返回 true，并给出 outbox_id；tick 会自动补偿"
+  questions:
+    expired_answer: "过期问题答复返回 HTTP 422，不保存答案、不恢复 Agent"
+  reviews:
+    already_resolved: "已完成人工复核再次结案返回 true，不覆盖首个决定"
+  patients:
+    non_synthetic: "is_synthetic=false 返回 HTTP 422；重复患者 ID 返回 HTTP 409"
+  http_errors:
+    "404": "患者或子资源不存在"
+    "409": "重复资源（患者 ID 等）"
+    "422": "输入/时间/空字段/患者作用域校验失败"

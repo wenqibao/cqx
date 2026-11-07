@@ -77,7 +77,11 @@ def _state_brief(state: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def run_agent(
+class EventScopeError(ValueError):
+    pass
+
+
+def _run_agent_body(
     conn: sqlite3.Connection,
     patient_id: str,
     *,
@@ -99,10 +103,19 @@ def run_agent(
         answered = get_question(conn, trigger_ref)
         if answered and answered['patient_id'] == patient_id:
             state['answer_context'] = {k: answered.get(k) for k in ('id', 'question', 'target_field', 'answer', 'answer_text')}
-    events = [get_event(conn, eid) for eid in (event_ids or []) if get_event(conn, eid)]
-    if not events:
+    if event_ids:
+        resolved = []
+        for eid in event_ids:
+            event = get_event(conn, eid)
+            if not event:
+                raise EventScopeError(f"事件不存在: {eid}")
+            if event.get("patient_id") != patient_id:
+                raise EventScopeError(f"事件不属于当前患者: {eid}")
+            resolved.append(event)
+        events = [e for e in resolved if e.get("status") == "open"]
+    else:
         events = [dict(e) for e in state["open_events"][:5]]
-    events = [e for e in events if e and e.get("status") == "open"]
+        events = [e for e in events if e and e.get("status") == "open"]
 
     run = trace.start_run(
         conn,
@@ -793,3 +806,31 @@ def _run_real_llm(
             "actions": [{"tool": e['tool']} for e in executed], "tool_rounds": rounds,
             "priority_order": [e['id'] for e in events]}
     return plan, evidence, responses, question_created, executed, rejections
+
+
+def run_agent(
+    conn: sqlite3.Connection,
+    patient_id: str,
+    *,
+    trigger_type: str = "user_request",
+    trigger_ref: str | None = None,
+    message: str | None = None,
+    event_ids: list[str] | None = None,
+    llm: llm_module.LLMClient | None = None,
+) -> dict[str, Any]:
+    """统一异常收口：已创建的 run 绝不能停留在 running。"""
+    try:
+        return _run_agent_body(conn, patient_id, trigger_type=trigger_type, trigger_ref=trigger_ref,
+                               message=message, event_ids=event_ids, llm=llm)
+    except Exception as exc:
+        row = conn.execute(
+            "SELECT id FROM agent_runs WHERE patient_id=? AND status='running' ORDER BY started_at DESC LIMIT 1",
+            (patient_id,),
+        ).fetchone()
+        if row:
+            trace.add_step(conn, row["id"], phase="error", kind="exception", status="failed",
+                           code=validators.TOOL_EXECUTION_FAILED,
+                           payload={"error": f"{type(exc).__name__}: {exc}"})
+            trace.finish_run(conn, row["id"], status="failed", error=f"{type(exc).__name__}: {exc}",
+                             intent=None)
+        raise

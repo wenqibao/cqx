@@ -51,6 +51,15 @@ def schedule_review(
     reason: str = "任务完成后安排复评",
 ) -> dict[str, Any]:
     get_patient(conn, patient_id)
+    # REVIEW-REF-SCOPE-01：服务层校验 task/event 归属，不能依赖 Agent validator
+    if task_id:
+        row = conn.execute("SELECT patient_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not row or row["patient_id"] != patient_id:
+            raise ReviewError("task_id 不存在或不属于当前患者")
+    if event_id:
+        row = conn.execute("SELECT patient_id FROM events WHERE id=?", (event_id,)).fetchone()
+        if not row or row["patient_id"] != patient_id:
+            raise ReviewError("event_id 不存在或不属于当前患者")
     if delay_hours is not None:
         if delay_hours < 0 or delay_hours > 720:
             raise ReviewError("delay_hours 必须在 0~720 小时之间")
@@ -71,9 +80,11 @@ def schedule_review(
             review["duplicate"] = True
             return review
     rid = new_id("review")
+    window_key = f"{patient_id}|{task_id or ''}|{event_id or ''}|{iso(due)[:13]}"
     conn.execute(
-        """INSERT INTO reviews(id,patient_id,task_id,event_id,run_id,branch,status,reason,detail,scheduled_for,created_at)
-           VALUES(?,?,?,?,?,?,'scheduled',?,?,?,?)""",
+        """INSERT OR IGNORE INTO reviews(id,patient_id,task_id,event_id,run_id,branch,status,reason,detail,
+                scheduled_for,created_at,review_key)
+           VALUES(?,?,?,?,?,?,'scheduled',?,?,?,?,?)""",
         (
             rid,
             patient_id,
@@ -85,8 +96,15 @@ def schedule_review(
             dumps({"scheduled_by": run_id or "system"}),
             iso(due),
             iso(now(conn)),
+            window_key,
         ),
     )
+    row = conn.execute("SELECT id FROM reviews WHERE review_key=? AND status='scheduled'", (window_key,)).fetchone()
+    if row and row["id"] != rid:
+        duplicate = get_review(conn, row["id"])
+        if duplicate:
+            duplicate["duplicate"] = True
+            return duplicate
     review = get_review(conn, rid)
     if review and review["status"] == "scheduled":
         from backend.app.automation import scheduler as _scheduler
@@ -187,16 +205,20 @@ def resolve_human_review(conn: sqlite3.Connection, review_id: str, *, decision: 
         raise KeyError(f"复评不存在: {review_id}")
     if review["branch"] != "HUMAN_REVIEW":
         raise ValueError("只有 HUMAN_REVIEW 分支可以人工结案")
-    if review["status"] == "completed":
-        return {**review, "already_resolved": True}  # 不允许静默覆盖原决定
     ts = iso(now(conn))
     detail = dict(review["detail"])
     detail["human_decision"] = decision
     detail["human_note"] = note
-    conn.execute(
-        "UPDATE reviews SET status='completed', detail=?, resolved_at=?, reason=? WHERE id=?",
+    # REVIEW-RESOLVE-RACE-01：pending_human → completed 必须原子 CAS
+    cur = conn.execute(
+        "UPDATE reviews SET status='completed', detail=?, resolved_at=?, reason=? "
+        "WHERE id=? AND status='pending_human'",
         (dumps(detail), ts, f"人工复核结论: {decision}", review_id),
     )
+    if cur.rowcount == 0:
+        current = get_review(conn, review_id)
+        if current:
+            return {**current, "already_resolved": True}
     return get_review(conn, review_id)  # type: ignore[return-value]
 
 

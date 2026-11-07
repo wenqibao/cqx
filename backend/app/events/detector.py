@@ -127,10 +127,10 @@ def detect_events(
         if not hit:
             continue
         dedupe = f"{patient_id}:{code}:{bucket}"
-        # EVENT-RECURRENCE-01：同小时事件已处理后又出现新异常，必须新建 open 事件
-        prior = conn.execute("SELECT status FROM events WHERE dedupe_key=?", (dedupe,)).fetchone()
-        if prior and prior["status"] != "open":
-            dedupe = f"{dedupe}:{new_id('event')}"
+        # EVENT-RECURRENCE-02：dedupe 绑定到最新证据记录，重复扫描不会无限新建
+        record_ids = evidence.get("record_ids") or []
+        fingerprint = str(record_ids[-1]) if record_ids else (str(rows[-1]["id"]) if rows else "none")
+        dedupe = f"{dedupe}:{fingerprint}"
         event_id = new_id("event")
         cur = conn.execute(
             """INSERT OR IGNORE INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,

@@ -31,7 +31,10 @@ def list_patients(conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any
 def create_patient(payload: PatientCreate, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
     if payload.is_synthetic is False:
         raise HTTPException(status_code=422, detail="演示系统只允许合成患者（is_synthetic 必须为 true）")
-    return patient_service.create_patient(conn, {**payload.model_dump(), "is_synthetic": True})
+    try:
+        return patient_service.create_patient(conn, {**payload.model_dump(), "is_synthetic": True})
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail=f"患者 ID 已存在: {payload.id}") from exc
 
 
 @router.get("/patients/{patient_id}", tags=["patients"], summary="F02 患者档案")
@@ -53,6 +56,7 @@ def get_state(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> 
 
 @router.get("/patients/{patient_id}/state/history", tags=["state"], summary="F04 历史状态快照")
 def state_history(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     rows = conn.execute(
         "SELECT version, created_at FROM state_snapshots WHERE patient_id=? ORDER BY version DESC LIMIT 20",
         (patient_id,),
@@ -82,7 +86,7 @@ def add_record(
         record = record_service.add_record(conn, patient_id, payload.model_dump())
     except patient_service.PatientNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except record_service.RecordValidationError as exc:
+    except (record_service.RecordValidationError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     result: dict[str, Any] = {"record": record, "automation": None}
     if payload.trigger_agent and not record.get("duplicate"):
@@ -111,12 +115,14 @@ def import_records(
 def get_events(
     patient_id: str, status: str | None = None, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     items = list_events(conn, patient_id, status=status)
     return {"patient_id": patient_id, "count": len(items), "items": items}
 
 
 @router.post("/patients/{patient_id}/events/scan", tags=["events"], summary="F05 手动触发事件检测（演示用）")
 def scan_events(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     return detect_events(conn, patient_id, trigger="manual_scan")
 
 

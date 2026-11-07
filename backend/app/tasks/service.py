@@ -125,6 +125,10 @@ def create_task(
 ) -> tuple[dict[str, Any], bool]:
     """返回 (task, created)；created=False 表示合并到已有任务（任务不会重复入库）。"""
     get_patient(conn, patient_id)
+    if event_id:
+        event_row = conn.execute("SELECT patient_id FROM events WHERE id=?", (event_id,)).fetchone()
+        if not event_row or event_row["patient_id"] != patient_id:
+            raise TaskError("event_id 不存在或不属于当前患者")
     if merge:
         existing = find_mergeable(conn, patient_id, task_type, due_at)
         if existing:
@@ -210,16 +214,22 @@ def complete_task(
     task = get_task(conn, task_id)
     if not task:
         raise TaskError(f"任务不存在: {task_id}")
-    if task["status"] == "done":
-        return task  # 幂等
     if task["status"] == "cancelled":
         raise TaskError("已取消的任务不能完成")
     ts = iso(now(conn))
-    conn.execute(
-        "UPDATE tasks SET status='done', version=version+1, completed_at=?, updated_at=? WHERE id=?",
+    # COMPLETE-CONCURRENT-01：状态转换必须原子，只有真正改到 done 的请求才算 changed
+    cur = conn.execute(
+        "UPDATE tasks SET status='done', version=version+1, completed_at=?, updated_at=? "
+        "WHERE id=? AND status IN ('pending','missed')",
         (ts, ts, task_id),
     )
     updated = get_task(conn, task_id)
+    if cur.rowcount == 0:
+        if updated:
+            updated["changed"] = False
+        return updated  # type: ignore[return-value]
+    if updated:
+        updated["changed"] = True
     _snapshot(conn, updated, "complete", note or "患者确认完成", changed_by, run_id)
     return updated  # type: ignore[return-value]
 

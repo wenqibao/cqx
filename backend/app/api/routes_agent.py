@@ -42,12 +42,15 @@ def run_agent(
             message=payload.message,
             event_ids=payload.event_ids,
         )
+    except orchestrator.EventScopeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:  # 模型/工具异常必须显式返回，不能假装成功
         raise HTTPException(status_code=502, detail=f"{type(exc).__name__}: {exc}") from exc
 
 
 @router.get("/patients/{patient_id}/runs", tags=["agent"], summary="F14 运行列表")
 def list_runs(patient_id: str, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
+    patient_service.get_patient(conn, patient_id)
     items = trace.list_runs(conn, patient_id)
     return {"patient_id": patient_id, "count": len(items), "items": items}
 

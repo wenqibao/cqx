@@ -124,23 +124,8 @@ def execute(ctx: ToolContext, tool: str, args: dict[str, Any]) -> dict[str, Any]
         return _fail("TOOL_EXECUTION_FAILED", f"{type(exc).__name__}: {exc}")
 
 
-ENTITY_CODE_RE = re.compile(r"\b[A-Za-z]{2,}[-_]?\d{2,}\b")
-
-
 def _filter_relevant_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """A0-FULL-P1-05：查询里的实体编码（如 XQZ-999）必须在命中片段中出现才算相关。
-
-    否则通用 HbA1c / 自我监测片段会被当成该实体的证据，导致无证据问题也能引用。
-    """
-    codes = ENTITY_CODE_RE.findall(query or "")
-    if not codes:
-        return hits
-    kept = []
-    for hit in hits:
-        text = " ".join(str(hit.get(key) or "") for key in ("text", "quote", "title", "content")).lower()
-        if all(code.lower() in text for code in codes):
-            kept.append(hit)
-    return kept
+    return knowledge_search.filter_relevant_hits(query, hits)
 
 
 def _search_knowledge(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:

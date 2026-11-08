@@ -182,3 +182,25 @@ A/B/C/D 四状态的基础动作几乎一致，只有高风险 D 多了一次人
 - 被拒后第二轮工具清单不含 `create_task`，模型 `update_task` 成功，任务数保持 1。
 
 全量 `pytest` 422 passed，Mock 场景 33/33 PASS。真实模型待 B 复验患者 B 场景。
+
+## 12. 追加：Mock 知识问答证据一致性（C-REG-KQ-01，2026-11-08）
+
+### 现象（C 的浏览器回归）
+Mock 模式下问「XQZ-999 生物标志物是什么」：真实 `search_knowledge` 因实体不匹配返回 0 命中，
+但 Mock 规划器用规划阶段未过滤的通用片段生成了引用 KD-001 的回答，run 仍完成。
+即"计划证据"与"实际检索结果"不一致。
+
+### 根因
+实体相关性过滤原先只在 `tools._search_knowledge` 中执行；`planner.build_knowledge_plan`
+使用调用方传入的未过滤 hits 生成 respond 与 citations。
+
+### 修复
+- 把 `filter_relevant_hits` 下沉到 `knowledge/search.py`，工具与规划器共用；
+- `build_knowledge_plan` 入口先过滤 hits，再决定"有证据回答"或"无证据兜底"；
+- `tools._filter_relevant_hits` 保留为薄封装，既有测试不受影响。
+
+### 回归（新增 2 项）
+- 未知实体 → evidence 为空、`NO_EVIDENCE` 拒绝、回答为"没有足够资料"，不出现在知识片段引用；
+- 正常知识问题 → 仍有证据并给出基于知识库的回答。
+
+全量 `pytest` 424 passed，Mock 场景 33/33 PASS。

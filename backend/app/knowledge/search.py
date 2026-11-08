@@ -172,3 +172,18 @@ def evidence_for_run(conn: sqlite3.Connection, run_id: str) -> list[dict[str, An
 
 def citation_label(hit: dict[str, Any]) -> str:
     return f"{hit['title']}（{hit['publisher']}，{hit.get('version') or ''}）{hit['anchor']}"
+
+ENTITY_CODE_RE = __import__("re").compile(r"\b[A-Za-z]{2,}[-_]?\d{2,}\b")
+
+
+def filter_relevant_hits(query: str, hits: list[dict]) -> list[dict]:
+    """查询里的实体编码必须在命中片段中出现，否则视为无关证据。"""
+    codes = ENTITY_CODE_RE.findall(query or "")
+    if not codes:
+        return hits
+    kept = []
+    for hit in hits:
+        text = " ".join(str(hit.get(key) or "") for key in ("text", "quote", "title", "content")).lower()
+        if all(code.lower() in text for code in codes):
+            kept.append(hit)
+    return kept

@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 403 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
+python -m pytest -q                 # 422 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
 python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 
@@ -219,3 +219,13 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - `docs/deepseek_real_bugfixes.md`：真实路径缺陷、最小修复、受控回归和B待复验记录。
 - `docs/deepseek_next_actions.md`：A审查、B独立复验、C具体缺陷单与正式演示门槛。
 - `evaluation/reports/deepseek_real_acceptance.json`：本地机器验收报告（已生成但忽略，不随clone交付）；同目录保留ledger、API/DB快照及截图。
+
+## A-REAL-AUTONOMY-01（2026-11-08）
+
+- ackend/app/services/state.py：open_events 含证据与记录 ID，新增 open_reviews / recent_answers
+- ackend/app/agent/orchestrator.py：有界上下文、决策协议、decision_rationale 轨迹、ACTION_TOOLS 纳入 schedule_review
+- ackend/app/agent/tools.py：schedule_review Schema 补 reason
+- ackend/app/safety/validators.py：逐工具执行后核验（患者/类型/事件/复评/复核/通知）
+- 	ests/integration/test_real_autonomous_decision.py（5 项）
+- 	ests/integration/test_real_action_verification.py（8 项）
+- docs/real_autonomous_management_closure.md

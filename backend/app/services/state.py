@@ -85,14 +85,38 @@ def build_state(conn: sqlite3.Connection, patient_id: str) -> dict[str, Any]:
         for t in tasks
     ]
     events = conn.execute(
-        "SELECT id, code, severity, status, message, detected_at FROM events WHERE patient_id=? AND status='open' "
+        "SELECT id, code, severity, status, message, detected_at, evidence, source_record_id "
+        "FROM events WHERE patient_id=? AND status='open' "
         "ORDER BY CASE severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, detected_at DESC",
         (patient_id,),
     ).fetchall()
-    open_events = [dict(e) for e in events]
+    open_events = []
+    for row in events:
+        item = dict(row)
+        evidence = loads(item.get("evidence"), {}) or {}
+        # 有界证据：只保留决策需要的字段，避免上下文膨胀
+        item["evidence_summary"] = {
+            key: evidence[key]
+            for key in ("threshold", "comparator", "first", "last", "delta", "points",
+                        "min", "max", "range", "missed_count", "window_days", "trigger")
+            if key in evidence
+        }
+        item["record_ids"] = (evidence.get("record_ids") or [])[-5:]
+        item.pop("evidence", None)
+        open_events.append(item)
     questions = conn.execute(
         "SELECT id, kind, question, target_field, status, created_at FROM questions "
         "WHERE patient_id=? AND status='waiting' ORDER BY created_at",
+        (patient_id,),
+    ).fetchall()
+    recent_answers = conn.execute(
+        "SELECT id, target_field, status, answer, answer_text, answered_at FROM questions "
+        "WHERE patient_id=? AND status IN ('answered','expired') ORDER BY answered_at DESC LIMIT 5",
+        (patient_id,),
+    ).fetchall()
+    scheduled_reviews = conn.execute(
+        "SELECT id, task_id, event_id, branch, status, scheduled_for FROM reviews "
+        "WHERE patient_id=? AND status IN ('scheduled','pending_human') ORDER BY scheduled_for",
         (patient_id,),
     ).fetchall()
     prefs = conn.execute(
@@ -125,6 +149,8 @@ def build_state(conn: sqlite3.Connection, patient_id: str) -> dict[str, Any]:
         "open_events": open_events,
         "open_tasks": open_tasks,
         "pending_questions": [dict(q) for q in questions],
+        "recent_answers": [dict(q) for q in recent_answers],
+        "open_reviews": [dict(r) for r in scheduled_reviews],
         "preferences": [dict(p) for p in prefs],
         "unread_notifications": notifications["c"] if notifications else 0,
         "record_counts": {

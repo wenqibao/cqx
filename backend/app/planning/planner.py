@@ -13,7 +13,8 @@ from backend.app.safety import gate as safety_gate
 SEVERITY_WEIGHT = {"high": 100, "medium": 60, "low": 30}
 KNOWN_HISTORY_BOOST = {"T2DM": 0}
 
-QUESTION_HINTS = ("为什么", "为何", "怎么", "如何", "是什么", "什么", "多少", "多久", "几个", "特异性", "能不能", "可以吗", "?", "？")
+QUESTION_HINTS = ("为什么", "为何", "怎么", "如何", "是什么", "什么", "多少", "多久", "几个", "特异性",
+                  "是不是", "是否", "会不会", "算不算", "正常吗", "高吗", "能不能", "可以吗", "?", "？")
 NEGOTIATION_HINTS = ("没空", "没时间", "改到", "改成", "调整", "换到", "推迟", "提前", "上班", "改一下")
 TIME_RE = re.compile(r"(?P<h>[01]?\d|2[0-3])\s*[:：]\s*(?P<m>[0-5]\d)")
 

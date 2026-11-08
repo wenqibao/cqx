@@ -167,11 +167,13 @@ def get_llm() -> LLMClient:
     raise LLMConfigError(f"未知的 AGENT_LLM_MODE: {cfg.llm_mode}（仅支持 mock / real）")
 
 
-def tool_schemas() -> list[dict[str, Any]]:
+def tool_schemas(only: set[str] | None = None) -> list[dict[str, Any]]:
     from backend.app.agent.tools import TOOL_SPECS
 
     schemas = []
     for name, spec in TOOL_SPECS.items():
+        if only is not None and name not in only:
+            continue
         props = {}
         required = []
         for param, ptype in spec["parameters"].items():

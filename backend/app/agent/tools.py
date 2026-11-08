@@ -56,7 +56,8 @@ TOOL_SPECS: dict[str, dict[str, Any]] = {
     },
     "schedule_review": {
         "description": "安排一次到期自动复评",
-        "parameters": {"patient_id": "string", "task_id": "string?", "event_id": "string?", "delay_hours": "int?"},
+        "parameters": {"patient_id": "string", "task_id": "string?", "event_id": "string?",
+                       "delay_hours": "int?", "reason": "string?"},
     },
     "create_notification": {
         "description": "创建站内提醒",

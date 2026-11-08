@@ -32,6 +32,17 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 3. 缺信息时应主动询问，不得自行推断患者未提供的事实。
 4. 只能通过给定工具执行动作，禁止声称执行了实际未执行的工具。
 5. 高风险信号（低血糖、显著高血糖、危险症状）一律升级人工复核，不做处置建议。
+决策协议（Real 模式必须遵守）：
+- 先读患者实际状态：事件证据、趋势、最近记录、已有任务/问题/复评、缺失字段；
+- 优先处理高风险事件；同样的事件在不同患者状态下应选择不同行动；
+- 已有 pending 同类任务时，必须优先 update_task 或说明现有任务如何覆盖；禁止重复 create_task；
+- 按状态选下一步：缺关键信息→ask_user；已有任务覆盖→update_task；高风险→request_human_review；
+  需要随访→schedule_review；信息足够且安全→create_task；无法继续→respond。
+- 缺少会影响决策的信息时用 ask_user 提一个具体问题，不要猜测；
+- 需要正式复评时用 schedule_review；高风险或需专业判断时用 request_human_review；
+- 每个动作都要能用工具结果与数据库状态核验；无法继续时用 respond 说明原因。
+- 意图为知识问答（knowledge_question）时，只允许 search_knowledge 与 respond：
+  不得建任务、发通知、提人工复核或反问；回答必须直接针对患者的问题，不要汇报执行动作。
 完成标准（关键）：
 - 处理健康事件时必须产生至少一个管理动作：create_task、ask_user 或 request_human_review；
   只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
@@ -47,8 +58,13 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 
 # 只读工具：不改变业务状态，不能单独构成"处理完成"
 READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferences", "list_tasks"})
-ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review", "save_preference", "create_notification"})
+ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review",
+                          "schedule_review", "save_preference", "create_notification"})
 MAX_SEARCH_CALLS = 2
+# 重复任务被拒后，下一轮强制走复用路径
+REUSE_TOOLS = frozenset({"update_task", "respond", "list_tasks"})
+# 知识问答只允许检索与回答（B/A-REAL-AUTONOMY-02）
+KNOWLEDGE_TOOLS = frozenset({"search_knowledge", "respond"})
 _TOOL_LABELS = {
     "create_task": "创建任务", "update_task": "更新任务", "complete_task": "完成任务",
     "save_preference": "保存偏好", "create_notification": "创建站内提醒",
@@ -58,23 +74,63 @@ _TOOL_LABELS = {
 }
 
 
+EVENT_TASK_HINTS = {
+    "GLUCOSE_RISING": ("record_glucose", "confirm_medication", "medication_verification", "review_glucose"),
+    "GLUCOSE_VARIABILITY": ("record_glucose", "review_glucose"),
+    "HYPOGLYCEMIA_RECORD": ("record_glucose", "confirm_medication"),
+    "HYPERGLYCEMIA_RECORD": ("record_glucose", "confirm_medication"),
+    "LOW_ACTIVITY": ("record_activity", "record_steps"),
+    "WEIGHT_GAIN": ("record_weight", "record_activity"),
+    "MEDICATION_MISSED": ("confirm_medication", "medication_verification"),
+}
+
+
+def _covering_tasks(state: dict[str, Any], event: dict[str, Any]) -> list[dict[str, Any]]:
+    """找出可能覆盖该事件的待办任务，供模型优先复用。"""
+    hints = set(EVENT_TASK_HINTS.get(event.get("code"), ()))
+    covering = []
+    for task in state.get("open_tasks", []):
+        if task.get("event_id") == event.get("id") or task.get("task_type") in hints:
+            covering.append({"id": task["id"], "task_type": task["task_type"],
+                             "title": task["title"], "due_at": task.get("due_at"),
+                             "event_id": task.get("event_id")})
+    return covering
+
+
 def _state_brief(state: dict[str, Any]) -> str:
     patient = state["patient"]
     agg = state["aggregates"]["7d"]
+    events = state.get("open_events", [])
     lines = [
-        f"当前业务时间（UTC）: {state['generated_at']}；due_at必须在未来30天内，使用带时区ISO8601时间",
+        f"当前业务时间（UTC）: {state['generated_at']}；due_at 必须是未来 0~720 小时的带时区 ISO8601 时间",
         f"患者: {patient['id']} {patient['name']}，{patient.get('age')}岁，病程{patient.get('duration_years')}年",
-        f"近7天空腹血糖: {agg.get('fasting_glucose')}",
+        f"管理目标: {patient.get('goals', [])}；已确认约束: {patient.get('constraints', [])}",
+        f"档案完整: {state.get('profile_complete')}；缺失字段: {state['missing_fields']}",
+        f"近7天血糖: {agg.get('fasting_glucose')}",
         f"近7天步数: {agg.get('steps')}",
-        f"缺失字段: {state['missing_fields']}",
-        f"未处理事件: {[e['code'] for e in state['open_events']]}",
-        f"待办任务（实际ID、类型与时间）: {state['open_tasks']}",
-        f"待回答问题: {state['pending_questions']}",
-        f"最近数据: {state['latest']}",
-        f"已确认约束: {patient.get('constraints', [])}",
+        f"近7天服药: {agg.get('medication_taken')}",
+        f"血糖趋势: {state.get('trend')}",
+        f"最近记录: {state['latest']}",
+        "未处理事件（含证据，决定管理动作时必须逐条考虑）:",
+    ]
+    if not events:
+        lines.append("  （无）")
+    for event in events:
+        covering = _covering_tasks(state, event)
+        lines.append(
+            f"  - {event['id']} {event['code']} severity={event['severity']} "
+            f"detected_at={event['detected_at']} message={event.get('message')} "
+            f"evidence={event.get('evidence_summary')} records={event.get('record_ids')} "
+            f"已有可覆盖任务={covering if covering else '无'}"
+        )
+    lines.extend([
+        f"已有待办任务（先判断是否已覆盖，不要重复创建）: {state['open_tasks']}",
+        f"待回答问题（不要重复询问同一字段）: {state['pending_questions']}",
+        f"最近已答复/过期问题: {state.get('recent_answers', [])}",
+        f"已安排的复评（不要重复安排）: {state.get('open_reviews', [])}",
         f"已保存的回答上下文: {state.get('answer_context')}",
         f"有效偏好: {[(p['kind'], p['value']) for p in state['preferences']]}",
-    ]
+    ])
     return "\n".join(lines)
 
 
@@ -647,6 +703,7 @@ def _run_real_llm(
     nudges = 0
     claim_texts: list[str] = []
     responded = False
+    force_reuse_task_id: str | None = None
     question_created = False
     rounds = []
     user = "\n".join([
@@ -672,12 +729,26 @@ def _run_real_llm(
         # 一条请求轨迹对应一次 plan_actions，包含异常尝试；本客户端不做隐藏重试。
         trace.add_step(conn, run_id, phase="plan", kind="llm_request",
                        payload={"round": round_no, "model": llm.model_name})
-        response = llm.plan_actions(system=SYSTEM_PROMPT, user=user, tools=llm_module.tool_schemas(), extra_messages=history)
+        if force_reuse_task_id:
+            tool_list = llm_module.tool_schemas(only=REUSE_TOOLS)
+        elif intent == "knowledge_question":
+            tool_list = llm_module.tool_schemas(only=KNOWLEDGE_TOOLS)
+        else:
+            tool_list = llm_module.tool_schemas()
+        response = llm.plan_actions(system=SYSTEM_PROMPT, user=user, tools=tool_list, extra_messages=history)
         raw = response.raw or {}
         trace.add_step(conn, run_id, phase="plan", kind="llm_response", payload={
             "round": round_no, "response_id": raw.get('id'), "model": raw.get('model'), "usage": raw.get('usage'),
             "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in response.tool_calls],
         })
+        if response.tool_calls:
+            # 可审计决策摘要：只用同一响应里的简短理由与工具名，不记录隐藏思维链
+            trace.add_step(conn, run_id, phase="plan", kind="decision_rationale", payload={
+                "round": round_no,
+                "rationale": (response.content or "")[:200],
+                "tools": [c.name for c in response.tool_calls],
+                "linked_event_ids": [e["id"] for e in events],
+            })
         if not response.tool_calls:
             if response.content:
                 errors = _check_real_reply(response.content, conn=conn, patient_id=patient_id, intent=intent,
@@ -695,6 +766,44 @@ def _run_real_llm(
         outcomes = []
         for index, call in enumerate(response.tool_calls):
             tool_call_id = call.id or f"call_{round_no}_{index}"
+            # 已有同类待办时禁止重复建任务（A-REAL-AUTONOMY-03）
+            if call.name == "create_task" and isinstance(call.arguments, dict):
+                existing_task = conn.execute(
+                    "SELECT id, title, due_at FROM tasks WHERE patient_id=? AND status IN ('pending','missed') "
+                    "AND (task_type=? OR (event_id IS NOT NULL AND event_id=?)) "
+                    "ORDER BY created_at LIMIT 1",
+                    (patient_id, str(call.arguments.get("task_type") or ""), call.arguments.get("event_id")),
+                ).fetchone()
+                if existing_task:
+                    guidance = {
+                        "ok": False,
+                        "code": "DUPLICATE_TASK",
+                        "error": f"已有同类待办任务 {existing_task['id']}（{existing_task['title']}）；"
+                                 "请用 update_task 调整它，或说明现有任务如何覆盖，不要重复创建",
+                        "existing_task_id": existing_task["id"],
+                    }
+                    trace.add_step(conn, run_id, phase="validate", kind="duplicate_task", tool_name=call.name,
+                                   payload=guidance, status="skipped", code="DUPLICATE_TASK")
+                    history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                    "content": json.dumps(guidance, ensure_ascii=False)})
+                    outcomes.append({"tool": call.name, "ok": False, "code": "DUPLICATE_TASK"})
+                    force_reuse_task_id = existing_task["id"]
+                    history.append({
+                        "role": "system",
+                        "content": f"上一轮重复创建被拒绝。下一轮只允许 update_task({existing_task['id']}) "
+                                   "调整该任务，或用 respond 说明现有任务如何覆盖；不得再 create_task。",
+                    })
+                    continue
+            # 知识问答只允许检索+回答：其他动作软拒绝并提示直接回答
+            if intent == "knowledge_question" and call.name not in KNOWLEDGE_TOOLS:
+                guidance = {"ok": False, "code": "TOOL_NOT_ALLOWED",
+                            "error": "知识问答只允许 search_knowledge 与 respond；请直接回答患者问题"}
+                trace.add_step(conn, run_id, phase="validate", kind="tool_choice", tool_name=call.name,
+                               payload=guidance, status="skipped", code="TOOL_NOT_ALLOWED")
+                history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                "content": json.dumps(guidance, ensure_ascii=False)})
+                outcomes.append({"tool": call.name, "ok": False, "code": "TOOL_NOT_ALLOWED"})
+                continue
             # REL-01：正式复评必须用 schedule_review，普通任务不能替代（软拒绝，允许下一轮纠正）
             if call.name == "create_task" and isinstance(call.arguments, dict):
                 task_type = str(call.arguments.get("task_type") or "").lower()
@@ -758,6 +867,8 @@ def _run_real_llm(
                     evidence.extend(knowledge_search.record_evidence(conn, patient_id=patient_id, run_id=run_id,
                                                                     hits=hits, query=call.arguments.get('query', '')))
                     ctx.evidence = evidence
+                if result.get("ok") and call.name == "update_task":
+                    force_reuse_task_id = None
                 if result.get('question_id') and result.get('ok'):
                     question_created = True
                 if result.get('text') and result.get('ok'):
@@ -792,7 +903,8 @@ def _run_real_llm(
         if responded:
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
-        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED, "TOOL_CHOICE_INVALID"}
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED,
+                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED", validators.DUPLICATE_TASK}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:

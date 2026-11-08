@@ -38,6 +38,9 @@ import {
   actionSummary,
   relatedQuestions,
   runResponses,
+  unresolvedRejections,
+  resolvedWarnings,
+  actionWasCorrected,
 } from "../../utils/business";
 export { toolDescriptions } from "../../utils/business";
 export default function Agent() {
@@ -351,7 +354,7 @@ export function TraceView({ trace: t }: { trace: Trace }) {
   const narrative = runNarrative(run, t);
   const results = t.steps.filter((s) => s.kind === "tool_result");
   const responses = runResponses(run);
-  const reasons = array(output.rejections).map((r) =>
+  const reasons = unresolvedRejections(run).map((r) =>
     businessText(obj(r).message, businessName(obj(r).code)),
   );
   return (
@@ -389,6 +392,9 @@ export function TraceView({ trace: t }: { trace: Trace }) {
           }
         />
       )}
+      {resolvedWarnings(run).length > 0 && (
+        <Alert type="info" title="先前校验问题已纠正，完整经过见运行日志" />
+      )}
       <Card title="本次处理">
         <List
           dataSource={results}
@@ -397,12 +403,18 @@ export function TraceView({ trace: t }: { trace: Trace }) {
             <List.Item>
               <List.Item.Meta
                 title={businessName(s.tool_name)}
-                description={actionSummary(
-                  s.tool_name,
-                  s.payload,
-                  s.status,
-                  responses,
-                )}
+                description={
+                  s.status === "failed" &&
+                  actionWasCorrected(
+                    run,
+                    s.tool_name,
+                    obj(s.payload.post_check).ok === false
+                      ? obj(s.payload.post_check)
+                      : obj(s.payload.result),
+                  )
+                    ? "首次尝试未完成，后续已纠正；原始原因见运行日志。"
+                    : actionSummary(s.tool_name, s.payload, s.status, responses)
+                }
               />
               <Status
                 value={

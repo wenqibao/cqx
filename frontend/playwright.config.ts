@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
+  testIgnore: "**/contract-v021.spec.ts",
   globalSetup: './e2e/guard.ts',
   timeout: 60000,
   workers: 1,

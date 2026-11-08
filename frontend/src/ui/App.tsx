@@ -21,7 +21,11 @@ import {
 } from "@ant-design/icons";
 import { WorkbenchProvider, useWorkbench } from "../app/WorkbenchContext";
 import { client } from "../api/client";
-import { ErrorBox, PatientScope } from "../components/common";
+import {
+  ErrorBox,
+  PatientScope,
+  OperationFeedback,
+} from "../components/common";
 const Dashboard = lazy(() => import("../pages/dashboard/Dashboard"));
 const Patients = lazy(() => import("../pages/patients/Patients"));
 const PatientDetail = lazy(() =>
@@ -144,6 +148,7 @@ function Shell() {
           </span>
         </div>
         <main>
+          <OperationFeedback />
           {loading ? (
             <div className="loading" role="status">
               <Spin />

@@ -71,6 +71,60 @@ export function runResponses(run: Record<string, unknown>): string[] {
   );
 }
 
+export function resolvedWarnings(run: Record<string, unknown>) {
+  return array(obj(run.output).warnings ?? run.warnings)
+    .map(obj)
+    .filter((w) => w.resolved === true);
+}
+
+function sameRejection(
+  rejection: Record<string, unknown>,
+  warning: Record<string, unknown>,
+) {
+  return (
+    typeof rejection.code === "string" &&
+    Object.entries(rejection).every(
+      ([key, value]) =>
+        key === "resolved" ||
+        JSON.stringify(warning[key]) === JSON.stringify(value),
+    )
+  );
+}
+
+export function unresolvedRejections(run: Record<string, unknown>) {
+  const warnings = [...resolvedWarnings(run)];
+  return array(obj(run.output).rejections ?? run.rejections)
+    .map(obj)
+    .filter((r) => {
+      const index = warnings.findIndex((w) => sameRejection(r, w));
+      if (index < 0) return true;
+      warnings.splice(index, 1);
+      return false;
+    });
+}
+
+export function actionWasCorrected(
+  run: Record<string, unknown>,
+  tool: unknown,
+  failure?: Record<string, unknown>,
+) {
+  const actions = array(obj(run.output).actions ?? run.actions).map(obj);
+  return (
+    resolvedWarnings(run).some(
+      (w) =>
+        w.tool === tool &&
+        (!failure ||
+          (typeof failure.code === "string" &&
+            failure.code !== "POSTCHECK_MISMATCH" &&
+            w.code === failure.code &&
+            w.message === (failure.message ?? failure.error))),
+    ) &&
+    actions.some(
+      (a) => a.tool === tool && a.ok === true && obj(a.result).ok !== false,
+    )
+  );
+}
+
 export function actionSummary(
   tool: string | null,
   payload: Record<string, unknown>,
@@ -138,12 +192,32 @@ export function runNarrative(run: Run, trace?: Trace) {
   const successful = [
     ...new Set(actions.filter((a) => a.ok).map((a) => businessName(a.tool))),
   ];
-  const failures = actions.filter((a) => !a.ok).length;
+  const failures = actions.filter(
+    (a) => !a.ok && !actionWasCorrected(run, a.tool),
+  ).length;
   const rejected =
-    array(output.rejections).length > 0 ||
-    !!trace?.steps.some((s) => ["failed", "rejected"].includes(s.status));
-  const incomplete =
-    ["failed", "blocked"].includes(run.status) || failures > 0 || rejected;
+    unresolvedRejections(run).length > 0 ||
+    !!trace?.steps.some(
+      (s) =>
+        ["failed", "rejected"].includes(s.status) &&
+        !(
+          s.kind === "rejection" &&
+          resolvedWarnings(run).some((w) =>
+            sameRejection(obj(s.payload.rejection), w),
+          )
+        ) &&
+        !(
+          s.kind === "tool_result" &&
+          actionWasCorrected(
+            run,
+            s.tool_name,
+            obj(s.payload.post_check).ok === false
+              ? obj(s.payload.post_check)
+              : obj(s.payload.result),
+          )
+        ),
+    );
+  const incomplete = runHasFailure(run) || failures > 0 || rejected;
   const context = trace?.steps.find((s) => s.phase === "perceive")?.payload;
   const events = array(context?.open_events).map(businessName);
   const message = obj(run.input).message;
@@ -178,7 +252,11 @@ export function runNarrative(run: Run, trace?: Trace) {
         ? "请回答下方随访问题。"
         : trace?.tasks.some((t) => ["pending", "missed"].includes(t.status))
           ? "请跟进待完成任务及截止时间。"
-          : "请查看本次回复，当前未新增待办。";
+          : trace?.reviews?.some((r) => r.branch === "MISSING_DATA")
+            ? "请补充缺失记录后跟进复评。"
+          : trace?.reviews?.some((r) => r.status === "scheduled")
+            ? "请按计划跟进后续复评。"
+            : "请查看本次回复，当前未新增待办。";
   return {
     title,
     reason,
@@ -191,9 +269,12 @@ export function runNarrative(run: Run, trace?: Trace) {
 export function runHasFailure(run: Record<string, unknown>) {
   return (
     ["failed", "blocked"].includes(String(run.status)) ||
-    array(run.rejections).length > 0 ||
-    array(run.actions).some(
-      (a) => obj(a).ok === false || obj(obj(a).post_check).ok === false,
+    unresolvedRejections(run).length > 0 ||
+    array(obj(run.output).actions ?? run.actions).some(
+      (a) =>
+        (obj(obj(a).post_check).ok === false &&
+          !actionWasCorrected(run, obj(a).tool, obj(obj(a).post_check))) ||
+        (obj(a).ok === false && !actionWasCorrected(run, obj(a).tool)),
     )
   );
 }

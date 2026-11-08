@@ -21,6 +21,7 @@ export class ApiError extends Error {
 export class HttpAdapter implements Adapter {
   readonly mode = "http" as const;
   private queue: Promise<void> = Promise.resolve();
+  private probeQueue: Promise<void> = Promise.resolve();
   constructor(
     private base = "http://127.0.0.1:8000/api",
     private transport: typeof fetch = (...args) => globalThis.fetch(...args),
@@ -34,14 +35,18 @@ export class HttpAdapter implements Adapter {
     signal?: AbortSignal,
     method: "GET" | "POST" | "DELETE" = body === undefined ? "GET" : "POST",
   ): Promise<T> {
-    // 有界读取：同一客户端最多一个在途请求；写入不重试，不以超时推断未保存。
-    const result = this.queue.then(() =>
+    // 业务请求串行；健康探测独立且串行，最多两个在途请求。写入不重试。
+    const probe =
+      method === "GET" && ["/health", "/system/mode"].includes(path);
+    const result = (probe ? this.probeQueue : this.queue).then(() =>
       this.perform(path, schema, body, signal, method),
     );
-    this.queue = result.then(
+    const settled = result.then(
       () => undefined,
       () => undefined,
     );
+    if (probe) this.probeQueue = settled;
+    else this.queue = settled;
     return result;
   }
   private async perform<T>(
@@ -86,6 +91,7 @@ export class HttpAdapter implements Adapter {
       if (!response.ok) {
         const labels: Record<number, string> = {
           404: "资源不存在",
+          409: "资源已存在，请核对现有记录",
           422: "输入校验失败",
           500: "后端执行异常",
           502: "后端 Agent 或工具调用失败",
@@ -112,7 +118,9 @@ export class HttpAdapter implements Adapter {
           ? isWrite
             ? "等待超时：操作可能已保存，请先查询记录、任务或运行状态；不会自动重试"
             : "请求超时或已取消"
-          : "后端连接失败；未切换前端模拟数据",
+          : isWrite
+            ? "连接中断，操作结果待核对，请先查询已保存结果"
+            : "后端连接失败；未切换前端模拟数据",
         e instanceof Error ? e.message : String(e),
       );
     } finally {
@@ -188,10 +196,15 @@ export class HttpAdapter implements Adapter {
   addRecord(id: string, data: RecordCreate) {
     return this.request(
       `/patients/${encodeURIComponent(id)}/records`,
-      z.object({
-        record: recordSchema,
-        automation: z.record(z.string(), z.unknown()).nullable(),
-      }),
+      z
+        .object({
+          record: recordSchema,
+          automation: z.record(z.string(), z.unknown()).nullable(),
+          partial_success: z.boolean().optional(),
+          outbox_id: z.string().optional(),
+          error: z.string().optional(),
+        })
+        .passthrough(),
       data,
     );
   }
@@ -201,7 +214,10 @@ export class HttpAdapter implements Adapter {
       z
         .object({
           task: taskSchema,
-          reviews: z.array(z.record(z.string(), z.unknown())),
+          reviews: z.array(z.record(z.string(), z.unknown())).optional(),
+          already_done: z.boolean().optional(),
+          partial_success: z.boolean().optional(),
+          outbox_id: z.string().optional(),
         })
         .passthrough(),
       {

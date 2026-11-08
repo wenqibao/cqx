@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { client } from "../api/client";
+import { ApiError } from "../api/httpAdapter";
 import { api } from "../api/workbench";
 import { useResource } from "../hooks/useResource";
 import type { Patient } from "../api/types";
@@ -23,6 +24,14 @@ type Context = {
   patientId: string;
   patient?: Patient;
   busy: boolean;
+  recovery?: {
+    patientId: string;
+    checked: boolean;
+    data?: unknown;
+    error?: unknown;
+  };
+  checkRecovery: () => Promise<void>;
+  clearRecovery: () => void;
   setPatient: (id: string) => void;
   refresh: () => void;
   perform: <T>(action: () => Promise<T>) => Promise<T>;
@@ -40,6 +49,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const writeLock = useRef(false);
+  const [recovery, setRecovery] = useState<Context["recovery"]>();
   const [heartbeat, setHeartbeat] = useState<{
     health?: Boot["health"];
     mode?: Boot["mode"];
@@ -50,7 +60,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     const controller = new AbortController();
     let checking = false;
     const timer = setInterval(async () => {
-      if (writeLock.current || checking) return;
+      if (checking) return;
       checking = true;
       try {
         const health = await client.health(controller.signal);
@@ -105,14 +115,46 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   };
   // Promise本身拒绝时仍由调用方展示，绝不将失败变成成功。
   async function perform<T>(action: () => Promise<T>): Promise<T> {
+    if (recovery) throw new Error("上次操作结果待核对，请先查看已保存结果");
     if (writeLock.current) throw new Error("已有操作进行中，请勿重复提交");
     writeLock.current = true;
     setBusy(true);
     try {
       return await action();
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        [
+          "TIMEOUT_OR_ABORT",
+          "NETWORK_ERROR",
+          "INVALID_RESPONSE",
+          "HTTP_500",
+          "HTTP_502",
+        ].includes(error.code)
+      ) {
+        setRecovery({ patientId, checked: false });
+      }
+      throw error;
     } finally {
       writeLock.current = false;
       setBusy(false);
+    }
+  }
+  async function checkRecovery() {
+    if (!recovery) return;
+    const id = recovery.patientId;
+    try {
+      const records = await client.records(id);
+      const runs = await client.runs(id);
+      const tasks = await client.tasks(id);
+      const questions = await api.questions(id);
+      setRecovery({
+        patientId: id,
+        checked: true,
+        data: { records, runs, tasks, questions },
+      });
+    } catch (error) {
+      setRecovery({ patientId: id, checked: false, error });
     }
   }
   return (
@@ -124,6 +166,11 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
         patientId,
         patient,
         busy,
+        recovery,
+        checkRecovery,
+        clearRecovery: () => {
+          if (recovery?.checked) setRecovery(undefined);
+        },
         setPatient,
         refresh: resource.reload,
         perform,

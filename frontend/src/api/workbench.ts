@@ -206,17 +206,19 @@ export const api = {
   answer: (id: string, text: string) =>
     client.write(
       item("questions", id) + "/answer",
-      z.object({
-        question: questionSchema,
-        resume: z
-          .object({
-            question_id: z.string(),
-            recorded: recordSchema.nullable(),
-            uncertain: z.boolean(),
-            run: agentResultSchema,
-          })
-          .nullable(),
-      }),
+      z
+        .object({
+          question: questionSchema,
+          resume: z
+            .object({
+              question_id: z.string(),
+              recorded: recordSchema.nullable(),
+              uncertain: z.boolean(),
+              run: agentResultSchema,
+            })
+            .nullable(),
+        })
+        .passthrough(),
       { answer_text: text, trigger_agent: true },
     ),
   reviews: (id: string, s?: AbortSignal) =>
@@ -253,10 +255,15 @@ export const api = {
   savePreference: (id: string, kind: string, value: string, source: string) =>
     client.write(
       pid(id) + "/preferences",
-      z.object({
-        preference: prefSchema,
-        applied_to_tasks: z.array(z.unknown()),
-      }),
+      z
+        .object({
+          preference: prefSchema,
+          applied_to_tasks: z.array(z.unknown()),
+          partial_success: z.boolean().optional(),
+          outbox_id: z.string().optional(),
+          error: z.string().optional(),
+        })
+        .passthrough(),
       { kind, value, source },
     ),
   clearPreference: (id: string, kind: string) =>

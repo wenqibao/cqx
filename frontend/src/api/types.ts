@@ -154,10 +154,16 @@ export type Trace = z.infer<typeof traceSchema>;
 export interface RecordResult {
   record: HealthRecord;
   automation: Record<string, unknown> | null;
+  partial_success?: boolean;
+  outbox_id?: string;
+  error?: string;
 }
 export interface CompleteResult {
   task: Task;
-  reviews: Record<string, unknown>[];
+  reviews?: Record<string, unknown>[];
+  already_done?: boolean;
+  partial_success?: boolean;
+  outbox_id?: string;
 }
 export interface Adapter {
   mode: "http" | "mock";

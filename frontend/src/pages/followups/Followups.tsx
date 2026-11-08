@@ -12,6 +12,7 @@ import {
 } from "antd";
 import { useSearchParams } from "react-router-dom";
 import { api, type Question } from "../../api/workbench";
+import { ApiError } from "../../api/httpAdapter";
 import { useWorkbench } from "../../app/WorkbenchContext";
 import { useResource } from "../../hooks/useResource";
 import {
@@ -53,6 +54,7 @@ export default function Followups() {
       resource.reload();
     } catch (e) {
       setError(e);
+      if (e instanceof ApiError && e.code === "HTTP_422") resource.reload();
     }
   }
   return (
@@ -70,6 +72,10 @@ export default function Followups() {
           </>
         }
       />
+      {error && <ErrorBox error={error} />}
+      {result !== undefined && (
+        <WriteResult value={result} patientId={patientId} />
+      )}
       <Tabs
         activeKey={tab}
         onChange={(key) => {
@@ -132,15 +138,23 @@ export default function Followups() {
                               />
                             ) : (
                               <>
-                                <p className="conversation-message patient-message">
-                                  患者答复：{q.answer_text || "未提供文本"}{" "}
-                                  {q.answer &&
-                                  typeof q.answer === "object" &&
-                                  "uncertain" in q.answer &&
-                                  q.answer.uncertain === true
-                                    ? "（尚不确定）"
-                                    : ""}
-                                </p>
+                                {q.status === "answered" ? (
+                                  <p className="conversation-message patient-message">
+                                    患者答复：{q.answer_text || "未提供文本"}{" "}
+                                    {q.answer &&
+                                    typeof q.answer === "object" &&
+                                    "uncertain" in q.answer &&
+                                    q.answer.uncertain === true
+                                      ? "（尚不确定）"
+                                      : ""}
+                                  </p>
+                                ) : (
+                                  <p>
+                                    {q.status === "expired"
+                                      ? "问题已过期，未保存本次答复。请重新发起随访。"
+                                      : "本问题当前不可回答。"}
+                                  </p>
+                                )}
                               </>
                             )}
                           </Card>
@@ -319,10 +333,6 @@ export default function Followups() {
           },
         ]}
       />
-      {error && <ErrorBox error={error} />}
-      {result !== undefined && (
-        <WriteResult value={result} patientId={patientId} />
-      )}
     </>
   );
 }
@@ -335,8 +345,9 @@ function AnswerForm({
   busy: boolean;
   submit: (v: string) => Promise<void>;
 }) {
+  const [form] = Form.useForm();
   return (
-    <Form layout="vertical" onFinish={(v) => submit(v.answer)}>
+    <Form form={form} layout="vertical" onFinish={(v) => submit(v.answer)}>
       <Form.Item
         label="模拟患者答复"
         name="answer"
@@ -348,12 +359,17 @@ function AnswerForm({
           maxLength={500}
         />
       </Form.Item>
-      <p className="action-note">
-        可参考：
-        {question.options.length
-          ? question.options.join(" / ")
-          : "无预设选项，可使用文字答复"}
-      </p>
+      <div className="toolbar" aria-label="问题选项">
+        {question.options.map((option) => (
+          <Button
+            key={option}
+            disabled={busy}
+            onClick={() => form.setFieldValue("answer", option)}
+          >
+            {option}
+          </Button>
+        ))}
+      </div>
       <Form.Item
         name="simulated"
         valuePropName="checked"

@@ -52,3 +52,22 @@
 | `.runtime/`（忽略） | 专用SQLite、完整真实模型原响应、预算账本、早期/辅助检查；不随clone交付 |
 
 依赖栈与锁文件沿用，未换项目骨架。最终文件数量和提交SHA以本轮Git差异/PR为准，完整源码清单可用`git diff --name-status 83073c7..HEAD -- frontend`复核。
+
+## 2026-11-08 v0.2.1 契约与 C-DS-01/03 增量
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/api/httpAdapter.ts`、`types.ts`、`workbench.ts` | 部分成功、幂等响应兼容；保留补偿/拒绝字段；连接探测独立队列；409 中文说明 |
+| `src/api/client.ts`、`.env.example` | 写请求超时环境配置 |
+| `src/app/WorkbenchContext.tsx`、`src/components/common.tsx`、`src/ui/App.tsx` | 长处理反馈、结果待核对保护、只读核对入口和业务结果摘要 |
+| `src/utils/business.ts`、`src/pages/agent/Agent.tsx` | 已纠正 warning 与未解决失败分开呈现，原始日志不删减 |
+| `src/pages/followups/Followups.tsx` | 实际问题选项、置顶恢复结果、422 后重读过期状态 |
+| `src/api/contract-v021.test.ts` | 契约兼容和失败边界专项单测 |
+| `e2e/contract-v021.spec.ts`、`playwright.contract.config.ts` | 实际 HTTP/SQLite 的 10 项浏览器契约验证 |
+| `tools/contract-server.py` | 专用新数据库、脚本模型和一次性故障服务；不接厂商模型、不新增业务端点 |
+| `playwright.config.ts`、`package.json` | 普通回归排除需专用夹具的专项；新增 `test:contract` 命令 |
+| `vite.config.ts` | 忽略运行目录和浏览器测试产物，避免其 HTML 触发开发页面重载 |
+| `docs/C_TO_B_V021_CONTRACT_REGRESSION.md` | B 定向复验、源码快照准备、命令、模式和限制 |
+| `docs/V021_REGRESSION_REPORT.md`、`docs/evidence/contract-v021/` | 本次实际测试结果与脱敏证据 |
+
+根 `docs/PROJECT_FILE_MAP.md` 属于 A 的文件边界，本次未修改，A 可据本节同步前端文件入口。

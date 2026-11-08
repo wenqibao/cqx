@@ -2,7 +2,7 @@
 
 面向医护健康管理人员的单 Agent 辅助工作台。仅合成病例演示，不提供诊断、处方、改药或医疗处置。采用 React、TypeScript、Vite、React Router、Ant Design、ECharts、Zod、Vitest 和 Playwright。
 
-本轮交付日期：2026-11-05。26项都有前端入口；逐项验收 **24 PASS / 2 FAIL**：血压去重和真实模型自动触发后的业务行动仍有后端问题，不能宣称全量真实模型闭环通过。详见 [F01–F26矩阵](docs/F01_F26_FRONTEND_MATRIX.md)。当前前端版本为 V3（0.3.0），包含 C-UX-01 双层展示改造。功能/API 基线沿用 V2 文档，V3原始交付见 [V3验收报告](docs/C_UX_01_ACCEPTANCE.md)，2026-11-06 的可用性修复与最新验证见 [C→B复验交接](docs/C_TO_B_UX_FOLLOWUP.md)；第一阶段文档保留为历史记录。
+当前前端版本为 V3（0.3.0）。2026-11-08 按后端冻结版本 `v0.2.1` 完成契约适配和 C-DS-01/03 实现，结果、复现步骤和 B 定向验收见 [v0.2.1 交接](docs/C_TO_B_V021_CONTRACT_REGRESSION.md) 与 [本次测试报告](docs/V021_REGRESSION_REPORT.md)。C-UX-01/02 的既有交付继续保留。F01–F26 矩阵、V2/V3 初版报告为历史快照，其中旧后端问题的状态应以对应版本的新报告为准。
 
 ## 安装与启动
 
@@ -31,6 +31,7 @@ npm run dev -- --port 5180 --strictPort
 ```env
 VITE_API_MODE=http
 VITE_API_BASE_URL=http://127.0.0.1:8020/api
+VITE_API_WRITE_TIMEOUT_MS=180000
 ```
 
 源码未配置时默认API基址仍是 `http://127.0.0.1:8000/api`。上例使用独立联调端口。连接 A 的其他本机后端时改基址，并由后端设置 `FRONTEND_ORIGIN=http://127.0.0.1:5180`；修改Vite环境后重启前端。
@@ -39,7 +40,7 @@ VITE_API_BASE_URL=http://127.0.0.1:8020/api
 - HTTP + 后端 real：配置状态来自后端；原生模型调用必须在具体run轨迹中核验，安全门处理不能算模型拒绝。
 - 前端 mock：仅空传输桩，显式显示“前端模拟数据”，不执行假保存。HTTP失败不退回此模式。
 
-模型密钥只保存在后端本地环境，不能放入任何VITE变量。普通读取15秒，业务写入最多180秒；写入不自动重试。超时后先重新查询记录/任务/run，不能假定未保存。
+模型密钥只保存在后端本地环境，不能放入任何VITE变量。普通读取15秒，写入默认180秒，可用正数毫秒配置 `VITE_API_WRITE_TIMEOUT_MS`。写入期间显示已等待时间，连接探测继续运行。超时或断连后使用“查询已保存结果”核对记录、任务、运行和问题，再人工解除提交保护；不会自动重发原请求。
 
 ## 页面
 
@@ -67,6 +68,8 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e
+# 使用专用契约服务时，完整准备步骤见 v0.2.1 交接
+npm run test:contract
 ```
 
 E2E要求8020为专用`workbench-test.db`且模式mock；入口守卫不满足条件直接停止，防止误用共享库或收费模型。初版工作台验证为前端30项单测、15项E2E，以及后端149项和33场景兼容性回归。V3原始展示改进验证为38项单测、19项浏览器回归。根据B反馈继续改进后，前端45项单测、22项浏览器回归通过；本次未重新运行后端测试，最新证据见C→B复验交接。见 [测试报告](docs/TEST_REPORT_V2.md)。

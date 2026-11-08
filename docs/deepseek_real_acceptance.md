@@ -116,3 +116,30 @@ python scripts/run_scenarios.py --report evaluation/reports/mock_regression_afte
 | R11 | 低血糖/高危症状 | `request_human_review` 创建 `HUMAN_REVIEW / pending_human` |
 
 执行前先确认 `/api/system/mode` 为 `real` 且返回模型名；每场景只跑一次。
+
+## 预算与中断恢复（2026-11-09 修订）
+
+账本：`.tmp/deepseek-autonomy-ledger.json`（原子写，损坏即拒绝；不要删除或重置）
+
+| 字段 | 含义 |
+|---|---|
+| `business_triggers.done/pending/uncertain` | 业务触发，每场景一次，总计 5 |
+| `vendor_http_attempts.count` | 厂商 HTTP 尝试，含失败/超时，总计 16 |
+| `collection_reads` | 只读采集次数，不占厂商额度 |
+
+命令：
+
+```powershell
+$env:DIABETES_DB_PATH="data/runtime/deepseek_autonomy.db"
+$env:AGENT_LLM_MODE="real"; $env:AGENT_LLM_BASE_URL="..."; $env:AGENT_LLM_API_KEY="..."
+python -m cli.main serve --port 8011
+
+python scripts/deepseek_autonomy_acceptance.py prepare
+python scripts/deepseek_autonomy_acceptance.py run R07
+python scripts/deepseek_autonomy_acceptance.py collect R07
+```
+
+- `run` 会先做 `/system/mode` 预检（`llm_mode=real`、`ok=true`、`model` 非空），不合格直接退出；
+- POST 超时/断连 → 账本记 `uncertain`，**禁止自动重发**，只能用 `collect` 只读确认；
+- `collect` 可重复，首份快照不覆盖；
+- 不得通过删账本、扩大上限、重置报告绕过预算。

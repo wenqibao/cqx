@@ -96,3 +96,43 @@ ScriptedLLM 测试只验证后端执行合同，不代表真实模型通过。
 
 重点核对：`reviews`、`tasks`、`questions` 数量与关联、`agent_steps` 中
 `decision_rationale`/`task_coverage`/`duplicate_task`、`audit_log`、`forbidden_executed=0`。
+
+## 8. 追加：P1-A / P1-B / P1-C（2026-11-09）
+
+### P1-A 真实模式预检
+
+- `GET /api/system/mode` 实际契约字段为 `llm_mode / model / ok`；
+- 预检改为读取 `llm_mode`，并要求 `ok is True` 且 `model` 非空；任一不满足在**业务触发与厂商请求之前**退出；
+- `prepare` 只做本地合成数据与只读 GET，不运行 Agent；
+- 离线测试覆盖：real 通过、mock 拒绝、ok=false 拒绝、model 为空拒绝、网络失败无副作用。
+
+### P1-B 预算口径与中断恢复
+
+| 计数 | 含义 | 上限 |
+|---|---|---|
+| `business_triggers` | 启动模型/业务执行的入口，每场景一次 | 5 |
+| `vendor_http_attempts` | 真正发往 DeepSeek 的 HTTP 尝试（含失败/超时） | 16 |
+| `collection_reads` | 只读采集（state/traces/tasks/audit） | 单列统计 |
+
+- 厂商请求**发送前**预占额度，失败/超时同样计数；
+- 业务触发前持久化 `pending`，失败标记 `uncertain`，禁止自动重发；进程重启保留额度与场景占用；
+- 账本原子写（tmp + os.replace）+ 进程锁，损坏时拒绝继续而不是清零；
+- `run` 语义 = 触发后立即只读采集一次；`collect` 可重复执行，第二次写 `*_snapshot_recheck_n.json`，不覆盖首份；
+- 离线测试：5 场景全流程、第 17 次厂商尝试阻断、第 6 次触发阻断、重复场景阻断、GET 不计厂商额度、
+  超时不重发、失败计数、重复采集只读、真实网络与模型调用 0 次。
+
+### P1-C Mock 无证据状态
+
+- 未解决 `NO_EVIDENCE` 的 run 状态改为 `failed`，保留兜底回复、拒绝码、轨迹与审计；
+- 反向回归三个输入（XQZ-999 两个 + ZXQNOEVIDENCE897654）：API 状态、轨迹、SQLite（0 evidence_items、
+  0 tasks/questions/reviews/notifications）全部检查；
+- 正常知识问题仍为 `completed` 且有真实证据。
+
+### 本轮结果
+
+```text
+python -m pytest                 → 456 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+```
+
+真实 DeepSeek 调用 0 次；R07-R11 真实结果 NOT RUN，等待 B1/C1 与用户授权。

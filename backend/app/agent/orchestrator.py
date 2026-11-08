@@ -347,6 +347,9 @@ def _run_agent_body(
             responses.append(result["text"])
 
     status = _status_for(executed, rejections, question_created)
+    # 契约：未解决的 NO_EVIDENCE 属于失败；兜底回复与拒绝码保留
+    if any(r.get("code") == validators.NO_EVIDENCE for r in rejections):
+        status = "failed"
     if plan.get("intent") == "unsafe_request":
         status = "blocked"
     _finalize_events(conn, run_id, events, question_created, executed)

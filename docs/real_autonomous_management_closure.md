@@ -163,3 +163,22 @@ A/B/C/D 四状态的基础动作几乎一致，只有高风险 D 多了一次人
 - 不同 `task_type` 的合法新任务仍可创建。
 
 全量 `pytest` 420 passed，Mock 场景 33/33 PASS。真实模型待 B 定向复验患者 B 场景。
+
+## 11. 追加：事件级可覆盖任务 + 拒后强制复用（A-REAL-AUTONOMY-04，2026-11-08）
+
+### 真实表现（B 复验 759dcf8）
+`DUPLICATE_TASK` 已能拦住重复建任务，但模型被拒后仍不 `update_task`，
+改去建其他任务 + `ask_user`，最终 `waiting_user`、任务数 1→2。
+
+### 修复
+1. **上下文标注**：`_state_brief` 对每个 open 事件计算"已有可覆盖任务"
+   （同 `event_id`，或按事件代码与任务类型的相关性映射），直接给出任务 ID/类型/标题/到期时间；
+2. **拒后强制复用**：`create_task` 被 `DUPLICATE_TASK` 拒绝后，下一轮**只向模型暴露**
+   `update_task / respond / list_tasks`，并追加系统提示"只能调整该任务或说明覆盖"；
+   `update_task` 成功后解除限制。
+
+### 回归（新增 2 项，自主决策共 11 项）
+- 事件上下文包含"已有可覆盖任务"及任务 ID；
+- 被拒后第二轮工具清单不含 `create_task`，模型 `update_task` 成功，任务数保持 1。
+
+全量 `pytest` 422 passed，Mock 场景 33/33 PASS。真实模型待 B 复验患者 B 场景。

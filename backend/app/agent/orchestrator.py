@@ -61,6 +61,8 @@ READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferenc
 ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review",
                           "schedule_review", "save_preference", "create_notification"})
 MAX_SEARCH_CALLS = 2
+# 重复任务被拒后，下一轮强制走复用路径
+REUSE_TOOLS = frozenset({"update_task", "respond", "list_tasks"})
 # 知识问答只允许检索与回答（B/A-REAL-AUTONOMY-02）
 KNOWLEDGE_TOOLS = frozenset({"search_knowledge", "respond"})
 _TOOL_LABELS = {
@@ -70,6 +72,29 @@ _TOOL_LABELS = {
     "parse_constraint": "解析时间约束", "search_knowledge": "检索知识",
     "query_history": "查询历史", "get_preferences": "读取偏好", "list_tasks": "查看任务",
 }
+
+
+EVENT_TASK_HINTS = {
+    "GLUCOSE_RISING": ("record_glucose", "confirm_medication", "medication_verification", "review_glucose"),
+    "GLUCOSE_VARIABILITY": ("record_glucose", "review_glucose"),
+    "HYPOGLYCEMIA_RECORD": ("record_glucose", "confirm_medication"),
+    "HYPERGLYCEMIA_RECORD": ("record_glucose", "confirm_medication"),
+    "LOW_ACTIVITY": ("record_activity", "record_steps"),
+    "WEIGHT_GAIN": ("record_weight", "record_activity"),
+    "MEDICATION_MISSED": ("confirm_medication", "medication_verification"),
+}
+
+
+def _covering_tasks(state: dict[str, Any], event: dict[str, Any]) -> list[dict[str, Any]]:
+    """找出可能覆盖该事件的待办任务，供模型优先复用。"""
+    hints = set(EVENT_TASK_HINTS.get(event.get("code"), ()))
+    covering = []
+    for task in state.get("open_tasks", []):
+        if task.get("event_id") == event.get("id") or task.get("task_type") in hints:
+            covering.append({"id": task["id"], "task_type": task["task_type"],
+                             "title": task["title"], "due_at": task.get("due_at"),
+                             "event_id": task.get("event_id")})
+    return covering
 
 
 def _state_brief(state: dict[str, Any]) -> str:
@@ -91,10 +116,12 @@ def _state_brief(state: dict[str, Any]) -> str:
     if not events:
         lines.append("  （无）")
     for event in events:
+        covering = _covering_tasks(state, event)
         lines.append(
             f"  - {event['id']} {event['code']} severity={event['severity']} "
             f"detected_at={event['detected_at']} message={event.get('message')} "
-            f"evidence={event.get('evidence_summary')} records={event.get('record_ids')}"
+            f"evidence={event.get('evidence_summary')} records={event.get('record_ids')} "
+            f"已有可覆盖任务={covering if covering else '无'}"
         )
     lines.extend([
         f"已有待办任务（先判断是否已覆盖，不要重复创建）: {state['open_tasks']}",
@@ -676,6 +703,7 @@ def _run_real_llm(
     nudges = 0
     claim_texts: list[str] = []
     responded = False
+    force_reuse_task_id: str | None = None
     question_created = False
     rounds = []
     user = "\n".join([
@@ -701,9 +729,12 @@ def _run_real_llm(
         # 一条请求轨迹对应一次 plan_actions，包含异常尝试；本客户端不做隐藏重试。
         trace.add_step(conn, run_id, phase="plan", kind="llm_request",
                        payload={"round": round_no, "model": llm.model_name})
-        tool_list = llm_module.tool_schemas(
-            only=KNOWLEDGE_TOOLS if intent == "knowledge_question" else None
-        )
+        if force_reuse_task_id:
+            tool_list = llm_module.tool_schemas(only=REUSE_TOOLS)
+        elif intent == "knowledge_question":
+            tool_list = llm_module.tool_schemas(only=KNOWLEDGE_TOOLS)
+        else:
+            tool_list = llm_module.tool_schemas()
         response = llm.plan_actions(system=SYSTEM_PROMPT, user=user, tools=tool_list, extra_messages=history)
         raw = response.raw or {}
         trace.add_step(conn, run_id, phase="plan", kind="llm_response", payload={
@@ -756,6 +787,12 @@ def _run_real_llm(
                     history.append({"role": "tool", "tool_call_id": tool_call_id,
                                     "content": json.dumps(guidance, ensure_ascii=False)})
                     outcomes.append({"tool": call.name, "ok": False, "code": "DUPLICATE_TASK"})
+                    force_reuse_task_id = existing_task["id"]
+                    history.append({
+                        "role": "system",
+                        "content": f"上一轮重复创建被拒绝。下一轮只允许 update_task({existing_task['id']}) "
+                                   "调整该任务，或用 respond 说明现有任务如何覆盖；不得再 create_task。",
+                    })
                     continue
             # 知识问答只允许检索+回答：其他动作软拒绝并提示直接回答
             if intent == "knowledge_question" and call.name not in KNOWLEDGE_TOOLS:
@@ -830,6 +867,8 @@ def _run_real_llm(
                     evidence.extend(knowledge_search.record_evidence(conn, patient_id=patient_id, run_id=run_id,
                                                                     hits=hits, query=call.arguments.get('query', '')))
                     ctx.evidence = evidence
+                if result.get("ok") and call.name == "update_task":
+                    force_reuse_task_id = None
                 if result.get('question_id') and result.get('ok'):
                     question_created = True
                 if result.get('text') and result.get('ok'):

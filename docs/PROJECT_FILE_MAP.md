@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 420 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
+python -m pytest -q                 # 422 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
 python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 

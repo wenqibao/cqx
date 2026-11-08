@@ -206,3 +206,50 @@ def test_different_task_type_is_still_allowed(conn):
     result = orchestrator.run_agent(conn, "AUT-H", trigger_type="event_detected", event_ids=[evt], llm=llm)
     assert result["status"] == "completed", result
     assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AUT-H'").fetchone()["c"] == 2
+
+def test_state_brief_marks_covering_task_for_event(conn):
+    _patient(conn, "AUT-I")
+    evt = _glucose_event(conn, "AUT-I")
+    task, _ = tasks.create_task(conn, "AUT-I", task_type="confirm_medication", title="核实服药",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="", tool_calls=[ToolCall("ask_user", {
+        "patient_id": "AUT-I", "question": "服药情况？", "target_field": "medication_taken"}, "c1")], raw={})])
+    orchestrator.run_agent(conn, "AUT-I", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    prompt = llm.prompts[0]
+    assert "已有可覆盖任务" in prompt
+    assert task["id"] in prompt
+
+
+def test_duplicate_rejection_forces_reuse_toolset(conn):
+    _patient(conn, "AUT-J")
+    evt = _glucose_event(conn, "AUT-J")
+    existing, _ = tasks.create_task(conn, "AUT-J", task_type="confirm_medication", title="核实服药",
+                                    due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+
+    class ReuseLLM:
+        mode = "real"
+        model_name = "reuse"
+
+        def __init__(self):
+            self.calls = 0
+            self.tools_by_call: list[list[str]] = []
+
+        def plan_actions(self, *, system=None, user=None, tools=None, extra_messages=None):
+            self.tools_by_call.append([t["name"] for t in (tools or [])])
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+                    "patient_id": "AUT-J", "task_type": "confirm_medication", "title": "核实服药",
+                    "event_id": evt, "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={})
+            if self.calls == 2:
+                return LLMResponse(content="", tool_calls=[ToolCall("update_task", {
+                    "task_id": existing["id"], "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c2")], raw={})
+            return LLMResponse(content="已调整现有任务。", tool_calls=[], raw={})
+
+    llm = ReuseLLM()
+    result = orchestrator.run_agent(conn, "AUT-J", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AUT-J'").fetchone()["c"] == 1
+    second_tools = set(llm.tools_by_call[1])
+    assert second_tools <= {"update_task", "respond", "list_tasks"}, second_tools
+    assert "create_task" not in second_tools

@@ -197,10 +197,13 @@ Mock 模式下问「XQZ-999 生物标志物是什么」：真实 `search_knowled
 ### 修复
 - 把 `filter_relevant_hits` 下沉到 `knowledge/search.py`，工具与规划器共用；
 - `build_knowledge_plan` 入口先过滤 hits，再决定"有证据回答"或"无证据兜底"；
+- `_build_mock_plan` 在调用 `record_evidence` **之前**过滤：未知实体不再持久化证据
+  （C 复验发现的残留：首轮修复只作用于规划，未作用于证据落库）；
 - `tools._filter_relevant_hits` 保留为薄封装，既有测试不受影响。
 
-### 回归（新增 2 项）
+### 回归（新增 3 项）
 - 未知实体 → evidence 为空、`NO_EVIDENCE` 拒绝、回答为"没有足够资料"，不出现在知识片段引用；
+- 未知实体 → `evidence_items` 表中该 run 为 0 行；
 - 正常知识问题 → 仍有证据并给出基于知识库的回答。
 
-全量 `pytest` 424 passed，Mock 场景 33/33 PASS。
+全量 `pytest` 426 passed，Mock 场景 33/33 PASS。

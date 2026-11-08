@@ -429,6 +429,8 @@ def _build_mock_plan(
     if intent == "knowledge_question":
         query = message or ""
         hits = knowledge_search.search(conn, query)["hits"]
+        # 先按实体相关性过滤，再持久化证据（C-REG-KQ-01 残留）
+        hits = knowledge_search.filter_relevant_hits(query, hits)
         if hits:
             evidence = knowledge_search.record_evidence(
                 conn, patient_id=patient_id, run_id=run_id, hits=hits, query=query

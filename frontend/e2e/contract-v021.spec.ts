@@ -133,19 +133,25 @@ test("C-DS-03 选项、回答恢复与不确定性不补造服药事实", async 
     JSON.stringify(body, null, 2),
   );
 });
-test("v0.2.1 过期回答422后重读状态，不保存/不恢复", async ({
+test("v0.2.1 已过期问题不显示答复框，API拒绝回答且不恢复", async ({
   page,
   request,
 }) => {
   const f = await fixtures();
+  const before = (await json(request, `/patients/${f.expired}/questions`))
+    .items[0];
+  expect(before.status).toBe("expired");
   await visit(page, `/followups?question=${f.expired_question}`, f.expired);
-  await page.getByRole("textbox", { name: "模拟患者答复" }).fill("已按时完成");
-  await page.getByRole("checkbox", { name: "这是合成患者的模拟答复" }).check();
-  const response = page.waitForResponse((r) =>
-    r.url().endsWith(`/questions/${f.expired_question}/answer`),
+  await expect(page.getByRole("textbox", { name: "模拟患者答复" })).toHaveCount(
+    0,
   );
-  await page.getByRole("button", { name: "提交模拟答复并恢复 Agent" }).click();
-  expect((await response).status()).toBe(422);
+  const response = await request.post(
+    BASE + `/questions/${f.expired_question}/answer`,
+    {
+      data: { answer_text: "已按时完成", trigger_agent: true },
+    },
+  );
+  expect(response.status()).toBe(422);
   await expect(
     page.getByText("问题已过期，未保存本次答复。请重新发起随访。"),
   ).toBeVisible();
@@ -155,6 +161,68 @@ test("v0.2.1 过期回答422后重读状态，不保存/不恢复", async ({
   expect(
     (await json(request, `/patients/${f.expired}/runs`)).items,
   ).toHaveLength(0);
+});
+test("v0.2.1 答复框打开后问题过期，提交422后隐藏表单且不保存/恢复", async ({
+  page,
+  request,
+}) => {
+  const f = await fixtures();
+  const path = `/patients/${f.expiry_race}/questions`;
+  expect((await json(request, path)).items[0].status).toBe("waiting");
+  await visit(
+    page,
+    `/followups?question=${f.expiry_race_question}`,
+    f.expiry_race,
+  );
+  const input = page.getByRole("textbox", { name: "模拟患者答复" });
+  await expect(input).toBeVisible();
+  await input.fill("已按时完成");
+  await page.getByRole("checkbox", { name: "这是合成患者的模拟答复" }).check();
+  try {
+    const clock = await request.post(BASE + "/automation/clock", {
+      data: { advance_seconds: 7200 },
+    });
+    expect(clock.status()).toBe(200);
+    const response = page.waitForResponse(
+      (r) =>
+        r.url() === BASE + `/questions/${f.expiry_race_question}/answer` &&
+        r.request().method() === "POST",
+    );
+    await page
+      .getByRole("button", { name: "提交模拟答复并恢复 Agent" })
+      .click();
+    expect((await response).status()).toBe(422);
+    await expect(page.getByRole("alert")).toContainText("输入校验失败");
+    await expect(input).toHaveCount(0);
+    await expect(
+      page.getByText("问题已过期，未保存本次答复。请重新发起随访。"),
+    ).toBeVisible();
+    const question = (await json(request, path)).items[0];
+    expect(question.status).toBe("expired");
+    expect(question.answer).toBeNull();
+    expect(
+      (await json(request, `/patients/${f.expiry_race}/runs`)).items,
+    ).toHaveLength(0);
+    expect(
+      (await json(request, `/patients/${f.expiry_race}/records`)).items,
+    ).toHaveLength(0);
+    await fs.writeFile(
+      ".runtime/v021/expiry-race-result.json",
+      JSON.stringify(
+        { question, status: 422, resumed_runs: 0, saved_records: 0 },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    expect(
+      (
+        await request.post(BASE + "/automation/clock", {
+          data: { reset: true },
+        })
+      ).status(),
+    ).toBe(200);
+  }
 });
 test("v0.2.1 真实409与422无重复副作用", async ({ request }) => {
   const f = await fixtures();

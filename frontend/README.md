@@ -2,7 +2,7 @@
 
 面向医护健康管理人员的单 Agent 辅助工作台。仅合成病例演示，不提供诊断、处方、改药或医疗处置。采用 React、TypeScript、Vite、React Router、Ant Design、ECharts、Zod、Vitest 和 Playwright。
 
-当前前端版本为 V3（0.3.0）。2026-11-08 按后端冻结版本 `v0.2.1` 完成契约适配和 C-DS-01/03 实现，并按最新要求将写超时设为 60 秒、补充 404 回归。复现步骤和 B 定向验收见 [v0.2.1 交接](docs/C_TO_B_V021_CONTRACT_REGRESSION.md) 与 [本次测试报告](docs/V021_60S_404_REGRESSION_REPORT.md)。C-UX-01/02 的既有交付继续保留。F01–F26 矩阵、V2/V3 初版报告为历史快照，其中旧后端问题的状态应以对应版本的新报告为准。
+当前前端版本为 V3（0.3.0）。2026-11-08 按后端冻结版本 `v0.2.1` 完成契约适配和 C-DS-01/03 实现，写超时为 60 秒，包含 404 回归。根据 B 反馈，将过期测试拆成两个明确场景，当前专项为 14 项，支持 Edge。复现步骤见 [v0.2.1 交接](docs/C_TO_B_V021_CONTRACT_REGRESSION.md)，最新结果见 [回复 B 的复验交接](docs/C_TO_B_V021_RETEST_RESPONSE_20261108.md)。C-UX-01/02 的既有交付继续保留。旧版报告为历史快照，结果须与各自提交对应。
 
 ## 安装与启动
 

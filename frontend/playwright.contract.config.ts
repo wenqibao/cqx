@@ -11,6 +11,7 @@ export default defineConfig({
   ],
   use: {
     ...base.use,
+    channel: process.env.CONTRACT_BROWSER_CHANNEL || base.use?.channel,
     baseURL: process.env.CONTRACT_UI_BASE || "http://127.0.0.1:5187",
   },
   webServer: undefined,

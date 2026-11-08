@@ -73,3 +73,5 @@
 根 `docs/PROJECT_FILE_MAP.md` 属于 A 的文件边界，本次未修改，A 可据本节同步前端文件入口。
 
 2026-11-08 补充：`src/api/client.ts`、`httpAdapter.ts` 和 `.env.example` 统一默认写超时 60 秒；`src/components/common.tsx` 提供可能仍在运行的核对提示；`src/api/contract-v021.test.ts` 与 `e2e/contract-v021.spec.ts` 增加精确超时边界、API/页面 404 和明确回答闭环。当前报告为 `docs/V021_60S_404_REGRESSION_REPORT.md`，脱敏证据为 `docs/evidence/contract-v021-60s/`。
+
+2026-11-08 B 反馈增量：`tools/contract-server.py` 为两种过期场景提供独立夹具；`e2e/contract-v021.spec.ts` 分开验证已过期无表单与提交时才过期的 422；`playwright.contract.config.ts` 支持 `CONTRACT_BROWSER_CHANNEL` 选择 Edge/Chrome。最新交接为 `docs/C_TO_B_V021_RETEST_RESPONSE_20261108.md`，证据为 `docs/evidence/contract-v021-b-retest/`。

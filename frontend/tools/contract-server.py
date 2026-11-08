@@ -36,18 +36,20 @@ from scripts.reset_demo import seed
 conn = connect(db)
 seed(conn)
 fixture = {}
-for key in ("warning", "record", "preference", "task", "expired", "slow", "answer"):
+for key in ("warning", "record", "preference", "task", "expired", "expiry_race", "slow", "answer"):
     pid = f"CT021-{key}"
     patients.create_patient(conn, {"id": pid, "name": f"契约{key}（虚构）", "age": 55})
     fixture[key] = pid
 due = iso(now(conn) + timedelta(days=1))
 task, _ = tasks.create_task(conn, fixture["task"], task_type="record_glucose", title="核实记录", due_at=due)
 fixture["task_id"] = task["id"]
-for key in ("expired", "answer"):
+for key in ("expired", "answer", "expiry_race"):
     q, _ = questions.create_question(conn, fixture[key], question="请核实最近一次是否按时服药？",
                                      target_field="medication_taken", options=["已按时完成", "记不清"],
-                                     ttl_hours=-1 if key == "expired" else 72)
+                                     ttl_hours=-1 if key == "expired" else 1 if key == "expiry_race" else 72)
     fixture[key + "_question"] = q["id"]
+# 两个明确前置：打开前已 expired，以及打开时 waiting、提交前才过期。
+questions.expire_stale(conn)
 first, _ = tasks.create_task(conn, fixture["warning"], task_type="record_glucose", title="核实血糖记录", due_at=due, schedule_review=False)
 tasks.create_task(conn, fixture["warning"], task_type="record_activity", title="核实活动记录", due_at=due, schedule_review=False)
 

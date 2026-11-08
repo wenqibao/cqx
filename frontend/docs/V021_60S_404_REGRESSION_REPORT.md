@@ -2,6 +2,8 @@
 
 日期：2026-11-08。C 实现及自验通过，等待 B 独立复验。
 
+本文件保留 `3a318b0c09f124d91472d490bd8a84ceb18552ba` 的 13 项验证快照。后续根据 B 对 `a025e343` 的反馈拆分过期场景，当前 14 项 Edge 复验结果见 [回复 B 的交接](C_TO_B_V021_RETEST_RESPONSE_20261108.md)。
+
 后端固定 `v0.2.1`，SHA `694be88c541eb9ee2f6d9c02152a65a09546fe2d`，契约依据 `docs/api_contract.yaml` 的 `x_contract_notes`。前端基于 `a025e3433aedff2b9e7c34b202100e03a54c188a` 增量修改，最终完整 SHA 见交付消息及 PR #4 head；实际源码可按 [文件摘要](evidence/contract-v021-60s/source-manifest.json) 核对。
 
 ## 三项交付

@@ -1,6 +1,6 @@
 # C → B：v0.2.1 前端契约回归与 C-DS-01/03
 
-日期：2026-11-08。负责人 C。后端冻结标签 `v0.2.1`，完整 SHA `694be88c541eb9ee2f6d9c02152a65a09546fe2d`，依据该提交 `docs/api_contract.yaml` 的 `x_contract_notes`。本执行书已更新为 60 秒写超时与 404 补充版本，最新结果见 [本轮报告](V021_60S_404_REGRESSION_REPORT.md)。
+日期：2026-11-08。负责人 C。后端冻结标签 `v0.2.1`，完整 SHA `694be88c541eb9ee2f6d9c02152a65a09546fe2d`，依据该提交 `docs/api_contract.yaml` 的 `x_contract_notes`。本执行书已更新为 60 秒写超时、404 补充及两种过期场景，最新结果见 [回复 B 的复验交接](C_TO_B_V021_RETEST_RESPONSE_20261108.md)。
 
 ## 交付范围
 
@@ -27,7 +27,7 @@
 1. 固定上述后端标签与本次前端完整 SHA，检查 PR #4 head 和本地提交一致。不要用旧 f906e323/89646bc1 代替新修复。
 2. 在新的隔离源码/数据库启动下述专用测试服务。后台轮询和厂商密钥均关闭。脚本拒绝覆盖已有数据库，第二次完整运行应换新快照。
 3. 执行 `npm run typecheck`、`npm test`、`npm run build` 和 `npm run test:contract`。
-4. 契约浏览器专项共 13 项：纠正 warning 的顶部结论和日志；记录/偏好部分成功；陈旧视图重复完成；不确定回答；过期 422；资源重复 409；18 秒慢处理；保存后响应丢失；tick 补偿；60 秒等待超时；缺失资源实际 404；缺失任务/运行的页面和原始日志；明确回答后保存服药确认并恢复。
+4. 契约浏览器专项现为 14 项：纠正 warning 的顶部结论和日志；记录/偏好部分成功；陈旧视图重复完成；不确定回答；打开前已过期；打开表单后才过期的 422；资源重复 409；18 秒慢处理；保存后响应丢失；tick 补偿；60 秒等待超时；缺失资源实际 404；缺失任务/运行的页面和原始日志；明确回答后保存服药确认并恢复。
 5. 核对数据库：记录/偏好已持久化；补偿 outbox 为 done；任务重复完成不新增运行/版本；过期问题无答案和恢复 run；不确定回答没有新增服药事实。查询 `/api/system/audit` 的 `forbidden_executed` 必须为 0。
 6. 原有 23 项浏览器回归包含 C-UX-01、C-UX-02。确认回复仍只在业务顶部出现一次，日志原文不删减。
 7. 分开报告 Mock/脚本模型结果与 DeepSeek 验收。若需新增收费复验，应先按团队已批准预算执行，不将本次结果写成新的真实厂商通过。
@@ -62,11 +62,12 @@ npx vite preview --host 127.0.0.1 --port 5187 --strictPort
 ```powershell
 $env:WORKBENCH_API_BASE='http://127.0.0.1:8037/api'
 $env:CONTRACT_UI_BASE='http://127.0.0.1:5187'
+$env:CONTRACT_BROWSER_CHANNEL='msedge' # 已安装 Edge；Chrome 可填 chrome
 $env:NO_PROXY='127.0.0.1,localhost'
 npm run test:contract
 ```
 
-Playwright 使用已安装的 Chrome。专项配置不自动启动前端，先确认 5187 为本次构建、8037 为隔离后端。输出位于 `frontend/.runtime/v021/`，默认普通 E2E 排除契约专项，避免没有注入夹具时误运行。
+Playwright 默认使用已安装的 Chrome，也支持通过 `CONTRACT_BROWSER_CHANNEL=msedge` 使用已安装的 Edge，无需修改配置文件。专项配置不自动启动前端，先确认 5187 为本次构建、8037 为隔离后端。输出位于 `frontend/.runtime/v021/`，默认普通 E2E 排除契约专项，避免没有注入夹具时误运行。两种过期场景有独立患者夹具；第二项在提交前推进隔离演示时钟，验证后复位，不得在共享库或并行时钟测试中执行。
 
 常规 23 项回归应在隔离前端源码副本中运行，以免其历史截图/证据覆盖工作区文档。使用 `WORKBENCH_API_BASE` 指向专用后端，浏览器 baseURL 指向本次预览；不要同时运行会推进演示时钟的两个测试套件。
 

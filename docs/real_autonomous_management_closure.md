@@ -143,3 +143,23 @@ espond 两个工具；
   任务/通知/复核均为 0，run completed，回答包含实际答案。
 
 全量 pytest 418 passed，Mock 场景 33/33 PASS。真实模型待 B 复验。
+
+## 10. 追加：已有任务复用硬约束（A-REAL-AUTONOMY-03，2026-11-08）
+
+### 真实表现（B 复验）
+患者 B 已有「核实近3天服药」pending 任务，真实模型仍 `create_task` 新建同类任务；
+A/B/C/D 四状态的基础动作几乎一致，只有高风险 D 多了一次人工复核。
+
+### 修复
+- Real 模式在 `create_task` 执行前做服务端检查：患者已有 pending/missed 任务且
+  （同 `task_type` 或同 `event_id`）时，软拒绝 `DUPLICATE_TASK`，返回已有任务 ID 并提示
+  `update_task` 或说明覆盖；不产生任务、不写库；
+- 该拒绝可被后续 `update_task` 纠正，run 记 completed + `warnings`；
+- 提示词增加"已有同类任务必须复用"与按状态选择下一步的明确引导。
+
+### 回归（新增 2 项，自主决策共 9 项）
+- 已有同类任务 → `create_task` 被 `DUPLICATE_TASK` 跳过 → `update_task` 成功，
+  任务数仍为 1、版本递增；
+- 不同 `task_type` 的合法新任务仍可创建。
+
+全量 `pytest` 420 passed，Mock 场景 33/33 PASS。真实模型待 B 定向复验患者 B 场景。

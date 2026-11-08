@@ -35,7 +35,9 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 决策协议（Real 模式必须遵守）：
 - 先读患者实际状态：事件证据、趋势、最近记录、已有任务/问题/复评、缺失字段；
 - 优先处理高风险事件；同样的事件在不同患者状态下应选择不同行动；
-- 已有待办任务能覆盖当前问题时，更新或沿用它，不要重复创建同类任务；
+- 已有 pending 同类任务时，必须优先 update_task 或说明现有任务如何覆盖；禁止重复 create_task；
+- 按状态选下一步：缺关键信息→ask_user；已有任务覆盖→update_task；高风险→request_human_review；
+  需要随访→schedule_review；信息足够且安全→create_task；无法继续→respond。
 - 缺少会影响决策的信息时用 ask_user 提一个具体问题，不要猜测；
 - 需要正式复评时用 schedule_review；高风险或需专业判断时用 request_human_review；
 - 每个动作都要能用工具结果与数据库状态核验；无法继续时用 respond 说明原因。
@@ -733,6 +735,28 @@ def _run_real_llm(
         outcomes = []
         for index, call in enumerate(response.tool_calls):
             tool_call_id = call.id or f"call_{round_no}_{index}"
+            # 已有同类待办时禁止重复建任务（A-REAL-AUTONOMY-03）
+            if call.name == "create_task" and isinstance(call.arguments, dict):
+                existing_task = conn.execute(
+                    "SELECT id, title, due_at FROM tasks WHERE patient_id=? AND status IN ('pending','missed') "
+                    "AND (task_type=? OR (event_id IS NOT NULL AND event_id=?)) "
+                    "ORDER BY created_at LIMIT 1",
+                    (patient_id, str(call.arguments.get("task_type") or ""), call.arguments.get("event_id")),
+                ).fetchone()
+                if existing_task:
+                    guidance = {
+                        "ok": False,
+                        "code": "DUPLICATE_TASK",
+                        "error": f"已有同类待办任务 {existing_task['id']}（{existing_task['title']}）；"
+                                 "请用 update_task 调整它，或说明现有任务如何覆盖，不要重复创建",
+                        "existing_task_id": existing_task["id"],
+                    }
+                    trace.add_step(conn, run_id, phase="validate", kind="duplicate_task", tool_name=call.name,
+                                   payload=guidance, status="skipped", code="DUPLICATE_TASK")
+                    history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                    "content": json.dumps(guidance, ensure_ascii=False)})
+                    outcomes.append({"tool": call.name, "ok": False, "code": "DUPLICATE_TASK"})
+                    continue
             # 知识问答只允许检索+回答：其他动作软拒绝并提示直接回答
             if intent == "knowledge_question" and call.name not in KNOWLEDGE_TOOLS:
                 guidance = {"ok": False, "code": "TOOL_NOT_ALLOWED",
@@ -841,7 +865,7 @@ def _run_real_llm(
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
         correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED,
-                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED"}
+                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED", validators.DUPLICATE_TASK}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:

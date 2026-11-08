@@ -171,3 +171,38 @@ def test_knowledge_question_only_exposes_search_and_respond(conn):
     assert any("9.8" in text for text in result["responses"])
     skipped = [s for s in steps(conn, result["run_id"]) if s["code"] == "TOOL_NOT_ALLOWED"]
     assert len(skipped) == 3, "非知识类动作应被软拒绝并记录"
+
+def test_duplicate_create_task_is_blocked_and_model_reuses(conn):
+    _patient(conn, "AUT-G")
+    evt = _glucose_event(conn, "AUT-G")
+    existing, _ = tasks.create_task(conn, "AUT-G", task_type="confirm_medication", title="核实近3天服药",
+                                    due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([
+        LLMResponse(content="先建个任务", tool_calls=[ToolCall("create_task", {
+            "patient_id": "AUT-G", "task_type": "confirm_medication", "title": "核实服药",
+            "event_id": evt, "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已有同类任务，改为调整", tool_calls=[ToolCall("update_task", {
+            "task_id": existing["id"], "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c2")], raw={}),
+        LLMResponse(content="已调整现有任务。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "AUT-G", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AUT-G'").fetchone()["c"] == 1
+    assert tasks.get_task(conn, existing["id"])["version"] == 2
+    assert any(s["code"] == "DUPLICATE_TASK" for s in steps(conn, result["run_id"]))
+
+
+def test_different_task_type_is_still_allowed(conn):
+    _patient(conn, "AUT-H")
+    evt = _glucose_event(conn, "AUT-H")
+    tasks.create_task(conn, "AUT-H", task_type="confirm_medication", title="核实服药",
+                      due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([
+        LLMResponse(content="补录血糖", tool_calls=[ToolCall("create_task", {
+            "patient_id": "AUT-H", "task_type": "record_glucose", "title": "补录空腹血糖",
+            "event_id": evt, "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已创建补录任务。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "AUT-H", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AUT-H'").fetchone()["c"] == 2

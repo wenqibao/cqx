@@ -190,6 +190,14 @@ def post_execution_check(
         row = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"数据库中没有任务 {task_id}"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务患者归属不一致"}
+        if row["task_type"] != args.get("task_type"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务类型与调用参数不一致"}
+        if row["status"] not in ("pending", "missed"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"任务状态异常: {row['status']}"}
+        if args.get("event_id") and row["event_id"] != args.get("event_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务未关联到指定事件"}
         return {"ok": True, "detail": {"task_id": task_id, "status": row["status"]}}
     if tool == "update_task":
         task_id = args.get("task_id")
@@ -215,12 +223,30 @@ def post_execution_check(
         row = conn.execute("SELECT * FROM reviews WHERE id=?", (review_id,)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未入库"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评患者归属不一致"}
+        if args.get("task_id") and row["task_id"] != args.get("task_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未关联指定任务"}
+        if row["status"] != "scheduled":
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"复评状态异常: {row['status']}"}
         return {"ok": True, "detail": {"review_id": review_id, "scheduled_for": row["scheduled_for"]}}
+    if tool == "request_human_review":
+        review_id = result.get("review_id")
+        row = conn.execute("SELECT * FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if not row or row["branch"] != "HUMAN_REVIEW":
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核未真实创建"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核患者归属不一致"}
+        return {"ok": True, "detail": {"review_id": review_id, "status": row["status"]}}
     if tool == "ask_user":
         qid = result.get("question_id")
-        row = conn.execute("SELECT status FROM questions WHERE id=?", (qid,)).fetchone()
+        row = conn.execute("SELECT * FROM questions WHERE id=?", (qid,)).fetchone()
         if not row or row["status"] != "waiting":
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题未进入等待答复状态"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题患者归属不一致"}
+        if args.get("target_field") and row["target_field"] != args.get("target_field"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题字段与调用参数不一致"}
         return {"ok": True, "detail": {"question_id": qid}}
     if tool == "save_preference":
         kind = args.get("kind")

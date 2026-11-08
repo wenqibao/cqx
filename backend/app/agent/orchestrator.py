@@ -32,6 +32,13 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 3. 缺信息时应主动询问，不得自行推断患者未提供的事实。
 4. 只能通过给定工具执行动作，禁止声称执行了实际未执行的工具。
 5. 高风险信号（低血糖、显著高血糖、危险症状）一律升级人工复核，不做处置建议。
+决策协议（Real 模式必须遵守）：
+- 先读患者实际状态：事件证据、趋势、最近记录、已有任务/问题/复评、缺失字段；
+- 优先处理高风险事件；同样的事件在不同患者状态下应选择不同行动；
+- 已有待办任务能覆盖当前问题时，更新或沿用它，不要重复创建同类任务；
+- 缺少会影响决策的信息时用 ask_user 提一个具体问题，不要猜测；
+- 需要正式复评时用 schedule_review；高风险或需专业判断时用 request_human_review；
+- 每个动作都要能用工具结果与数据库状态核验；无法继续时用 respond 说明原因。
 完成标准（关键）：
 - 处理健康事件时必须产生至少一个管理动作：create_task、ask_user 或 request_human_review；
   只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
@@ -47,7 +54,8 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 
 # 只读工具：不改变业务状态，不能单独构成"处理完成"
 READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferences", "list_tasks"})
-ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review", "save_preference", "create_notification"})
+ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review",
+                          "schedule_review", "save_preference", "create_notification"})
 MAX_SEARCH_CALLS = 2
 _TOOL_LABELS = {
     "create_task": "创建任务", "update_task": "更新任务", "complete_task": "完成任务",
@@ -61,20 +69,35 @@ _TOOL_LABELS = {
 def _state_brief(state: dict[str, Any]) -> str:
     patient = state["patient"]
     agg = state["aggregates"]["7d"]
+    events = state.get("open_events", [])
     lines = [
-        f"当前业务时间（UTC）: {state['generated_at']}；due_at必须在未来30天内，使用带时区ISO8601时间",
+        f"当前业务时间（UTC）: {state['generated_at']}；due_at 必须是未来 0~720 小时的带时区 ISO8601 时间",
         f"患者: {patient['id']} {patient['name']}，{patient.get('age')}岁，病程{patient.get('duration_years')}年",
-        f"近7天空腹血糖: {agg.get('fasting_glucose')}",
+        f"管理目标: {patient.get('goals', [])}；已确认约束: {patient.get('constraints', [])}",
+        f"档案完整: {state.get('profile_complete')}；缺失字段: {state['missing_fields']}",
+        f"近7天血糖: {agg.get('fasting_glucose')}",
         f"近7天步数: {agg.get('steps')}",
-        f"缺失字段: {state['missing_fields']}",
-        f"未处理事件: {[e['code'] for e in state['open_events']]}",
-        f"待办任务（实际ID、类型与时间）: {state['open_tasks']}",
-        f"待回答问题: {state['pending_questions']}",
-        f"最近数据: {state['latest']}",
-        f"已确认约束: {patient.get('constraints', [])}",
+        f"近7天服药: {agg.get('medication_taken')}",
+        f"血糖趋势: {state.get('trend')}",
+        f"最近记录: {state['latest']}",
+        "未处理事件（含证据，决定管理动作时必须逐条考虑）:",
+    ]
+    if not events:
+        lines.append("  （无）")
+    for event in events:
+        lines.append(
+            f"  - {event['id']} {event['code']} severity={event['severity']} "
+            f"detected_at={event['detected_at']} message={event.get('message')} "
+            f"evidence={event.get('evidence_summary')} records={event.get('record_ids')}"
+        )
+    lines.extend([
+        f"已有待办任务（先判断是否已覆盖，不要重复创建）: {state['open_tasks']}",
+        f"待回答问题（不要重复询问同一字段）: {state['pending_questions']}",
+        f"最近已答复/过期问题: {state.get('recent_answers', [])}",
+        f"已安排的复评（不要重复安排）: {state.get('open_reviews', [])}",
         f"已保存的回答上下文: {state.get('answer_context')}",
         f"有效偏好: {[(p['kind'], p['value']) for p in state['preferences']]}",
-    ]
+    ])
     return "\n".join(lines)
 
 
@@ -678,6 +701,14 @@ def _run_real_llm(
             "round": round_no, "response_id": raw.get('id'), "model": raw.get('model'), "usage": raw.get('usage'),
             "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in response.tool_calls],
         })
+        if response.tool_calls:
+            # 可审计决策摘要：只用同一响应里的简短理由与工具名，不记录隐藏思维链
+            trace.add_step(conn, run_id, phase="plan", kind="decision_rationale", payload={
+                "round": round_no,
+                "rationale": (response.content or "")[:200],
+                "tools": [c.name for c in response.tool_calls],
+                "linked_event_ids": [e["id"] for e in events],
+            })
         if not response.tool_calls:
             if response.content:
                 errors = _check_real_reply(response.content, conn=conn, patient_id=patient_id, intent=intent,

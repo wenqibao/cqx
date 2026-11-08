@@ -200,6 +200,10 @@ def build_knowledge_plan(
     hits: list[dict[str, Any]],
     query: str,
 ) -> dict[str, Any]:
+    # 与 search_knowledge 工具共用实体相关性过滤（C-REG-KQ-01）
+    from backend.app.knowledge.search import filter_relevant_hits
+
+    hits = filter_relevant_hits(query, hits)
     actions: list[dict[str, Any]] = [
         {"tool": "search_knowledge", "args": {"query": query}, "requires_evidence": False, "reason": "检索已核对资料"}
     ]

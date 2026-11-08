@@ -18,8 +18,11 @@ test("v0.2.1 已纠正warning保留原日志，顶部不误报失败", async ({
   await visit(page, `/agent?run=${f.warning_run}`, f.warning);
   const drawer = page.locator(".ant-drawer:visible");
   await expect(drawer).toContainText("先前校验问题已纠正");
-  await expect(drawer).toContainText(trace.reviews.some((r: {branch: string}) => r.branch === "MISSING_DATA")
-    ? "请补充缺失记录后跟进复评。" : "请按计划跟进后续复评。");
+  await expect(drawer).toContainText(
+    trace.reviews.some((r: { branch: string }) => r.branch === "MISSING_DATA")
+      ? "请补充缺失记录后跟进复评。"
+      : "请按计划跟进后续复评。",
+  );
   await expect(drawer).toContainText("首次尝试未完成，后续已纠正");
   await expect(drawer.getByText("部分处理未完成", { exact: true })).toHaveCount(
     0,
@@ -278,11 +281,17 @@ test("C-DS-01 保存后等待超时，不自动重发且保留核对入口", asy
   await page.getByLabel("记录数值", { exact: true }).fill("8.5");
   await page.getByRole("button", { name: /保存并查看自动触发结果/ }).click();
   await expect.poll(() => saved).toBe(true);
-  await page.clock.fastForward(181000);
+  await page.clock.fastForward(59000);
+  await expect(page.getByTestId("operation-recovery")).toHaveCount(0);
+  await expect(page.getByText(/处理时间较长，正在等待后端结果/)).toBeVisible();
+  await page.clock.fastForward(2000);
   await expect(page.getByTestId("operation-recovery")).toBeVisible();
   await expect(
     page.getByRole("alert").filter({ hasText: "等待超时" }),
   ).toBeVisible();
+  await expect(page.getByTestId("operation-recovery")).toContainText(
+    "后端可能仍在运行",
+  );
   expect(posts).toBe(1);
   expect(
     (await json(request, `/patients/${id}/records`)).items.filter(
@@ -290,4 +299,106 @@ test("C-DS-01 保存后等待超时，不自动重发且保留核对入口", asy
     ),
   ).toHaveLength(1);
   release();
+});
+test("v0.2.1 缺失患者和子资源实际返回404，失败写入无副作用", async ({
+  request,
+}) => {
+  const missing = "CT021-does-not-exist";
+  for (const path of [
+    `/patients/${missing}`,
+    `/patients/${missing}/state`,
+    `/patients/${missing}/questions`,
+    "/runs/RUN-does-not-exist",
+    "/tasks/TSK-does-not-exist",
+  ]) {
+    const response = await request.get(BASE + path);
+    expect(response.status(), path).toBe(404);
+    expect((await response.json()).detail).toBeTruthy();
+  }
+  const patientsBefore = (await json(request, "/patients")).items;
+  const response = await request.post(BASE + `/patients/${missing}/records`, {
+    data: { kind: "steps", value: 4000, trigger_agent: true },
+  });
+  expect(response.status()).toBe(404);
+  expect((await json(request, "/patients")).items).toEqual(patientsBefore);
+});
+test("v0.2.1 缺失运行和任务在页面显示404，日志保留原文", async ({
+  page,
+  request,
+}) => {
+  const id = await fixture(request, "missing-resource");
+  for (const [path, endpoint] of [
+    ["/agent?run=RUN-does-not-exist", "/runs/RUN-does-not-exist"],
+    ["/tasks?task=TSK-does-not-exist", "/tasks/TSK-does-not-exist"],
+  ]) {
+    const response = page.waitForResponse((r) => r.url() === BASE + endpoint);
+    await visit(page, path, id);
+    expect((await response).status()).toBe(404);
+    const drawer = page.locator(".ant-drawer:visible");
+    await expect(drawer.getByRole("alert")).toContainText("资源不存在");
+    await expect(drawer.getByTestId("write-result")).toHaveCount(0);
+    await drawer.getByRole("button", { name: "错误日志", exact: true }).click();
+    const raw = JSON.parse(
+      await page.locator(".ant-drawer:visible pre.json").innerText(),
+    );
+    expect(raw.code).toBe("HTTP_404");
+    expect(raw.detail.detail).toBeTruthy();
+  }
+});
+test("C-DS-03 读取真实问题并提交明确回答，保存记录并恢复运行", async ({
+  page,
+  request,
+}) => {
+  const id = await fixture(request, "confirmed-answer", {
+    missingMedication: true,
+  });
+  const runResponse = await request.post(BASE + `/patients/${id}/agent/runs`, {
+    data: { message: "请核实我的记录缺项，缺失信息先问我" },
+  });
+  expect(runResponse.status()).toBe(200);
+  const questions = (await json(request, `/patients/${id}/questions`)).items;
+  const q = questions.find(
+    (q: { status: string; target_field: string }) =>
+      q.status === "waiting" && q.target_field === "medication_taken",
+  );
+  expect(q).toBeTruthy();
+  expect(q.options).toContain("已按时完成");
+  const read = page.waitForResponse(
+    (r) => r.url() === BASE + `/patients/${id}/questions`,
+  );
+  await visit(page, `/followups?question=${q.id}`, id);
+  expect((await read).status()).toBe(200);
+  const card = page.locator(`[id="${q.id}"]`);
+  await expect(card.getByLabel("模拟患者答复", { exact: true })).toBeFocused();
+  await card.getByRole("button", { name: "已按时完成", exact: true }).click();
+  await card.getByRole("checkbox", { name: "这是合成患者的模拟答复" }).check();
+  const answer = page.waitForResponse(
+    (r) =>
+      r.url() === BASE + `/questions/${q.id}/answer` &&
+      r.request().method() === "POST",
+  );
+  await card.getByRole("button", { name: "提交模拟答复并恢复 Agent" }).click();
+  const response = await answer;
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  expect(body.question.status).toBe("answered");
+  expect(body.resume.uncertain).toBe(false);
+  expect(body.resume.recorded).toMatchObject({
+    patient_id: id,
+    kind: "medication_taken",
+    value: 1,
+  });
+  expect(body.resume.run.patient_id).toBe(id);
+  expect(body.resume.run.run_id).toMatch(/^RUN-/);
+  await expect(page.getByTestId("write-result")).toContainText(
+    "回答已保存为健康记录",
+  );
+  const records = (await json(request, `/patients/${id}/records`)).items;
+  expect(
+    records.filter((r: { kind: string }) => r.kind === "medication_taken"),
+  ).toHaveLength(1);
+  await fs.writeFile(
+    ".runtime/v021/confirmed-answer-result.json",
+    JSON.stringify(body, null, 2),
+  );
 });

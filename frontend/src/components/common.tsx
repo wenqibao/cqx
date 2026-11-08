@@ -283,7 +283,7 @@ export function OperationFeedback() {
   return (
     <Card title="上次操作结果待核对" data-testid="operation-recovery">
       <p>
-        请求未返回完整结果，部分内容可能已保存。请先查询记录、运行、任务和随访问题，再决定下一步。
+        后端可能仍在运行，部分内容可能已保存。请先查询记录、运行、任务和随访问题，再决定下一步。
       </p>
       <Button
         loading={checking}

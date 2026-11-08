@@ -13,7 +13,7 @@ export function createClient(mode: string, base?: string): Adapter {
   throw new Error("VITE_API_MODE只允许http或mock");
 }
 export function writeTimeout(value?: string) {
-  if (!value) return 180000;
+  if (!value) return 60000;
   const timeout = Number(value);
   if (!Number.isFinite(timeout) || timeout <= 0)
     throw new Error("VITE_API_WRITE_TIMEOUT_MS 必须为正数毫秒");

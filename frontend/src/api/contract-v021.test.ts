@@ -193,8 +193,58 @@ it("长写入期间健康探测不会被业务队列阻塞", async () => {
   await write;
 });
 it("写超时配置有默认值并拒绝非法值", () => {
-  expect(writeTimeout()).toBe(180000);
+  expect(writeTimeout()).toBe(60000);
   expect(writeTimeout("250000")).toBe(250000);
   for (const value of ["0", "-1", "foo"])
     expect(() => writeTimeout(value)).toThrow();
+});
+it("默认写请求在60秒超时，提示可能仍在运行且只发送一次", async () => {
+  vi.useFakeTimers();
+  try {
+    const transport = vi.fn(
+      (_url: unknown, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () =>
+            reject(new Error("aborted")),
+          ),
+        ),
+    );
+    let settled = false;
+    const result = new HttpAdapter("", transport)
+      .write("/patients/P/agent/runs", z.object({}), {})
+      .then(
+        () => {
+          settled = true;
+        },
+        (error: unknown) => {
+          settled = true;
+          return error;
+        },
+      );
+    await vi.advanceTimersByTimeAsync(59999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await result).toMatchObject({
+      code: "TIMEOUT_OR_ABORT",
+      message: expect.stringContaining("可能仍在运行"),
+    });
+    expect(transport).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("404保留原始详情并显示资源不存在，不回退为模拟数据", async () => {
+  const transport = vi
+    .fn()
+    .mockResolvedValue(
+      new Response('{"detail":"任务不存在: TSK-missing"}', { status: 404 }),
+    );
+  await expect(
+    new HttpAdapter("", transport).read("/tasks/TSK-missing", z.object({})),
+  ).rejects.toMatchObject({
+    code: "HTTP_404",
+    message: "资源不存在（404）",
+    detail: { detail: "任务不存在: TSK-missing" },
+  });
+  expect(transport).toHaveBeenCalledTimes(1);
 });

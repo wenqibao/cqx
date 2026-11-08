@@ -71,3 +71,5 @@
 | `docs/V021_REGRESSION_REPORT.md`、`docs/evidence/contract-v021/` | 本次实际测试结果与脱敏证据 |
 
 根 `docs/PROJECT_FILE_MAP.md` 属于 A 的文件边界，本次未修改，A 可据本节同步前端文件入口。
+
+2026-11-08 补充：`src/api/client.ts`、`httpAdapter.ts` 和 `.env.example` 统一默认写超时 60 秒；`src/components/common.tsx` 提供可能仍在运行的核对提示；`src/api/contract-v021.test.ts` 与 `e2e/contract-v021.spec.ts` 增加精确超时边界、API/页面 404 和明确回答闭环。当前报告为 `docs/V021_60S_404_REGRESSION_REPORT.md`，脱敏证据为 `docs/evidence/contract-v021-60s/`。

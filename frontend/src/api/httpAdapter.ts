@@ -26,7 +26,7 @@ export class HttpAdapter implements Adapter {
     private base = "http://127.0.0.1:8000/api",
     private transport: typeof fetch = (...args) => globalThis.fetch(...args),
     private timeout = 15000,
-    private actionTimeout = 180000,
+    private actionTimeout = 60000,
   ) {}
   request<T>(
     path: string,
@@ -116,10 +116,10 @@ export class HttpAdapter implements Adapter {
         controller.signal.aborted ? "TIMEOUT_OR_ABORT" : "NETWORK_ERROR",
         controller.signal.aborted
           ? isWrite
-            ? "等待超时：操作可能已保存，请先查询记录、任务或运行状态；不会自动重试"
+            ? "等待超时：后端可能仍在运行，操作可能已保存；请先查询结果，不会自动重发"
             : "请求超时或已取消"
           : isWrite
-            ? "连接中断，操作结果待核对，请先查询已保存结果"
+            ? "连接中断：后端可能仍在运行，请先查询已保存结果，不会自动重发"
             : "后端连接失败；未切换前端模拟数据",
         e instanceof Error ? e.message : String(e),
       );

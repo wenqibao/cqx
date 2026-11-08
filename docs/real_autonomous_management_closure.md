@@ -121,3 +121,25 @@ python scripts/run_scenarios.py → 33/33 PASS (mock)
   `evidence_summary/record_ids`（均为增量字段，旧消费方可忽略）；
 - 运行轨迹新增 `decision_rationale` 步骤类型；
 - 无删除、无改名，`v0.2.1` 契约保持兼容。
+
+## 9. 追加：知识问答意图收敛（A-REAL-AUTONOMY-02，2026-11-08）
+
+### 真实表现
+患者只问「血糖 9.8 是不是太高」，真实模型却建任务、发通知、提人工复核：
+一次 9 个任务触发 TOO_MANY_ACTIONS 直接 failed（RUN-f3cf61a3bee5），
+另一次 completed 但回答是「本轮已完成：…」而不是回答问题（RUN-330b654f71bc）。
+
+### 修复
+- 意图分类补充 是不是 / 是否 / 会不会 / 算不算 / 正常吗 / 高吗，这类问句正确归为 knowledge_question；
+- Real 模式在 knowledge_question 下只向模型暴露 search_knowledge 与 
+espond 两个工具；
+- 系统提示明确：知识问答不得建任务/发通知/提复核/反问，回答要直接针对问题，不汇报执行动作；
+- 若模型仍调用其他工具，编排器软拒绝（TOOL_NOT_ALLOWED，只记轨迹、不产生副作用），
+  并提示直接回答；下一轮仍可正常 respond。
+
+### 回归（新增 2 项，共 7 项自主决策测试）
+- 「血糖 9.8 是不是太高」→ knowledge_question；
+- 工具清单只含 search/respond；模型强行调用 create_task/notification/review 时被跳过，
+  任务/通知/复核均为 0，run completed，回答包含实际答案。
+
+全量 pytest 418 passed，Mock 场景 33/33 PASS。真实模型待 B 复验。

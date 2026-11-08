@@ -123,3 +123,51 @@ def test_decision_trace_records_rationale_and_tools(conn):
     payload = decisions[0]["payload"]
     assert payload.get("rationale") and "create_task" in payload.get("tools", [])
     assert evt in payload.get("linked_event_ids", [])
+
+def test_knowledge_question_is_classified_for_answer_like_questions():
+    from backend.app.planning.planner import detect_intent
+    assert detect_intent("血糖 9.8 是不是太高", False) == "knowledge_question"
+    assert detect_intent("这个指标会不会有影响", False) == "knowledge_question"
+
+
+def test_knowledge_question_only_exposes_search_and_respond(conn):
+    _patient(conn, "KQ1")
+
+    class ToolCapturingLLM:
+        mode = "real"
+        model_name = "kq-tools"
+
+        def __init__(self):
+            self.calls = 0
+            self.tool_names: list[str] = []
+
+        def plan_actions(self, *, system=None, user=None, tools=None, extra_messages=None):
+            self.tool_names = [t["name"] for t in (tools or [])]
+            self.calls += 1
+            if self.calls == 1:
+                return LLMResponse(content="", tool_calls=[ToolCall(
+                    "search_knowledge", {"query": "空腹血糖 偏高"}, "c1")], raw={})
+            if self.calls == 2:
+                return LLMResponse(content="", tool_calls=[
+                    ToolCall("create_task", {"patient_id": "KQ1", "task_type": "record_glucose",
+                                             "title": "记录", "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c2"),
+                    ToolCall("create_notification", {"patient_id": "KQ1", "title": "提醒"}, "c3"),
+                    ToolCall("request_human_review", {"patient_id": "KQ1", "reason": "血糖偏高", "severity": "high"}, "c4"),
+                    ToolCall("respond", {"patient_id": "KQ1",
+                                         "text": "空腹血糖 9.8 偏高，建议复测并与医生沟通。"}, "c5"),
+                ], raw={})
+            return LLMResponse(content="", tool_calls=[], raw={})
+
+    llm = ToolCapturingLLM()
+    result = orchestrator.run_agent(conn, "KQ1", trigger_type="user_request",
+                                    message="血糖 9.8 是不是太高", llm=llm)
+    assert "create_task" not in llm.tool_names
+    assert "create_notification" not in llm.tool_names
+    assert set(llm.tool_names) <= {"search_knowledge", "respond"}
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM notifications").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM reviews").fetchone()["c"] == 0
+    assert any("9.8" in text for text in result["responses"])
+    skipped = [s for s in steps(conn, result["run_id"]) if s["code"] == "TOOL_NOT_ALLOWED"]
+    assert len(skipped) == 3, "非知识类动作应被软拒绝并记录"

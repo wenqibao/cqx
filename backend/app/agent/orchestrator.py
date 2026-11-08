@@ -39,6 +39,8 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 - 缺少会影响决策的信息时用 ask_user 提一个具体问题，不要猜测；
 - 需要正式复评时用 schedule_review；高风险或需专业判断时用 request_human_review；
 - 每个动作都要能用工具结果与数据库状态核验；无法继续时用 respond 说明原因。
+- 意图为知识问答（knowledge_question）时，只允许 search_knowledge 与 respond：
+  不得建任务、发通知、提人工复核或反问；回答必须直接针对患者的问题，不要汇报执行动作。
 完成标准（关键）：
 - 处理健康事件时必须产生至少一个管理动作：create_task、ask_user 或 request_human_review；
   只调用 search_knowledge / query_history / get_preferences / list_tasks 属于"只看不做"，不算完成。
@@ -57,6 +59,8 @@ READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferenc
 ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review",
                           "schedule_review", "save_preference", "create_notification"})
 MAX_SEARCH_CALLS = 2
+# 知识问答只允许检索与回答（B/A-REAL-AUTONOMY-02）
+KNOWLEDGE_TOOLS = frozenset({"search_knowledge", "respond"})
 _TOOL_LABELS = {
     "create_task": "创建任务", "update_task": "更新任务", "complete_task": "完成任务",
     "save_preference": "保存偏好", "create_notification": "创建站内提醒",
@@ -695,7 +699,10 @@ def _run_real_llm(
         # 一条请求轨迹对应一次 plan_actions，包含异常尝试；本客户端不做隐藏重试。
         trace.add_step(conn, run_id, phase="plan", kind="llm_request",
                        payload={"round": round_no, "model": llm.model_name})
-        response = llm.plan_actions(system=SYSTEM_PROMPT, user=user, tools=llm_module.tool_schemas(), extra_messages=history)
+        tool_list = llm_module.tool_schemas(
+            only=KNOWLEDGE_TOOLS if intent == "knowledge_question" else None
+        )
+        response = llm.plan_actions(system=SYSTEM_PROMPT, user=user, tools=tool_list, extra_messages=history)
         raw = response.raw or {}
         trace.add_step(conn, run_id, phase="plan", kind="llm_response", payload={
             "round": round_no, "response_id": raw.get('id'), "model": raw.get('model'), "usage": raw.get('usage'),
@@ -726,6 +733,16 @@ def _run_real_llm(
         outcomes = []
         for index, call in enumerate(response.tool_calls):
             tool_call_id = call.id or f"call_{round_no}_{index}"
+            # 知识问答只允许检索+回答：其他动作软拒绝并提示直接回答
+            if intent == "knowledge_question" and call.name not in KNOWLEDGE_TOOLS:
+                guidance = {"ok": False, "code": "TOOL_NOT_ALLOWED",
+                            "error": "知识问答只允许 search_knowledge 与 respond；请直接回答患者问题"}
+                trace.add_step(conn, run_id, phase="validate", kind="tool_choice", tool_name=call.name,
+                               payload=guidance, status="skipped", code="TOOL_NOT_ALLOWED")
+                history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                "content": json.dumps(guidance, ensure_ascii=False)})
+                outcomes.append({"tool": call.name, "ok": False, "code": "TOOL_NOT_ALLOWED"})
+                continue
             # REL-01：正式复评必须用 schedule_review，普通任务不能替代（软拒绝，允许下一轮纠正）
             if call.name == "create_task" and isinstance(call.arguments, dict):
                 task_type = str(call.arguments.get("task_type") or "").lower()
@@ -823,7 +840,8 @@ def _run_real_llm(
         if responded:
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
-        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED, "TOOL_CHOICE_INVALID"}
+        correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED,
+                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED"}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:

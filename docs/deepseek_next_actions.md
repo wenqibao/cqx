@@ -65,3 +65,11 @@ DeepSeek 已正式接入并真正执行了业务工具。本轮进入**修复审
 - 新增执行后核验与 decision_rationale 轨迹；
 - 本地回归：416 passed、33/33 Mock；
 - 真实 DeepSeek：NOT RUN，待新预算批准后由 B 按 C01–C08 之外的自主决策场景验收。
+
+## A-FINAL-BACKEND-01（2026-11-08）
+
+- 完成判定统一纳入 `schedule_review`；多事件只关闭有数据库关联的事件；
+- "已有任务覆盖"必须通过 `_verify_task_coverage` 核验（患者/状态/类型/答复提及）；
+- `post_execution_check` 增加 due/患者/事件/复核状态/偏好值/通知引用核验；
+- 新增 `scripts/deepseek_autonomy_acceptance.py`（R07-R11，独立库与账本）；
+- 本地回归 440 passed / 33-33；真实 DeepSeek 未调用，待 B 按预算执行。

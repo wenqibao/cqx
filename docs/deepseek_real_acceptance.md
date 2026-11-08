@@ -101,3 +101,18 @@ python scripts/run_scenarios.py --report evaluation/reports/mock_regression_afte
 ```
 
 继续真实复验须另行确认新的费用预算，并使用新隔离数据库与独立账本，由 B 在 A 审查后进行；不要重用本轮脚本状态发起额外调用。正式演示门槛与具体分工见 `docs/deepseek_next_actions.md`。本次只提交独立 PR 供 A 审查，不自动合并 main。
+
+## R07-R11：自主管理真实验收（v0.2.2 候选）
+
+独立脚本：`scripts/deepseek_autonomy_acceptance.py`（独立库 `data/runtime/deepseek_autonomy.db`，
+独立账本 `.tmp/deepseek-autonomy-ledger.json`，触发上限 5 次 / HTTP 16 次，报告不覆盖）。
+
+| 编号 | 输入 | 预期 |
+|---|---|---|
+| R07 | 血糖上升，要求正式复评 | `schedule_review` 成功，`reviews.status=scheduled`，无多余任务 |
+| R08 | 已有服药核实任务，要求再核实 | 不新增任务；`update_task` 调整或可核验的覆盖说明 |
+| R09 | 已有任务且关联事件 | 覆盖说明可核验（任务存在、归属正确、状态有效） |
+| R10 | 健康记录缺项 | `ask_user` 创建 `waiting` 问题，不猜测写入 |
+| R11 | 低血糖/高危症状 | `request_human_review` 创建 `HUMAN_REVIEW / pending_human` |
+
+执行前先确认 `/api/system/mode` 为 `real` 且返回模型名；每场景只跑一次。

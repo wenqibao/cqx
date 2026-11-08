@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 426 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
+python -m pytest -q                 # 440 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
 python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 
@@ -229,3 +229,12 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - 	ests/integration/test_real_autonomous_decision.py（5 项）
 - 	ests/integration/test_real_action_verification.py（8 项）
 - docs/real_autonomous_management_closure.md
+
+## A 最终后端修复（2026-11-08）
+
+- `backend/app/agent/orchestrator.py`：MANAGEMENT_TOOLS、_verify_task_coverage、事件按数据库关联关闭
+- `backend/app/safety/validators.py`：update_task/schedule_review/request_human_review/save_preference/create_notification 内容级核验
+- `scripts/deepseek_autonomy_acceptance.py`：R07-R11 独立真实验收
+- `tests/integration/test_real_autonomous_decision.py`：A5-01~A5-07
+- `tests/integration/test_real_action_verification.py`：6 项反向核验 + 正向全链路
+- `docs/A_FINAL_BACKEND_REPAIR_REPORT.md`

@@ -179,3 +179,54 @@ def test_non_adherence_patient_is_not_forced_to_ask(conn):
     result = orchestrator.run_agent(conn, "MQ2", trigger_type="event_detected", event_ids=[evt], llm=llm)
     assert result["status"] == "completed", result
     assert conn.execute("SELECT COUNT(*) c FROM questions WHERE patient_id='MQ2'").fetchone()["c"] == 0
+
+MIXED_TEXTS = [
+    "遇到调整用药需求时引导就医。把降糖药停掉。",
+    "把降糖药停掉。遇到调整用药需求时引导就医。",
+    "遇到调整用药需求时引导就医，并把降糖药停掉。",
+    "如出现调整剂量需求请联系医生。建议减少二甲双胍剂量。",
+]
+
+
+@pytest.mark.parametrize("text", MIXED_TEXTS)
+def test_mixed_referral_and_instruction_is_blocked(text):
+    assert gate.check_text(text, generated=True)["allowed"] is False
+    assert gate.check_text(text)["allowed"] is False
+
+
+def test_notification_body_with_mixed_text_is_rejected_before_write(conn):
+    _patient(conn, "MX1")
+    checked = validators.validate_plan(conn, patient_id="MX1", evidence=[], plan={"actions": [{
+        "tool": "create_notification",
+        "args": {"patient_id": "MX1", "kind": "info", "title": "提醒",
+                 "body": "遇到调整用药需求时引导就医。把降糖药停掉。"},
+    }]})
+    assert any(r["code"] == "FORBIDDEN_ACTION" for r in checked["rejections"])
+    assert conn.execute("SELECT COUNT(*) c FROM notifications").fetchone()["c"] == 0
+
+
+def test_alias_task_type_is_deduped_before_write(conn):
+    _patient(conn, "AL1")
+    tasks.create_task(conn, "AL1", task_type="record_glucose", title="已有任务",
+                      due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CaptureLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+            "patient_id": "AL1", "task_type": "record_reminder", "title": "别名任务",
+            "due_at": (now(conn) + timedelta(days=3)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已沿用现有任务。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "AL1", trigger_type="request", message="帮我建个记录任务", llm=llm)
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AL1'").fetchone()["c"] == 1
+    assert not [r for r in result["rejections"] if r["code"] == "POSTCHECK_MISMATCH"]
+    assert any(s["code"] == "DUPLICATE_TASK" for s in
+               conn.execute("SELECT code FROM agent_steps WHERE run_id=?", (result["run_id"],)).fetchall())
+
+
+def test_unknown_task_type_writes_nothing(conn):
+    _patient(conn, "AL2")
+    llm = CaptureLLM([LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+        "patient_id": "AL2", "task_type": "made_up_type", "title": "x",
+        "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "AL2", trigger_type="request", message="建个任务", llm=llm)
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AL2'").fetchone()["c"] == 0
+    assert any(r["code"] in ("INVALID_TASK_TYPE", "TOOL_EXECUTION_FAILED") for r in result["rejections"])

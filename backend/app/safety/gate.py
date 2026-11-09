@@ -154,27 +154,50 @@ def _clause_at(text: str, start: int, end: int) -> str:
 
 
 VERIFY_CUES = ("核实", "确认", "回顾", "过去", "近一周", "近7天", "近 7 天", "历史")
+VERIFY_CUES_GENERATED = VERIFY_CUES + ("是否", "有无", "有没有")
+SEGMENT_DELIMS = "，,。；;！!？?\n"
 EDUCATIONAL_CUES = ("会", "可能", "容易", "导致", "影响", "风险", "趋势", "说明")
 IMPERATIVE_CUES = ("请", "建议", "应该", "立即", "马上", "把", "将", "帮我", "给我")
 
 
+def _segment_at(text: str, start: int, end: int) -> str:
+    """逗号也作为边界：避免"核实…，停药"被整句放行（A-034-01）。"""
+    left = max((text.rfind(ch, 0, start) for ch in SEGMENT_DELIMS), default=-1) + 1
+    rights = [pos for pos in (text.find(ch, end) for ch in SEGMENT_DELIMS) if pos != -1]
+    right = min(rights) if rights else len(text)
+    return text[left:right]
+
+
 def _is_verification_or_explanation(text: str, start: int, end: int, *, generated: bool = False) -> bool:
-    """A-033-01：核实历史事实、说明风险、转介解释不是用药指令。"""
-    clause = _clause_at(text, start, end)
-    if INLINE_INSTRUCTION.search(clause):
+    """A-033/A-034：核实历史事实、说明风险、转介解释不是用药指令。"""
+    segment = _segment_at(text, start, end)
+    sentence = _clause_at(text, start, end)
+    if INLINE_INSTRUCTION.search(sentence):
         return False
-    if any(cue in clause for cue in VERIFY_CUES):
+    if any(cue in segment for cue in VERIFY_CUES):
         return True
-    if any(cue in clause for cue in EDUCATIONAL_CUES) and not any(cue in clause for cue in IMPERATIVE_CUES):
-        return True
-    import re as _re
-    referral = (any(cue in clause for cue in REFERRAL_CUES)
-                or ("咨询" in clause and "医生" in clause)
-                or ("联系" in clause and "医生" in clause))
-    if generated and referral and not _re.search(
-        r"(请|建议|应|立即|马上|把|将)[^，,。；;！!？?]{0,4}(调整|停|改|换|加|减|增|降|停用|更换)", clause
+    # 逗号续接："核实…，有无漏服或自行停药" 的第二段仍属核实问句
+    if segment.strip().startswith(("是否", "有无", "有没有")):
+        left = text[:start].rstrip()
+        left = left[:-1] if left.endswith(("，", ",")) else left
+        prev = left[max(left.rfind(ch) for ch in "。；;！!？?\n") + 1:] if left else ""
+        if any(cue in prev for cue in VERIFY_CUES):
+            return True
+    if any(cue in segment for cue in EDUCATIONAL_CUES) and not any(
+        cue in segment for cue in IMPERATIVE_CUES
     ):
         return True
+    import re as _re
+    if generated:
+        referral = (any(cue in sentence for cue in REFERRAL_CUES)
+                    or ("咨询" in sentence and "医生" in sentence)
+                    or ("联系" in sentence and "医生" in sentence))
+        if referral and not _re.search(
+            r"(请|建议|应|立即|马上|把|将)[^，,。；;！!？?]{0,4}"
+            r"(调整|停|改|换|加|减|增|降|停用|更换)",
+            sentence,
+        ):
+            return True
     return False
 
 

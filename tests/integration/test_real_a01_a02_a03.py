@@ -301,3 +301,57 @@ def test_respond_summary_does_not_consume_action_budget(conn):
     assert result["status"] == "completed", result
     assert conn.execute("SELECT COUNT(*) c FROM notifications WHERE patient_id='V33B'").fetchone()["c"] == 8
     assert not [r for r in result["rejections"] if r["code"] == "TOO_MANY_ACTIONS"]
+
+@pytest.mark.parametrize("text", [
+    "核实过去一周有无漏服，把降糖药停掉。",
+    "核实过去一周有无漏服，停药。",
+    "核实是否按时服药，建议减少二甲双胍剂量。",
+])
+def test_same_sentence_comma_mixed_is_blocked(text):
+    assert gate.check_text(text, generated=True)["allowed"] is False
+    assert gate.check_text(text)["allowed"] is False
+
+
+def test_continuation_after_comma_keeps_verification():
+    assert gate.check_text("核实是否按时服药，有无漏服或自行停药。", generated=True)["allowed"] is True
+
+
+def _review_setup(conn, pid="RV1"):
+    _patient(conn, pid)
+    evt = _event(conn, pid)
+    from backend.app.reviews import service as reviews
+
+    review = reviews.schedule_review(conn, pid, event_id=evt, delay_hours=24)
+    return evt, review
+
+
+def test_referencing_existing_review_is_not_a_false_claim(conn):
+    evt, review = _review_setup(conn)
+    llm = CaptureLLM([LLMResponse(content="",
+        tool_calls=[ToolCall("respond", {"patient_id": "RV1",
+                                         "text": f"沿用之前安排的复评 {review['id']}，请按计划记录。"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "RV1", trigger_type="answer_received", message="记不清", llm=llm)
+    assert result["status"] == "completed", result
+    assert not [r for r in result["rejections"] if r["code"] == "POSTCHECK_MISMATCH"]
+    steps = conn.execute("SELECT kind FROM agent_steps WHERE run_id=?", (result["run_id"],)).fetchall()
+    assert any(row["kind"] == "review_reference" for row in steps)
+
+
+def test_fabricated_review_claim_is_rejected(conn):
+    _patient(conn, "RV2")
+    llm = CaptureLLM([LLMResponse(content="",
+        tool_calls=[ToolCall("respond", {"patient_id": "RV2", "text": "已经创建了复评，请放心。"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "RV2", trigger_type="answer_received", message="记不清", llm=llm)
+    assert any(r["code"] == "POSTCHECK_MISMATCH" for r in result["rejections"])
+
+
+def test_resume_does_not_reask_same_field(conn):
+    patients.create_patient(conn, {"id": "RV3", "name": "RV3", "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    evt = _event(conn, "RV3")
+    from backend.app.reviews import service as reviews
+
+    reviews.schedule_review(conn, "RV3", event_id=evt, delay_hours=24)
+    llm = CaptureLLM([LLMResponse(content="",
+        tool_calls=[ToolCall("respond", {"patient_id": "RV3", "text": "已按原计划继续观察。"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "RV3", trigger_type="answer_received", message="记不清", llm=llm)
+    assert conn.execute("SELECT COUNT(*) c FROM questions WHERE patient_id='RV3' AND status='waiting'").fetchone()["c"] == 0

@@ -272,7 +272,7 @@ def _run_agent_body(
         if llm.mode == "real" and intent in ("event_response", "check_in", "patient_request", "knowledge_question", "negotiate_plan"):
             try:
                 plan, evidence, responses, question_created, executed, rejections = _run_real_llm(
-                    conn, run_id, patient_id, llm, state, events, message, intent
+                    conn, run_id, patient_id, llm, state, events, message, intent, trigger_type
                 )
             except llm_module.LLMRequestError as exc:
                 trace.add_step(conn, run_id, phase="plan", kind="llm_error", status="failed",
@@ -783,7 +783,7 @@ def _claimed_state_changes(text: str) -> set[str]:
     return claimed
 
 
-def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed, claims_out=None):
+def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed, claims_out=None, events=None, run_id=None):
     """自由文本与 respond 工具使用相同安全/证据门。
 
     "声称已执行"的核对不在执行单个工具时做（B16：respond 可能排在同轮 create_task 之前），
@@ -794,14 +794,49 @@ def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed, cla
     if claims_out is not None:
         claims_out.append(text)
     else:
-        checked["rejections"].extend(_unsupported_claims(text, executed))
+        checked["rejections"].extend(_unsupported_claims(
+        text, executed, conn=conn, patient_id=patient_id,
+        event_ids=[e["id"] for e in (events or [])], run_id=run_id))
     return checked["rejections"]
 
 
-def _unsupported_claims(text: str, executed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+EXISTING_REVIEW_CUES = ("沿用", "已有", "既有", "原有", "原计划", "之前", "此前", "保留", "已在")
+
+
+def _referenced_review(conn: sqlite3.Connection, patient_id: str, event_ids: list[str]) -> str | None:
+    """本轮没有 schedule_review 时，确认是否存在可引用的既有 scheduled 复评。"""
+    if event_ids:
+        placeholders = ",".join("?" for _ in event_ids)
+        row = conn.execute(
+            f"SELECT id FROM reviews WHERE patient_id=? AND status='scheduled' "
+            f"AND event_id IN ({placeholders}) AND scheduled_for > ? ORDER BY scheduled_for LIMIT 1",
+            (patient_id, *event_ids, iso(now(conn))),
+        ).fetchone()
+        return row["id"] if row else None
+    row = conn.execute(
+        "SELECT id FROM reviews WHERE patient_id=? AND status='scheduled' AND scheduled_for > ? "
+        "ORDER BY scheduled_for LIMIT 1",
+        (patient_id, iso(now(conn))),
+    ).fetchone()
+    return row["id"] if row else None
+
+
+def _unsupported_claims(text: str, executed: list[dict[str, Any]], *,
+                        conn: sqlite3.Connection | None = None, patient_id: str | None = None,
+                        event_ids: list[str] | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
+    claimed = _claimed_state_changes(text)
+    if (conn is not None and patient_id is not None
+            and not any(e.get("ok") and e.get("tool") == "schedule_review" for e in executed)
+            and any(cue in text for cue in EXISTING_REVIEW_CUES)):
+        review_id = _referenced_review(conn, patient_id, event_ids or [])
+        if review_id:
+            trace.add_step(conn, run_id or "unknown", phase="observe", kind="review_reference",
+                           tool_name="respond",
+                           payload={"review_id": review_id, "reason": "引用既有复评"}, status="ok")
+            claimed.discard("schedule_review")
     return [
         {"code": validators.POSTCHECK_MISMATCH, "message": "回答声称的业务变更没有成功工具支持", "tool": tool}
-        for tool in _claimed_state_changes(text)
+        for tool in claimed
         if not any(e.get("ok") and e.get("tool") == tool for e in executed)
     ]
 
@@ -815,6 +850,7 @@ def _run_real_llm(
     events: list[dict[str, Any]],
     message: str | None,
     intent: str,
+    trigger_type: str = "",
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[str], bool, list[dict[str, Any]], list[dict[str, Any]]]:
     """真实模型选工具；统一执行与轨迹，整次运行累计限制，不记录密钥或内部思考。"""
     evidence: list[dict[str, Any]] = []
@@ -1000,7 +1036,7 @@ def _run_real_llm(
             if call.name == 'respond' and isinstance(call.arguments, dict) and call.arguments.get('text'):
                 errors.extend(_check_real_reply(call.arguments['text'], conn=conn, patient_id=patient_id,
                                                intent=intent, evidence=evidence, executed=executed,
-                                               claims_out=claim_texts))
+                                               claims_out=claim_texts, events=events, run_id=run_id))
             if errors:
                 # 方便定位是哪一轮、第几个工具调用触发的拒绝（B 的轨迹对齐问题）
                 for item in errors:
@@ -1085,7 +1121,8 @@ def _run_real_llm(
             responses.append("本轮已完成：" + "、".join(dict.fromkeys(done)) + "。如需调整，请告诉我。")
     # B16：整次运行结束后再核对"声称已执行"，避免 respond 排在同轮 create_task 之前被误判
     for text in claim_texts:
-        for item in _unsupported_claims(text, executed):
+        for item in _unsupported_claims(text, executed, conn=conn, patient_id=patient_id,
+                                            event_ids=[e["id"] for e in events], run_id=run_id):
             reject([item])
     # B17：知识问答没有检索到任何可引用证据时，必须明确判 NO_EVIDENCE，
     # 不能用 ask_user 追问或空回复把问题带过去。
@@ -1106,7 +1143,7 @@ def _run_real_llm(
         cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")
     ) and any(e.get("ok") and e["tool"] == "parse_constraint" for e in executed)
     # REAL-A04：缺必要信息且模型没问 → 系统兜底创建真实问题，run 进入 waiting_user
-    question_result = _ensure_missing_info_question(
+    question_result = None if trigger_type == "answer_received" else _ensure_missing_info_question(
         conn, patient_id=patient_id, state=state, events=events,
         run_id=run_id, executed=executed,
     )

@@ -297,6 +297,35 @@ test("报告导入不混淆模式、CLI复制不执行、无报告不造成绩 [
     .setInputFiles("docs/evidence/workbench/scenarios.json");
   await expect(page.locator("main")).toContainText("确定性 Mock 规划器");
   await expect(page.locator("main")).toContainText("PASS 33");
+  const results = [
+    ["PASS", "通过"],
+    ["FAIL", "失败"],
+    ["BLOCKED", "阻塞"],
+    ["INCONCLUSIVE", "不确定"],
+    ["NOT_RUN", "未执行"],
+  ];
+  await page.getByLabel("导入验证报告").setInputFiles({
+    name: "mixed-results.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      scenarios: results.map(([result], index) => ({
+        scenario_id: `STATUS-${index}`,
+        result,
+        llm_mode: "real",
+        run_ids: [],
+      })),
+    })),
+  });
+  const report = page.locator(".ant-card").filter({
+    has: page.getByLabel("导入验证报告"),
+  });
+  const resultColumn = await report
+    .getByRole("columnheader", { name: "实际结果", exact: true })
+    .evaluate((header) => (header as HTMLTableCellElement).cellIndex);
+  for (const [index, [status, label]] of results.entries()) {
+    await expect(report).toContainText(`${status} 1`);
+    await expect(report.locator(`tr[data-row-key="STATUS-${index}"]`).getByRole("cell").nth(resultColumn)).toHaveText(label);
+  }
   await page
     .getByLabel("导入验证报告")
     .setInputFiles({

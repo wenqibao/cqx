@@ -25,7 +25,13 @@ import {
   WriteResult,
 } from "../../components/common";
 import { link, name, text, when } from "../../utils/format";
-import { parseReport, redactLog, type Report } from "../../utils/reports";
+import {
+  parseReport,
+  redactLog,
+  reportResultDisplay,
+  type Report,
+  type ReportResult,
+} from "../../utils/reports";
 import catalog from "../../data/scenarios.json";
 const commands = [
   ["环境检查", "python -m cli.main health"],
@@ -333,27 +339,11 @@ export default function System() {
                         <span>执行日期：{when(report.at)}</span>
                         <span>Git：{report.git || "报告未提供"}</span>
                         <span>明细 {report.rows.length} 项</span>
-                        <span>
-                          PASS{" "}
-                          {
-                            report.rows.filter((r) => r.result === "PASS")
-                              .length
-                          }
-                        </span>
-                        <span>
-                          FAIL{" "}
-                          {
-                            report.rows.filter((r) => r.result === "FAIL")
-                              .length
-                          }
-                        </span>
-                        <span>
-                          BLOCKED{" "}
-                          {
-                            report.rows.filter((r) => r.result === "BLOCKED")
-                              .length
-                          }
-                        </span>
+                        {Object.keys(reportResultDisplay).map((status) => (
+                          <span key={status}>
+                            {status} {report.rows.filter((r) => r.result === status).length}
+                          </span>
+                        ))}
                       </div>
                       {report.warning && (
                         <Alert type="warning" title={report.warning} />
@@ -377,7 +367,11 @@ export default function System() {
                           {
                             title: "实际结果",
                             dataIndex: "result",
-                            render: (v) => <Status value={v} />,
+                            render: (v: ReportResult) => (
+                              <Tag color={reportResultDisplay[v].color}>
+                                {reportResultDisplay[v].label}
+                              </Tag>
+                            ),
                           },
                           { title: "动作来源", dataIndex: "origin" },
                           {

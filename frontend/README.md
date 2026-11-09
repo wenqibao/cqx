@@ -2,11 +2,11 @@
 
 面向医护健康管理人员的单 Agent 辅助工作台。仅合成病例演示，不提供诊断、处方、改药或医疗处置。采用 React、TypeScript、Vite、React Router、Ant Design、ECharts、Zod、Vitest 和 Playwright。
 
-当前前端版本为 V3（0.3.0）。2026-11-08 按后端冻结版本 `v0.2.1` 完成契约适配和 C-DS-01/03 实现，写超时为 60 秒，包含 404 回归。根据 B 反馈，将过期测试拆成两个明确场景，当前专项为 14 项，支持 Edge。复现步骤见 [v0.2.1 交接](docs/C_TO_B_V021_CONTRACT_REGRESSION.md)，最新结果见 [回复 B 的复验交接](docs/C_TO_B_V021_RETEST_RESPONSE_20261108.md)。C-UX-01/02 的既有交付继续保留。旧版报告为历史快照，结果须与各自提交对应。
+当前前端版本为 V3（0.3.0）。C1 联调后端固定为 `v0.3.2`，完整提交为 `06cb1f0c0fb3e60edf6bfd1434e32bd6368cf7f9`。后端启动时自动将旧库迁移至 schema 3 并归一已知任务类型。C-DS-01 写请求超时为 60 秒，C-DS-03 通过随访问题列表读取并提交答复。契约专项包含 14 项既有用例，支持 Edge。 [v0.3.2 C1 回归](docs/C1_V032_CONTRACT_REGRESSION.md) · [v0.2.1 历史交接](docs/C_TO_B_V021_RETEST_RESPONSE_20261108.md)
 
 ## 安装与启动
 
-本机验证 Node 24.22.1、npm 12、Python 3.13.5；首次安装后端依赖在仓库根目录执行：
+本机验证 Node 24.22.1、npm 12、Python 3.13.5。C1 使用上方报告中的 `v0.3.2` 独立检出与专用契约服务。以下命令用于当前检出的日常开发。
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -68,13 +68,13 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e
-# 使用专用契约服务时，完整准备步骤见 v0.2.1 交接
+# 使用专用契约服务时，按 v0.3.2 C1 报告准备冻结源码和隔离库
 npm run test:contract
 ```
 
-E2E要求8020为专用`workbench-test.db`且模式mock；入口守卫不满足条件直接停止，防止误用共享库或收费模型。初版工作台验证为前端30项单测、15项E2E，以及后端149项和33场景兼容性回归。V3原始展示改进验证为38项单测、19项浏览器回归。根据B反馈继续改进后，前端45项单测、22项浏览器回归通过；本次未重新运行后端测试，最新证据见C→B复验交接。见 [测试报告](docs/TEST_REPORT_V2.md)。
+E2E 入口守卫要求 HTTP 后端处于 Mock 模式，并使用专用 `workbench-test.db`。常规 E2E 默认端口为 8020，C1 使用独立端口与冻结后端。 [当前 C1 结果](docs/C1_V032_CONTRACT_REGRESSION.md) · [历史测试报告](docs/TEST_REPORT_V2.md)
 
-另有本轮实际浏览器DeepSeek冒烟：**2次业务触发、6次厂商HTTP、21,924 tokens**。知识回答PASS；自动触发后的模型只读未行动FAIL。使用的是独立PR #3后端（仍待A审查），没有改后端源码；未将Mock成绩算入Real。`5192`真实模型预览已用满守卫预算，仅用于只读核验，不能继续收费重跑。
+历史浏览器 DeepSeek 冒烟使用独立 PR #3 后端，共 **2 次业务触发、6 次厂商 HTTP 请求、21,924 tokens**。知识回答 PASS，自动触发后的模型只读未行动 FAIL。`5192` 历史预览已用满该批次预算，可只读核验。
 
 `tools/real-smoke-server.py`、`tools/real-browser-smoke.mjs`为手动受限验收工具，不由npm测试自动运行。再次真实调用必须先明确新预算、新隔离环境及已审查后端，不能删除账本绕过限制。
 

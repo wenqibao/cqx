@@ -34,7 +34,11 @@ export const toolDescriptions: Record<string, string> = {
   respond: "给出管理说明",
 };
 
-// 只转换展示文字；原对象仍完整保存在技术详情中。未知字段明确提示，避免猜测业务含义。
+function mappedName(token: string) {
+  return Object.hasOwn(toolDescriptions, token) ? toolDescriptions[token] : name(token);
+}
+
+// 正文保留业务术语和量纲，仅转换已知技术标识。结构化字段通过 businessName 映射。
 export function businessText(
   value: unknown,
   fallback = "未提供业务说明",
@@ -45,24 +49,16 @@ export function businessText(
     .replace(
       /\b[A-Za-z][A-Za-z0-9_]*\b/g,
       (token) =>
-        toolDescriptions[token] ||
-        (name(token) !== token
-          ? name(token)
-          : token.includes("_") || /^[A-Z]{3,}$/.test(token)
-            ? "信息待核实（见日志）"
-            : token),
+        token.includes("_") || token === "DIAGNOSIS" || token === "PRESCRIPTION"
+          ? mappedName(token)
+          : token,
     );
 }
 export function businessName(value: unknown): string {
   if (typeof value !== "string" || !value) return "未提供";
-  return (
-    toolDescriptions[value] ||
-    (name(value) !== value
-      ? name(value)
-      : /^[\w.-]+$/.test(value)
-        ? "信息待核实（见日志）"
-        : businessText(value))
-  );
+  const mapped = mappedName(value);
+  if (mapped !== value) return mapped;
+  return /^[\w.-]+$/.test(value) ? "信息待核实（见日志）" : businessText(value);
 }
 
 export function runResponses(run: Record<string, unknown>): string[] {

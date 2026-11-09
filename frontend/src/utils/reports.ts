@@ -2,11 +2,19 @@ import { z } from "zod";
 import { obj } from "./format";
 const result = z.enum(["PASS", "FAIL", "BLOCKED", "INCONCLUSIVE", "NOT_RUN"]);
 const mode = z.enum(["mock", "real", "stub", "unknown"]);
+export type ReportResult = z.infer<typeof result>;
+export const reportResultDisplay = {
+  PASS: { label: "通过", color: "success" },
+  FAIL: { label: "失败", color: "error" },
+  BLOCKED: { label: "阻塞", color: "warning" },
+  INCONCLUSIVE: { label: "不确定", color: "processing" },
+  NOT_RUN: { label: "未执行", color: "default" },
+} satisfies Record<ReportResult, { label: string; color: string }>;
 export type ReportRow = {
   id: string;
   title: string;
   mode: string;
-  result: string;
+  result: ReportResult;
   runIds: string[];
   reason: string;
   origin: string;

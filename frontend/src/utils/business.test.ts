@@ -91,11 +91,15 @@ describe("业务展示保持结果边界", () => {
     const raw =
       "FORBIDDEN_ACTION request_human_review RUN-123 EVT-456 TSK-789 Q-abc KD-def";
     expect(businessText(raw)).not.toMatch(/RUN-|EVT-|TSK-|Q-|KD-/);
+    expect(businessText(raw)).toContain("操作超出系统允许范围，已拦截");
+    expect(businessText(raw)).toContain("请求医护人员复核");
     expect(raw).toContain("RUN-123");
   });
-  it("未知枚举不猜测含义，原文通过技术详情保留", () => {
+  it("结构化未知枚举提示核实，正文保留原词和量纲", () => {
     expect(businessName("future_action")).toContain("信息待核实");
-    expect(businessText("future_action")).toContain("日志");
+    expect(businessName("respond")).toBe("给出管理说明");
+    const prose = "自我血糖监测（SMBG）和 CGM，单位 mmol/L、mmHg。patient can respond. future_action constructor";
+    expect(businessText(prose)).toBe(prose);
   });
   it("知识无命中不写成已有依据", () => {
     expect(

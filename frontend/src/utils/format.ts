@@ -35,6 +35,7 @@ export const label: Record<string, string> = {
   NO_EVIDENCE: "缺少知识依据，不能给出结论",
   TOOL_NOT_ALLOWED: "操作不在允许范围内",
   TOO_MANY_ACTIONS: "本次计划动作过多",
+  INVALID_TASK_TYPE: "任务类型不受支持",
   INVALID_DUE: "任务截止时间不符合要求",
   DUPLICATE_TASK: "发现重复任务",
   MISSING_REQUIRED_DATA: "缺少必要信息",
@@ -63,6 +64,8 @@ export const label: Record<string, string> = {
   record_glucose: "补充血糖记录",
   record_activity: "补充活动记录",
   record_weight: "复测体重",
+  record_bp: "补充血压记录",
+  record_symptom: "补充症状记录",
   review_hypoglycemia: "复核低血糖记录",
   review_hyperglycemia: "复核显著高血糖记录",
   review_followup: "健康复评",
@@ -141,7 +144,7 @@ export const label: Record<string, string> = {
   ACTIVITY_DROP: "活动记录减少",
   ADHERENCE_DROP: "服药执行记录变化",
 };
-export const name = (v: string) => label[v] || v;
+export const name = (v: string) => (Object.hasOwn(label, v) ? label[v] : v);
 export function link(
   path: string,
   patient: string,

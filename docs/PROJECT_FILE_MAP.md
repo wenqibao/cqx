@@ -252,3 +252,4 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - `backend/app/safety/validators.py`：INVALID_TASK_TYPE、动作额度 detail
 - `backend/app/db/migrations.py`：SCHEMA_VERSION=3 旧类型归一
 - `tests/integration/test_real_a01_a02_a03.py`（12 项）
+- docs/real_acceptance_batch_v032.md：v0.3.2 批次授权、预算与场景预期

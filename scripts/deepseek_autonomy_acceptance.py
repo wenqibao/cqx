@@ -45,10 +45,12 @@ LEDGER = ROOT / ".tmp/deepseek-autonomy-ledger.json"
 LOCK = ROOT / ".tmp/deepseek-autonomy.lock"
 DB_PATH = ROOT / "data/runtime/deepseek_autonomy.db"
 CASES = ["R07", "R08", "R09", "R10", "R11"]
-# 用户明确批准的定向复跑：新患者、新报告、额外 1 次业务触发
-RERUN_CASE = "R07-r2"
-RERUN_OF = "R07"
-RERUN_PATIENT = "AUTO-R07-r2"
+# 用户明确批准的 v0.3.1 复跑批次：新患者、新报告、额外 2 次业务触发
+RERUN_CASES = {
+    "R07-r3": ("R07", "AUTO-R07-r3"),
+    "R09-r2": ("R09", "AUTO-R09-r2"),
+}
+RERUN_CASE = "R07-r3"  # 兼容旧测试/单场景入口
 MAX_TRIGGERS = 5
 MAX_VENDOR_ATTEMPTS = 16
 # R11 低血糖走安全快速路径，不调用模型；其余场景必须产生厂商调用
@@ -137,8 +139,8 @@ def ledger_lock():
         LOCK.unlink(missing_ok=True)
 
 
-def _allow_rerun() -> bool:
-    return os.environ.get("AUTONOMY_RERUN_APPROVED", "").strip() == "1"
+def _allow_rerun(case: str) -> bool:
+    return os.environ.get("AUTONOMY_RERUN_APPROVED", "").strip() == "1" and case in RERUN_CASES
 
 
 def reserve_business_trigger(case: str) -> None:
@@ -153,7 +155,8 @@ def reserve_business_trigger(case: str) -> None:
         if case in triggers["uncertain"]:
             raise BudgetError(f"{case} 结果待确认，禁止自动重发；请只读确认")
         used = len(set(triggers["done"]) | set(triggers["pending"]) | set(triggers["uncertain"]))
-        limit = MAX_TRIGGERS + (1 if _allow_rerun() and case == RERUN_CASE else 0)
+        # 额外额度只给已批准的复跑场景；其他场景仍以 5 为上限
+        limit = MAX_TRIGGERS + (len(RERUN_CASES) if _allow_rerun(case) else 0)
         if used >= limit:
             raise BudgetError(f"业务触发预算已用尽（{limit}），发送前阻断")
         triggers["pending"][case] = dt.datetime.now(dt.timezone.utc).isoformat()
@@ -305,49 +308,74 @@ def prepare() -> None:
     print(json.dumps({"prepared": True, "event_preview": fixture["event_preview"]}, ensure_ascii=False))
 
 
-def prepare_rerun() -> None:
-    """为已批准的 R07 复跑创建全新合成患者，不重建原验收数据。"""
+def _rerun_fixture_path(case: str) -> Path:
+    return ROOT / ".tmp" / f"deepseek-autonomy-rerun-{case}.json"
+
+
+def prepare_rerun(case: str) -> None:
+    """为已批准的复跑场景创建全新合成患者，不重建原验收数据。"""
     from backend.app.config import settings
     from backend.app.db.connection import connect, iso, now
+    from backend.app.events.detector import detect_events
+    from backend.app.tasks.service import create_task
 
+    assert case in RERUN_CASES, f"未批准的复跑场景: {case}"
+    base, patient = RERUN_CASES[case]
+    fixture_path = _rerun_fixture_path(case)
     (ROOT / ".tmp").mkdir(parents=True, exist_ok=True)
     cfg = settings()
     assert Path(cfg.db_path).resolve() == DB_PATH.resolve(), f"请使用独立验收库：{DB_PATH}"
-    assert not RERUN_FIXTURES.exists(), "复跑已准备，禁止重复创建"
+    assert not fixture_path.exists(), "复跑已准备，禁止重复创建"
     created = request("POST", "/patients", {
-        "id": RERUN_PATIENT, "name": "自主验收 R07 复跑（虚构）", "age": 56, "duration_years": 6,
+        "id": patient, "name": f"自主验收 {case}（虚构）", "age": 56, "duration_years": 6,
         "goals": ["稳定血糖", "规律记录"], "is_synthetic": True,
     })
     assert created["status"] == 201, created
-    for index, value in enumerate([7.0, 7.8, 8.6, 9.4]):
-        assert request("POST", f"/patients/{RERUN_PATIENT}/records", {
+    values = [7.0, 7.8, 8.6, 9.4] if base == "R07" else [7.4, 8.2]
+    for index, value in enumerate(values):
+        assert request("POST", f"/patients/{patient}/records", {
             "kind": "fasting_glucose", "value": value,
-            "recorded_at": iso(now() - dt.timedelta(hours=24 * (4 - index))), "trigger_agent": False,
+            "recorded_at": iso(now() - dt.timedelta(hours=24 * (len(values) - index))),
+            "trigger_agent": False,
         })["status"] == 201
-    assert request("POST", f"/patients/{RERUN_PATIENT}/records",
+    assert request("POST", f"/patients/{patient}/records",
                    {"kind": "steps", "value": 6000, "trigger_agent": False})["status"] == 201
-    assert request("POST", f"/patients/{RERUN_PATIENT}/records",
+    assert request("POST", f"/patients/{patient}/records",
                    {"kind": "medication_taken", "value": 1, "trigger_agent": False})["status"] == 201
-    connect(DB_PATH).close()
-    RERUN_FIXTURES.write_text(json.dumps({"patient": RERUN_PATIENT, "case": RERUN_CASE,
-                                          "prepared_at": iso()}, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps({"prepared": True, "case": RERUN_CASE, "patient": RERUN_PATIENT}, ensure_ascii=False))
+    task_id = None
+    if base == "R09":
+        conn = connect(DB_PATH)
+        try:
+            detect_events(conn, patient)
+            event = conn.execute("SELECT id FROM events WHERE patient_id=? AND status='open' LIMIT 1",
+                                 (patient,)).fetchone()
+            task, _ = create_task(conn, patient, task_type="confirm_medication", title="核实近3天服药",
+                                  event_id=event["id"] if event else None,
+                                  due_at=iso(now() + dt.timedelta(hours=20)), schedule_review=False)
+            task_id = task["id"]
+        finally:
+            conn.close()
+    fixture_path.write_text(json.dumps({"patient": patient, "case": case, "base": base,
+                                         "task_id": task_id, "prepared_at": iso()},
+                                        ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps({"prepared": True, "case": case, "patient": patient}, ensure_ascii=False))
 
 
 # ---------------- 执行 / 采集 ----------------
 
 def run(case: str) -> None:
-    assert case in CASES or case == RERUN_CASE, f"未知场景 {case}"
-    if case == RERUN_CASE:
-        if not _allow_rerun():
+    assert case in CASES or case in RERUN_CASES, f"未知场景 {case}"
+    if case in RERUN_CASES:
+        if not _allow_rerun(case):
             raise BudgetError("复跑需要 AUTONOMY_RERUN_APPROVED=1 的显式授权")
-        assert RERUN_FIXTURES.exists(), "请先执行 prepare-rerun"
+        assert _rerun_fixture_path(case).exists(), "请先执行 prepare-rerun"
     output = REPORT / f"autonomy_{case}_response.json"
     if output.exists():
         raise BudgetError("该场景已执行，禁止重复收费测试")
-    if case == RERUN_CASE:
-        pid = json.loads(RERUN_FIXTURES.read_text(encoding="utf-8"))["patient"]
-        message = MESSAGES[RERUN_OF]
+    if case in RERUN_CASES:
+        fixture = json.loads(_rerun_fixture_path(case).read_text(encoding="utf-8"))
+        pid = fixture["patient"]
+        message = MESSAGES[fixture["base"]]
     else:
         fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
         pid = fixtures["patients"][case]
@@ -384,10 +412,13 @@ def run(case: str) -> None:
 
 
 def collect(case: str) -> None:
-    assert case in CASES or case == RERUN_CASE, f"未知场景 {case}"
-    if case == RERUN_CASE:
-        pid = json.loads(RERUN_FIXTURES.read_text(encoding="utf-8"))["patient"]
-        expectation = "R07 复跑：只保留 1 条 scheduled 复评，任务不叠加"
+    assert case in CASES or case in RERUN_CASES, f"未知场景 {case}"
+    if case in RERUN_CASES:
+        fixture = json.loads(_rerun_fixture_path(case).read_text(encoding="utf-8"))
+        pid = fixture["patient"]
+        expectation = ("R07 复跑：只保留 1 条 scheduled 复评，且不创建额外任务"
+                       if fixture["base"] == "R07" else
+                       "R09 复跑：复用或新建任务均有依据，复评不因作用域失败")
     else:
         fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
         pid = fixtures["patients"][case]
@@ -430,7 +461,8 @@ if __name__ == "__main__":
     if args.action == "prepare":
         prepare()
     elif args.action == "prepare-rerun":
-        prepare_rerun()
+        assert args.scenario in RERUN_CASES, f"未批准的复跑场景: {args.scenario}"
+        prepare_rerun(args.scenario)
     elif args.action == "run":
         run(args.scenario)
     else:

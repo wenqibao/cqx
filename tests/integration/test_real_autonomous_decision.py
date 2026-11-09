@@ -421,3 +421,57 @@ def test_resolved_duplicate_warning_after_update(conn):
     assert result["status"] == "completed", result
     warnings = [w for w in result.get("warnings", []) if w.get("code") == "DUPLICATE_TASK"]
     assert warnings and warnings[0]["resolved"] is True
+
+def test_review_only_request_does_not_create_task(conn):
+    _patient(conn, "V31A")
+    evt = _glucose_event(conn, "V31A")
+    llm = CapturingLLM([LLMResponse(content="安排复评", tool_calls=[
+        ToolCall("schedule_review", {"patient_id": "V31A", "event_id": evt, "delay_hours": 48}, "c1"),
+        ToolCall("create_task", {"patient_id": "V31A", "task_type": "record_verification",
+                                 "title": "核实近7天记录", "event_id": evt,
+                                 "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c2"),
+    ], raw={})])
+    result = orchestrator.run_agent(conn, "V31A", trigger_type="event_detected", event_ids=[evt],
+                                    message="请安排一次正式复评，并说明依据。", llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='V31A'").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='V31A'").fetchone()["c"] == 1
+    assert any(s["code"] == "TOOL_NOT_ALLOWED" for s in steps(conn, result["run_id"]))
+
+
+def test_task_request_still_allows_create_task(conn):
+    _patient(conn, "V31B")
+    evt = _glucose_event(conn, "V31B")
+    llm = CapturingLLM([LLMResponse(content="创建任务", tool_calls=[ToolCall("create_task", {
+        "patient_id": "V31B", "task_type": "record_glucose", "title": "补录血糖",
+        "event_id": evt, "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "V31B", trigger_type="event_detected", event_ids=[evt],
+                                    message="帮我建一个记录血糖的任务，并安排复评。", llm=llm)
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='V31B'").fetchone()["c"] == 1
+
+
+def test_schedule_review_without_scope_uses_current_event(conn):
+    _patient(conn, "V31C")
+    evt = _glucose_event(conn, "V31C")
+    tasks.create_task(conn, "V31C", task_type="confirm_medication", title="核实服药",
+                      due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="安排复评", tool_calls=[ToolCall("schedule_review", {
+        "patient_id": "V31C", "delay_hours": 24}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "V31C", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    review = conn.execute("SELECT * FROM reviews WHERE patient_id='V31C'").fetchone()
+    assert review and review["event_id"] == evt
+
+
+def test_r09_different_task_type_is_allowed_with_existing_task(conn):
+    _patient(conn, "V31D")
+    evt = _glucose_event(conn, "V31D")
+    tasks.create_task(conn, "V31D", task_type="confirm_medication", title="核实服药",
+                      event_id=evt, due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="缺血糖记录，新建任务", tool_calls=[ToolCall("create_task", {
+        "patient_id": "V31D", "task_type": "record_glucose", "title": "补录空腹血糖",
+        "event_id": evt, "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "V31D", trigger_type="event_detected", event_ids=[evt],
+                                    message="我的记录有缺项，请按我现有的任务帮我处理，不要重复建任务。", llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='V31D'").fetchone()["c"] == 2

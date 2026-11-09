@@ -21,9 +21,13 @@ def load(monkeypatch, workdir):
     monkeypatch.setattr(module, "LOCK", workdir / "ledger.lock")
     monkeypatch.setattr(module, "REPORT", workdir / "reports")
     monkeypatch.setattr(module, "FIXTURES", workdir / "fixtures.json")
-    monkeypatch.setattr(module, "RERUN_FIXTURES", workdir / "rerun-fixtures.json")
-    (workdir / "rerun-fixtures.json").write_text(
-        json.dumps({"patient": "AUTO-R07-r2", "case": module.RERUN_CASE}), encoding="utf-8"
+    def _fixture_path(case):
+        return workdir / f"rerun-{case}.json"
+
+    monkeypatch.setattr(module, "_rerun_fixture_path", _fixture_path)
+    _fixture_path(module.RERUN_CASE).write_text(
+        json.dumps({"patient": "AUTO-R07-r3", "case": module.RERUN_CASE, "base": "R07"}),
+        encoding="utf-8",
     )
     (workdir / "fixtures.json").write_text(
         json.dumps({"patients": {case: "AUTO-" + case for case in module.CASES}}), encoding="utf-8"
@@ -269,3 +273,18 @@ def test_rerun_approval_does_not_unlock_other_sixth_triggers(monkeypatch, workdi
     mod.write_ledger(ledger)
     with pytest.raises(mod.BudgetError, match="预算已用尽"):
         mod.reserve_business_trigger("R99")
+
+def test_both_approved_reruns_fit_the_batch(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    monkeypatch.setenv("AUTONOMY_RERUN_APPROVED", "1")
+    ledger = mod._default_ledger()
+    ledger["business_triggers"]["done"] = {c: {"run_id": "R"} for c in mod.CASES}
+    mod.write_ledger(ledger)
+    for case in mod.RERUN_CASES:
+        mod._rerun_fixture_path(case).write_text(
+            json.dumps({"patient": "P-" + case, "case": case,
+                        "base": mod.RERUN_CASES[case][0]}), encoding="utf-8"
+        )
+        mod.run(case)
+    done = mod.read_ledger()["business_triggers"]["done"]
+    assert set(mod.RERUN_CASES) <= set(done)

@@ -98,11 +98,13 @@ class ToolContext:
         patient_id: str,
         run_id: str,
         evidence: list[dict[str, Any]] | None = None,
+        event_ids: list[str] | None = None,
     ) -> None:
         self.conn = conn
         self.patient_id = patient_id
         self.run_id = run_id
         self.evidence = evidence or []
+        self.event_ids = event_ids or []
         self.responses: list[str] = []
 
 
@@ -253,11 +255,16 @@ def _query_history(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _schedule_review(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    # 未显式给 task/event 时，优先关联本次运行正在处理的那个事件
+    task_id = args.get("task_id")
+    event_id = args.get("event_id")
+    if not task_id and not event_id and len(ctx.event_ids) == 1:
+        event_id = ctx.event_ids[0]
     review = reviews.schedule_review(
         ctx.conn,
         args.get("patient_id") or ctx.patient_id,
-        task_id=args.get("task_id"),
-        event_id=args.get("event_id"),
+        task_id=task_id,
+        event_id=event_id,
         run_id=ctx.run_id,
         delay_hours=args.get("delay_hours"),
         reason=args.get("reason", "按计划安排复评"),

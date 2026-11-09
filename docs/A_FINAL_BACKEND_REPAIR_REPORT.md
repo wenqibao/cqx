@@ -263,3 +263,51 @@ python -m cli.main version       → 0.3.0
 
 ### 真实模型状态
 R07-r2 PASS（`995a095`）；R08–R11 沿用既有真实结果；本版本号提交未调用真实模型。
+
+## 13. v0.3.1：R07/R09 真实复验反馈修复（2026-11-09）
+
+### R07：只要求复评时不再额外建任务
+- 提示词明确：用户只要求安排复评时，只调用 `schedule_review`；
+- 服务端守卫：消息命中"安排正式复评/只安排复评"等且本轮 `schedule_review` 已成功时，
+  `create_task` 以 `TOOL_NOT_ALLOWED` 软拒绝，不产生任务；
+- 含"任务/记录/提醒"等诉求的消息不受影响。
+
+### R09：口径按 A 方案
+- 同事件下**不同类型**任务不再被误判为重复（重复判定只看 `task_type`）；
+- 既有 `confirm_medication` 与新建 `record_glucose` 可并存，各自有依据；
+- 复评作用域：`schedule_review` 未给 `task/event` 时，自动关联本次运行正在处理的唯一事件，
+  减少无意义的 `TOOL_EXECUTION_FAILED`。
+
+### 回归
+```text
+python -m pytest                 → 485 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+```
+
+新增 4 项：复评-only 不建任务、含任务诉求仍可建、无作用域复评关联当前事件、R09 不同类型任务并存。
+真实模型未调用；R07/R09 复跑需新批次授权。
+
+### v0.3.1 复跑批次（用户已批准）
+
+- 场景：`R07-r3`、`R09-r2`（各 1 次业务触发）；
+- 新患者：`AUTO-R07-r3`、`AUTO-R09-r2`；报告独立，不覆盖历史；
+- 业务触发额度：仅这两个场景各 +1（总 7），需 `AUTONOMY_RERUN_APPROVED=1`；
+- 厂商额度：新批次累计上限 **20**（已用 12 + 本批约 6），需服务端
+  `AGENT_VENDOR_MAX_ATTEMPTS=20`，不得清账本；
+- R08/R10/R11 不重跑。
+
+命令：
+```powershell
+$env:AUTONOMY_RERUN_APPROVED="1"
+python scripts/deepseek_autonomy_acceptance.py prepare-rerun R07-r3
+python scripts/deepseek_autonomy_acceptance.py run R07-r3
+python scripts/deepseek_autonomy_acceptance.py collect R07-r3
+python scripts/deepseek_autonomy_acceptance.py prepare-rerun R09-r2
+python scripts/deepseek_autonomy_acceptance.py run R09-r2
+python scripts/deepseek_autonomy_acceptance.py collect R09-r2
+```
+
+Expected：
+- R07-r3：`schedule_review` 成功、复评 1 条、**任务 0 条**（只要求复评）、completed；
+- R09-r2：既有 `confirm_medication` 可复用或按缺项新建 `record_glucose`，任务有依据；
+  `schedule_review` 不再因作用域失败（自动关联当前事件），rejections 为空或仅可修正。

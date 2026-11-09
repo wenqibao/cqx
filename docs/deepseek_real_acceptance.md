@@ -165,3 +165,28 @@ $env:AGENT_VENDOR_MAX_ATTEMPTS="16"
 - 其余场景若 POST 后账本未增加，脚本仍拒绝计入验收；
 - 显式 `schedule_review` 与 `create_task` 自动复评按事件合并：
   同一任务只保留一条；同事件下不同任务各自保留。
+
+### v0.3.1 复跑批次（用户已批准）
+
+- 场景：`R07-r3`、`R09-r2`（各 1 次业务触发）；
+- 新患者：`AUTO-R07-r3`、`AUTO-R09-r2`；报告独立，不覆盖历史；
+- 业务触发额度：仅这两个场景各 +1（总 7），需 `AUTONOMY_RERUN_APPROVED=1`；
+- 厂商额度：新批次累计上限 **20**（已用 12 + 本批约 6），需服务端
+  `AGENT_VENDOR_MAX_ATTEMPTS=20`，不得清账本；
+- R08/R10/R11 不重跑。
+
+命令：
+```powershell
+$env:AUTONOMY_RERUN_APPROVED="1"
+python scripts/deepseek_autonomy_acceptance.py prepare-rerun R07-r3
+python scripts/deepseek_autonomy_acceptance.py run R07-r3
+python scripts/deepseek_autonomy_acceptance.py collect R07-r3
+python scripts/deepseek_autonomy_acceptance.py prepare-rerun R09-r2
+python scripts/deepseek_autonomy_acceptance.py run R09-r2
+python scripts/deepseek_autonomy_acceptance.py collect R09-r2
+```
+
+Expected：
+- R07-r3：`schedule_review` 成功、复评 1 条、**任务 0 条**（只要求复评）、completed；
+- R09-r2：既有 `confirm_medication` 可复用或按缺项新建 `record_glucose`，任务有依据；
+  `schedule_review` 不再因作用域失败（自动关联当前事件），rejections 为空或仅可修正。

@@ -622,11 +622,7 @@ def _finalize_events(
                 row = conn.execute("SELECT event_id FROM reviews WHERE id=?", (review_id,)).fetchone()
                 if row and row["event_id"]:
                     referenced.add(row["event_id"])
-    if not referenced and len(events) == 1 and any(
-        entry.get("ok") and entry.get("tool") in business for entry in executed
-    ):
-        # 单事件场景且确有管理动作：可视为处理；纯读取仍保持 open
-        referenced = {events[0]["id"]}
+    # B1-002：不再用"只剩一个事件"推断关联；只有明确关联才关闭
     targets = [event["id"] for event in events if event["id"] in referenced]
     if targets:
         mark_handled(conn, targets, run_id)
@@ -846,7 +842,7 @@ def _run_real_llm(
                         "existing_task_id": existing_task["id"],
                     }
                     extra_warnings.append({"code": "DUPLICATE_TASK", "tool": "create_task",
-                                           "resolved": True, "existing_task_id": existing_task["id"]})
+                                           "resolved": False, "existing_task_id": existing_task["id"]})
                     history.append({
                         "role": "system",
                         "content": f"上一轮重复创建被拒绝。下一轮只允许 update_task({existing_task['id']}) "
@@ -1006,6 +1002,14 @@ def _run_real_llm(
             if coverage.get("event_id") and coverage["event_id"] in {e["id"] for e in events}:
                 mark_handled(conn, [coverage["event_id"]], run_id)
                 coverage["event_closed"] = True
+    # 重复任务告警只有在真实 update_task 或覆盖核验通过后才算已解决
+    resolved_tasks = {e["result"].get("task_id") for e in executed
+                      if e.get("ok") and e["tool"] == "update_task" and isinstance(e.get("result"), dict)}
+    if coverage:
+        resolved_tasks.add(coverage.get("task_id"))
+    for warning in extra_warnings:
+        if warning.get("existing_task_id") in resolved_tasks:
+            warning["resolved"] = True
     if intent in ("event_response", "negotiate_plan") and not question_created and not parse_only \
             and not business_done and not coverage:
         reject([{"code": validators.POSTCHECK_MISMATCH, "message": "所需业务动作未执行，不能标记完成"}])

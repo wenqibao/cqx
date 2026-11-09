@@ -136,3 +136,41 @@ python scripts/run_scenarios.py  → 33/33 PASS (mock)
 ```
 
 真实 DeepSeek 调用 0 次；R07-R11 真实结果 NOT RUN，等待 B1/C1 与用户授权。
+
+## 9. 追加：B1 独立验收五项修复（2026-11-09）
+
+### B1-001 厂商计数接到真实发送层
+- 新增 `backend/app/agent/vendor_budget.py`：账本结构/版本/范围校验、原子写、进程锁、
+  发送前预占、失败/超时同样计数、未启用时 no-op；
+- `OpenAICompatLLM.plan_actions` 在真正 `client.post` 前调用 `vendor_budget.reserve()`，
+  预算耗尽时抛 `LLMRequestError`，**不发送请求**；
+- 新增 `GET /api/system/vendor-budget`（只读：enabled/path/used/limit）；
+- 验收脚本不再自行计数，预检要求服务端守卫已启用且有余量；POST 后校验账本计数确实增加，
+  否则拒绝把结果计入验收（单一计数责任在服务端发送层）。
+
+### B1-002 删除单事件兜底关闭
+- `_finalize_events` 不再因"只剩一个事件"推断关联；只关闭参数或数据库对象明确关联的事件。
+
+### B1-003 账本结构校验
+- 账本必须含 `version=1`、`business_triggers{pending,done,uncertain}`、
+  `vendor_http_attempts.count`、`collection_reads`，类型/范围非法即拒绝且保留原件；
+- 只有"文件不存在"才创建新账本，`{}`、缺字段、负数均不被静默恢复。
+
+### B1-004 uncertain 计入总触发额度
+- 总占用 = done ∪ pending ∪ uncertain 的去重并集，仍以 5 为上限。
+
+### B1-005 重复任务告警 resolved 延后判定
+- 检测到 `DUPLICATE_TASK` 时先记 `resolved=false`；
+  只有真实 `update_task` 成功或 `task_coverage` 核验通过后才置 `true`。
+
+### 回归
+
+```text
+python -m pytest                 → 473 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+```
+
+新增：`tests/integration/test_vendor_budget.py`（8 项，真实适配器 + stub transport）、
+`tests/unit/test_autonomy_acceptance_offline.py`（16 项，预算/账本/中断/采集），
+`test_real_autonomous_decision.py` 增加 B1-002/B1-005 共 5 项。
+真实 DeepSeek 调用 0 次；R07-R11 仍为 NOT RUN。

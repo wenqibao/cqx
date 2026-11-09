@@ -143,3 +143,17 @@ python scripts/deepseek_autonomy_acceptance.py collect R07
 - POST 超时/断连 → 账本记 `uncertain`，**禁止自动重发**，只能用 `collect` 只读确认；
 - `collect` 可重复，首份快照不覆盖；
 - 不得通过删账本、扩大上限、重置报告绕过预算。
+
+### 服务端厂商守卫（B1-001 修订）
+
+厂商计数由**服务端发送层**负责，脚本不再自行计数：
+
+```powershell
+$env:AGENT_VENDOR_LEDGER=".tmp/deepseek-autonomy-ledger.json"
+$env:AGENT_VENDOR_MAX_ATTEMPTS="16"
+```
+
+- `OpenAICompatLLM` 在每次真正发送前预占；失败/超时同样计数；预算耗尽时请求不会发出；
+- 验收脚本预检 `GET /api/system/vendor-budget`：必须 `enabled=true` 且 `used<limit`；
+- POST 后脚本核对账本计数确实增加，否则拒绝计入验收；
+- 账本结构非法（版本/缺字段/负数）时服务端拒绝发送，且不覆盖原文件。

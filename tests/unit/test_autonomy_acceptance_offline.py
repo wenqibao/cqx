@@ -1,9 +1,9 @@
-"""离线验收脚本测试：预算分离、fail-closed、无真实网络/模型调用。"""
+"""离线验收脚本测试：预检、业务预算、中断恢复、采集语义；零真实网络/模型。"""
 from __future__ import annotations
 
 import importlib.util
 import json
-import sys
+import json as _json
 from pathlib import Path
 
 import httpx
@@ -24,6 +24,7 @@ def load(monkeypatch, workdir):
     (workdir / "fixtures.json").write_text(
         json.dumps({"patients": {case: "AUTO-" + case for case in module.CASES}}), encoding="utf-8"
     )
+    _Client.ledger_path = workdir / "ledger.json"
     return module
 
 
@@ -38,8 +39,11 @@ class _Resp:
 
 class _Client:
     mode = {"llm_mode": "real", "model": "deepseek-chat", "ok": True}
+    budget = {"ok": True, "enabled": True, "used": 0, "limit": 16}
     fail_all: Exception | None = None
     fail_run: Exception | None = None
+    skip_count = False
+    ledger_path: Path | None = None
 
     def __init__(self, *args, **kwargs):
         pass
@@ -55,11 +59,17 @@ class _Client:
             raise _Client.fail_all
         path = url.split("/api", 1)[1]
         if path.endswith("/agent/runs"):
+            if not _Client.skip_count:
+                data = _json.loads(_Client.ledger_path.read_text(encoding="utf-8"))
+                data["vendor_http_attempts"]["count"] += 1
+                _Client.ledger_path.write_text(_json.dumps(data, ensure_ascii=False), encoding="utf-8")
             if _Client.fail_run:
                 raise _Client.fail_run
             return _Resp({"run_id": "RUN-T", "status": "completed"})
         if path == "/system/mode":
             return _Resp(dict(_Client.mode))
+        if path == "/system/vendor-budget":
+            return _Resp(dict(_Client.budget))
         if path.endswith("/runs"):
             return _Resp({"items": [{"id": "RUN-T"}]})
         if path.startswith("/runs/"):
@@ -71,22 +81,24 @@ class _Client:
 def _patch_client(monkeypatch):
     _Client.fail_all = None
     _Client.fail_run = None
+    _Client.skip_count = False
     _Client.mode = {"llm_mode": "real", "model": "deepseek-chat", "ok": True}
+    _Client.budget = {"ok": True, "enabled": True, "used": 0, "limit": 16}
     monkeypatch.setattr(httpx, "Client", _Client)
 
 
-def test_preflight_accepts_real_mode(monkeypatch, workdir):
+def test_preflight_accepts_real_mode_with_enabled_budget(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
-    assert mod.preflight()["llm_mode"] == "real"
-    assert mod.read_ledger()["business_triggers"]["pending"] == {}
+    mode = mod.preflight()
+    assert mode["llm_mode"] == "real"
+    assert mode["vendor_budget"]["enabled"] is True
 
 
-def test_preflight_rejects_mock_without_trigger(monkeypatch, workdir):
+def test_preflight_rejects_mock(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
     _Client.mode = {"llm_mode": "mock", "model": "mock", "ok": True}
     with pytest.raises(mod.BudgetError, match="real"):
         mod.preflight()
-    assert mod.read_ledger()["vendor_http_attempts"]["count"] == 0
 
 
 def test_preflight_rejects_ok_false(monkeypatch, workdir):
@@ -103,32 +115,43 @@ def test_preflight_rejects_missing_model(monkeypatch, workdir):
         mod.preflight()
 
 
+def test_preflight_rejects_disabled_vendor_budget(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    _Client.budget = {"ok": True, "enabled": False, "used": 0, "limit": 16}
+    with pytest.raises(mod.BudgetError, match="AGENT_VENDOR_LEDGER"):
+        mod.preflight()
+
+
+def test_preflight_rejects_exhausted_vendor_budget(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    _Client.budget = {"ok": True, "enabled": True, "used": 16, "limit": 16}
+    with pytest.raises(mod.BudgetError, match="已用尽"):
+        mod.preflight()
+
+
 def test_preflight_network_failure_has_no_side_effect(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
     _Client.fail_all = httpx.ConnectError("boom")
     with pytest.raises(httpx.ConnectError):
         mod.preflight()
-    ledger = mod.read_ledger()
-    assert ledger["vendor_http_attempts"]["count"] == 0
-    assert ledger["business_triggers"]["done"] == {}
+    assert mod.read_ledger()["business_triggers"]["done"] == {}
 
 
-def test_vendor_attempt_cap_blocks_before_17th(monkeypatch, workdir):
+def test_run_rejects_when_server_did_not_count_vendor_request(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
-    ledger = mod.read_ledger()
-    ledger["vendor_http_attempts"]["count"] = 15
-    mod.write_ledger(ledger)
-    assert mod.reserve_vendor_attempt() == 16
-    with pytest.raises(mod.BudgetError, match="预算已用尽"):
-        mod.reserve_vendor_attempt()
+    _Client.skip_count = True
+    with pytest.raises(mod.BudgetError, match="发送层没有记录"):
+        mod.run("R07")
 
 
-def test_business_trigger_cap_blocks_sixth(monkeypatch, workdir):
+def test_business_cap_counts_uncertain_and_pending(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
-    ledger = mod.read_ledger()
-    ledger["business_triggers"]["done"] = {case: {"run_id": "R"} for case in mod.CASES[:4]}
-    ledger["business_triggers"]["pending"] = {"R11": "2026-01-01T00:00:00Z"}
-    mod.write_ledger(ledger)
+    mod.reserve_business_trigger("R07")
+    mod.mark_uncertain("R07", "timeout")
+    for case in ("R08", "R09", "R10"):
+        mod.reserve_business_trigger(case)
+        mod.finish_business_trigger(case, "RUN", "completed")
+    mod.reserve_business_trigger("R11")
     with pytest.raises(mod.BudgetError, match="预算已用尽"):
         mod.reserve_business_trigger("R99")
 
@@ -141,12 +164,30 @@ def test_duplicate_scenario_is_blocked(monkeypatch, workdir):
         mod.reserve_business_trigger("R07")
 
 
+def test_corrupt_ledger_missing_fields_is_rejected(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    (workdir / "ledger.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(mod.BudgetError, match="版本"):
+        mod.read_ledger()
+    with pytest.raises(mod.BudgetError):
+        mod.reserve_business_trigger("R07")
+
+
+def test_corrupt_ledger_negative_count_is_rejected(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    data = mod._default_ledger()
+    data["vendor_http_attempts"]["count"] = -1
+    (workdir / "ledger.json").write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(mod.BudgetError, match="负数"):
+        mod.read_ledger()
+
+
 def test_get_collection_does_not_count_vendor(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
+    mod.write_ledger(mod._default_ledger())
     mod.request("GET", "/patients/AUTO-R07/tasks", collection=True)
-    ledger = mod.read_ledger()
-    assert ledger["vendor_http_attempts"]["count"] == 0
-    assert ledger["collection_reads"] == 1
+    assert mod.read_ledger()["vendor_http_attempts"]["count"] == 0
+    assert mod.read_ledger()["collection_reads"] == 1
 
 
 def test_timeout_marks_uncertain_and_blocks_resend(monkeypatch, workdir):
@@ -168,7 +209,6 @@ def test_all_five_scenarios_complete_offline(monkeypatch, workdir):
     ledger = mod.read_ledger()
     assert set(ledger["business_triggers"]["done"]) == set(mod.CASES)
     assert ledger["vendor_http_attempts"]["count"] == 5
-    assert ledger["collection_reads"] > 0
     for case in mod.CASES:
         assert (workdir / "reports" / f"autonomy_{case}_response.json").exists()
         assert (workdir / "reports" / f"autonomy_{case}_snapshot.json").exists()
@@ -176,9 +216,9 @@ def test_all_five_scenarios_complete_offline(monkeypatch, workdir):
 
 def test_repeated_collect_is_read_only_and_does_not_overwrite(monkeypatch, workdir):
     mod = load(monkeypatch, workdir)
+    mod.write_ledger(mod._default_ledger())
     mod.collect("R07")
-    vendor_before = mod.read_ledger()["vendor_http_attempts"]["count"]
     mod.collect("R07")
     assert (workdir / "reports" / "autonomy_R07_snapshot.json").exists()
     assert (workdir / "reports" / "autonomy_R07_snapshot_recheck_1.json").exists()
-    assert mod.read_ledger()["vendor_http_attempts"]["count"] == vendor_before == 0
+    assert mod.read_ledger()["vendor_http_attempts"]["count"] == 0

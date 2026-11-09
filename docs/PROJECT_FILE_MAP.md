@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 456 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
+python -m pytest -q                 # 473 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
 python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 
@@ -239,3 +239,7 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - `tests/integration/test_real_action_verification.py`：6 项反向核验 + 正向全链路
 - `docs/A_FINAL_BACKEND_REPAIR_REPORT.md`
 - `tests/unit/test_autonomy_acceptance_offline.py`：验收脚本预算/预检/超时/重复采集离线测试（12 项）
+
+- `backend/app/agent/vendor_budget.py`：服务端厂商请求预算守卫（结构校验/原子写/发送前预占）
+- `tests/integration/test_vendor_budget.py`：适配器 + stub transport 的计数/阻断/失败测试（8 项）
+- `backend/app/api/routes_ops.py`：新增 GET /system/vendor-budget（只读）

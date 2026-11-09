@@ -2,7 +2,8 @@
 
 账本口径（务必区分）：
 - business_triggers：会启动模型/业务执行的入口，每场景最多一次，总计 5；
-- vendor_http_attempts：真正发往 DeepSeek 的 HTTP 尝试（含失败/超时），总计 16；
+- vendor_http_attempts：由**服务端发送层**在每次真实 HTTP 前预占（含失败/超时），总计 16；
+  脚本不再自行计数，避免双计；
 - collection_reads：状态/轨迹/任务/审计等只读采集，单列统计，不消耗厂商额度。
 
 用法（B 在获得明确授权后执行；A 本地不运行真实模型）：
@@ -62,12 +63,36 @@ class BudgetError(RuntimeError):
 
 # ---------------- 账本（原子写 + 进程锁） ----------------
 
+SCHEMA_VERSION = 1
+
+
 def _default_ledger() -> dict:
     return {
+        "version": SCHEMA_VERSION,
         "business_triggers": {"pending": {}, "done": {}, "uncertain": {}},
         "vendor_http_attempts": {"count": 0},
         "collection_reads": 0,
     }
+
+
+def validate_ledger(data: dict) -> None:
+    """结构/版本/范围校验：非法账本拒绝，绝不静默恢复为 0。"""
+    if not isinstance(data, dict):
+        raise BudgetError("账本不是 JSON 对象")
+    if data.get("version") != SCHEMA_VERSION:
+        raise BudgetError(f"账本版本不支持: {data.get('version')!r}")
+    triggers = data.get("business_triggers")
+    if not isinstance(triggers, dict) or not all(
+        isinstance(triggers.get(key), dict) for key in ("pending", "done", "uncertain")
+    ):
+        raise BudgetError("账本缺少 business_triggers 结构")
+    attempts = data.get("vendor_http_attempts")
+    if not isinstance(attempts, dict) or not isinstance(attempts.get("count"), int):
+        raise BudgetError("账本缺少 vendor_http_attempts.count")
+    if attempts["count"] < 0:
+        raise BudgetError("厂商请求计数为负数")
+    if not isinstance(data.get("collection_reads"), int) or data["collection_reads"] < 0:
+        raise BudgetError("collection_reads 非法")
 
 
 def read_ledger() -> dict:
@@ -77,11 +102,8 @@ def read_ledger() -> dict:
         data = json.loads(LEDGER.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:  # 账本损坏时拒绝继续，绝不静默清零
         raise BudgetError(f"账本损坏，拒绝继续：{exc}") from exc
-    base = _default_ledger()
-    base["business_triggers"].update(data.get("business_triggers", {}))
-    base["vendor_http_attempts"]["count"] = int(data.get("vendor_http_attempts", {}).get("count", 0))
-    base["collection_reads"] = int(data.get("collection_reads", 0))
-    return base
+    validate_ledger(data)
+    return data
 
 
 def write_ledger(data: dict) -> None:
@@ -108,18 +130,6 @@ def ledger_lock():
         LOCK.unlink(missing_ok=True)
 
 
-def reserve_vendor_attempt() -> int:
-    """厂商请求发送前预占额度；失败/超时也计数。"""
-    with ledger_lock():
-        data = read_ledger()
-        used = data["vendor_http_attempts"]["count"]
-        if used >= MAX_VENDOR_ATTEMPTS:
-            raise BudgetError(f"厂商请求预算已用尽（{MAX_VENDOR_ATTEMPTS}），发送前阻断")
-        data["vendor_http_attempts"]["count"] = used + 1
-        write_ledger(data)
-        return used + 1
-
-
 def reserve_business_trigger(case: str) -> None:
     """业务触发前持久化 pending，避免超时后误判未执行而重复收费。"""
     with ledger_lock():
@@ -131,7 +141,8 @@ def reserve_business_trigger(case: str) -> None:
             raise BudgetError(f"{case} 处于 pending/uncertain，禁止自动重发；请只读确认")
         if case in triggers["uncertain"]:
             raise BudgetError(f"{case} 结果待确认，禁止自动重发；请只读确认")
-        if len(triggers["done"]) + len(triggers["pending"]) >= MAX_TRIGGERS:
+        used = len(set(triggers["done"]) | set(triggers["pending"]) | set(triggers["uncertain"]))
+        if used >= MAX_TRIGGERS:
             raise BudgetError(f"业务触发预算已用尽（{MAX_TRIGGERS}），发送前阻断")
         triggers["pending"][case] = dt.datetime.now(dt.timezone.utc).isoformat()
         write_ledger(data)
@@ -175,7 +186,14 @@ def preflight() -> dict:
         raise BudgetError(f"模型未就绪：{mode.get('error', 'ok=false')}")
     if not str(mode.get("model") or "").strip():
         raise BudgetError("模型名称为空，无法确认真实厂商调用")
-    return mode
+    budget = request("GET", "/system/vendor-budget", collection=True)["body"]
+    if budget.get("ok") is not True:
+        raise BudgetError(f"厂商预算守卫不可用：{budget.get('error', budget)}")
+    if budget.get("enabled") is not True:
+        raise BudgetError("服务端未启用 AGENT_VENDOR_LEDGER，无法保证发送层计数")
+    if int(budget.get("used", 0)) >= int(budget.get("limit", 0)):
+        raise BudgetError(f"厂商请求预算已用尽（{budget.get('limit')}）")
+    return {**mode, "vendor_budget": budget}
 
 
 def dump(name: str, data) -> Path:
@@ -280,7 +298,7 @@ def run(case: str) -> None:
     fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
     mode = preflight()
     reserve_business_trigger(case)
-    reserve_vendor_attempt()
+    vendor_before = read_ledger()["vendor_http_attempts"]["count"]
     try:
         response = request("POST", f"/patients/{fixtures['patients'][case]}/agent/runs",
                            {"message": MESSAGES[case]})
@@ -288,6 +306,9 @@ def run(case: str) -> None:
         mark_uncertain(case, f"{type(exc).__name__}: {exc}")
         raise BudgetError("请求中断，结果待确认；禁止自动重发，请只用 collect 只读确认") from exc
     body = response["body"]
+    vendor_after = read_ledger()["vendor_http_attempts"]["count"]
+    if vendor_after <= vendor_before:
+        raise BudgetError("服务端发送层没有记录厂商请求，拒绝把结果计入验收")
     finish_business_trigger(case, body.get("run_id"), body.get("status"))
     dump(output.name, {"mode": mode, "response": response})
     print(json.dumps({"scenario": case, "http_status": response["status"],

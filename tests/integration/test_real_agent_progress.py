@@ -36,15 +36,18 @@ def _search(query: str, call_id: str):
                        raw={"id": f"resp-{call_id}", "model": "scripted", "usage": {"total_tokens": 1}})
 
 
-def _create_task(pid: str, call_id: str):
+def _create_task(pid: str, call_id: str, event_id: str | None = None):
+    args = {
+        "patient_id": pid,
+        "task_type": "record_glucose",
+        "title": "补录空腹血糖",
+        "due_at": (now() + timedelta(days=1)).isoformat(),
+    }
+    if event_id:
+        args["event_id"] = event_id
     return LLMResponse(
         content="",
-        tool_calls=[ToolCall("create_task", {
-            "patient_id": pid,
-            "task_type": "record_glucose",
-            "title": "补录空腹血糖",
-            "due_at": (now() + timedelta(days=1)).isoformat(),
-        }, call_id)],
+        tool_calls=[ToolCall("create_task", args, call_id)],
         raw={"id": f"resp-{call_id}", "model": "scripted", "usage": {"total_tokens": 1}},
     )
 
@@ -69,7 +72,7 @@ def test_read_only_round_gets_nudge_then_acts(conn):
     event = _seed_event(conn)
     llm = ScriptedLLM([
         _search("连续记录血糖", "c1"),
-        _create_task("WB01", "c2"),
+        _create_task("WB01", "c2", event["id"]),
         LLMResponse(content="已为你创建补录任务。", tool_calls=[], raw={"id": "resp-c3"}),
     ])
     result = orchestrator.run_agent(conn, "WB01", trigger_type="event_detected", event_ids=[event["id"]], llm=llm)

@@ -121,6 +121,13 @@ class OpenAICompatLLM(LLMClient):
     ) -> LLMResponse:
         url = f"{self.base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        # 厂商请求预算：在真正发出 HTTP 前预占，失败/超时同样计数
+        from backend.app.agent import vendor_budget
+
+        try:
+            vendor_budget.reserve()
+        except vendor_budget.VendorBudgetError as exc:
+            raise LLMRequestError(f"厂商预算守卫拒绝: {exc}") from exc
         try:
             with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
                 resp = client.post(url, headers=headers, json=self._payload(system, user, tools, extra_messages))

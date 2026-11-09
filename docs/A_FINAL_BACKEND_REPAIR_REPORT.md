@@ -263,3 +263,26 @@ python -m cli.main version       → 0.3.0
 
 ### 真实模型状态
 R07-r2 PASS（`995a095`）；R08–R11 沿用既有真实结果；本版本号提交未调用真实模型。
+
+## 13. v0.3.1：R07/R09 真实复验反馈修复（2026-11-09）
+
+### R07：只要求复评时不再额外建任务
+- 提示词明确：用户只要求安排复评时，只调用 `schedule_review`；
+- 服务端守卫：消息命中"安排正式复评/只安排复评"等且本轮 `schedule_review` 已成功时，
+  `create_task` 以 `TOOL_NOT_ALLOWED` 软拒绝，不产生任务；
+- 含"任务/记录/提醒"等诉求的消息不受影响。
+
+### R09：口径按 A 方案
+- 同事件下**不同类型**任务不再被误判为重复（重复判定只看 `task_type`）；
+- 既有 `confirm_medication` 与新建 `record_glucose` 可并存，各自有依据；
+- 复评作用域：`schedule_review` 未给 `task/event` 时，自动关联本次运行正在处理的唯一事件，
+  减少无意义的 `TOOL_EXECUTION_FAILED`。
+
+### 回归
+```text
+python -m pytest                 → 485 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+```
+
+新增 4 项：复评-only 不建任务、含任务诉求仍可建、无作用域复评关联当前事件、R09 不同类型任务并存。
+真实模型未调用；R07/R09 复跑需新批次授权。

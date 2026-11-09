@@ -39,7 +39,8 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 - 按状态选下一步：缺关键信息→ask_user；已有任务覆盖→update_task；高风险→request_human_review；
   需要随访→schedule_review；信息足够且安全→create_task；无法继续→respond。
 - 缺少会影响决策的信息时用 ask_user 提一个具体问题，不要猜测；
-- 需要正式复评时用 schedule_review；高风险或需专业判断时用 request_human_review；
+- 需要正式复评时用 schedule_review；用户只要求安排复评时，只调用 schedule_review，不要额外建任务；
+- 高风险或需专业判断时用 request_human_review；
 - 每个动作都要能用工具结果与数据库状态核验；无法继续时用 respond 说明原因。
 - 意图为知识问答（knowledge_question）时，只允许 search_knowledge 与 respond：
   不得建任务、发通知、提人工复核或反问；回答必须直接针对患者的问题，不要汇报执行动作。
@@ -63,6 +64,15 @@ ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_us
 # 能让一次管理事件"有业务进展"的动作（ask_user 另行以 waiting 处理）
 MANAGEMENT_TOOLS = frozenset({"create_task", "update_task", "schedule_review", "request_human_review"})
 MAX_SEARCH_CALLS = 2
+# 用户只要求"安排复评"时，不应额外创建任务（v0.3.1）
+REVIEW_ONLY_CUES = ("安排一次正式复评", "安排正式复评", "只安排复评", "仅安排复评", "只做复评", "只安排一次复评")
+NON_REVIEW_CUES = ("任务", "记录", "提醒", "通知", "建档")
+
+
+def _is_review_only(message: str | None) -> bool:
+    if not message or not any(cue in message for cue in REVIEW_ONLY_CUES):
+        return False
+    return not any(cue in message for cue in NON_REVIEW_CUES)
 # 重复任务被拒后，下一轮强制走复用路径
 REUSE_TOOLS = frozenset({"update_task", "respond", "list_tasks"})
 # 知识问答只允许检索与回答（B/A-REAL-AUTONOMY-02）
@@ -336,7 +346,8 @@ def _run_agent_body(
     )
 
     rejected_indexes = {r.get("index") for r in validation["rejections"] if r.get("index") is not None}
-    ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id, evidence=evidence)
+    ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id, evidence=evidence,
+                        event_ids=[e["id"] for e in events])
     for idx, action in enumerate(plan.get("actions", [])):
         if idx in rejected_indexes:
             continue
@@ -763,7 +774,8 @@ def _run_real_llm(
         "单次最多5个新任务、2个问题；不要重复已有待答问题或重复已经成功的动作。处理完请简短说明。",
         "若上方已保存的答复是不确定，保持该事实未知，不重复追问同一问题，可安排后续核实任务。",
     ])
-    ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id)
+    ctx = tools.ToolContext(conn, patient_id=patient_id, run_id=run_id,
+                            event_ids=[e["id"] for e in events])
 
     def reject(items, tool=None):
         rejections.extend(items)
@@ -814,13 +826,25 @@ def _run_real_llm(
         outcomes = []
         for index, call in enumerate(response.tool_calls):
             tool_call_id = call.id or f"call_{round_no}_{index}"
+            # 只要求复评且复评已成功：不再额外建任务（v0.3.1）
+            if call.name == "create_task" and _is_review_only(message) and any(
+                e.get("ok") and e.get("tool") == "schedule_review" for e in executed
+            ):
+                guidance = {"ok": False, "code": "TOOL_NOT_ALLOWED",
+                            "error": "用户只要求安排复评，复评已创建；无需额外建任务"}
+                trace.add_step(conn, run_id, phase="validate", kind="tool_choice", tool_name=call.name,
+                               payload=guidance, status="skipped", code="TOOL_NOT_ALLOWED")
+                history.append({"role": "tool", "tool_call_id": tool_call_id,
+                                "content": json.dumps(guidance, ensure_ascii=False)})
+                outcomes.append({"tool": call.name, "ok": False, "code": "TOOL_NOT_ALLOWED"})
+                continue
             # 已有同类待办时禁止重复建任务（A-REAL-AUTONOMY-03）
             if call.name == "create_task" and isinstance(call.arguments, dict):
+                # 只按任务类型判重：同事件下不同类型任务可能对应不同管理目标（R09 口径 A）
                 existing_task = conn.execute(
-                    "SELECT id, title, due_at FROM tasks WHERE patient_id=? AND status IN ('pending','missed') "
-                    "AND (task_type=? OR (event_id IS NOT NULL AND event_id=?)) "
-                    "ORDER BY created_at LIMIT 1",
-                    (patient_id, str(call.arguments.get("task_type") or ""), call.arguments.get("event_id")),
+                    "SELECT id, title, due_at FROM tasks WHERE patient_id=? AND task_type=? "
+                    "AND status IN ('pending','missed') ORDER BY created_at LIMIT 1",
+                    (patient_id, str(call.arguments.get("task_type") or "")),
                 ).fetchone()
                 if existing_task:
                     guidance = {

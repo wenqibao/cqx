@@ -1,0 +1,84 @@
+{
+  "patient": {
+    "id": "VDEMO-101",
+    "name": "视频演示病例01（虚构）",
+    "age": 52,
+    "sex": "男",
+    "diabetes_type": "T2DM",
+    "duration_years": 4,
+    "complications": [],
+    "goals": [
+      "保持日常健康记录连续"
+    ],
+    "constraints": [],
+    "baseline": {
+      "height_cm": 170,
+      "weight_kg": 72
+    },
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 120,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 6.9,
+      "hours_ago": 96,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 7.1,
+      "hours_ago": 72,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 6.8,
+      "hours_ago": 48,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "steps",
+      "value": 6800,
+      "hours_ago": 72,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "steps",
+      "value": 7200,
+      "hours_ago": 48,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "steps",
+      "value": 6900,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "medication_taken",
+      "value": 1,
+      "hours_ago": 72,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "medication_taken",
+      "value": 1,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    }
+  ],
+  "expected_event_codes": [],
+  "demo_purpose": "稳定患者状态展示，正常患者无额外干预"
+}

@@ -1,0 +1,25 @@
+{
+  "patient": {
+    "id": "VEDGE-201",
+    "name": "边界病例01（虚构）",
+    "age": null,
+    "sex": null,
+    "diabetes_type": "T2DM",
+    "duration_years": null,
+    "complications": [],
+    "goals": [],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 7.4,
+      "hours_ago": 1,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    }
+  ],
+  "expected_event_codes": [],
+  "demo_purpose": "档案严重缺项，完整性检查识别缺失字段"
+}

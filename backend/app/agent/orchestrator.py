@@ -914,6 +914,15 @@ def _run_real_llm(
                                 "content": json.dumps(guidance, ensure_ascii=False)})
                 outcomes.append({"tool": call.name, "ok": False, "code": "TOOL_NOT_ALLOWED"})
                 continue
+            # 判重前先归一任务类型，别名与规范类型必须命中同一条检查（B-032-02）
+            if call.name == "create_task" and isinstance(call.arguments, dict):
+                from backend.app.tasks.types import normalize_task_type
+
+                raw_task_type = call.arguments.get("task_type")
+                normalized_type = normalize_task_type(raw_task_type)
+                if normalized_type:
+                    call.arguments["task_type"] = normalized_type
+                    call.arguments["_raw_task_type"] = raw_task_type
             # 已有同类待办时禁止重复建任务（A-REAL-AUTONOMY-03）
             if call.name == "create_task" and isinstance(call.arguments, dict):
                 # 只按任务类型判重：同事件下不同类型任务可能对应不同管理目标（R09 口径 A）

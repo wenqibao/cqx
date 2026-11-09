@@ -117,6 +117,8 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
                 continue
             if _is_referral(text, m.start(), m.end()):
                 continue
+            if _is_conditional_referral(text, m.start(), m.end()):
+                continue
             if _is_question_inquiry(text, m.start(), m.end()):
                 continue
             if _is_directly_negated(text, m.start()):
@@ -130,11 +132,36 @@ CONDITIONAL_CUES = ("遇到", "如", "若", "一旦", "当", "需要时", "必�
 CHANGE_CUES = ("调整用药", "用药调整", "调整药物", "调整剂量", "更改用药", "更换药物", "停用药物")
 
 
-def _is_conditional_referral(text: str) -> bool:
-    """条件式转介：'遇到调整用药需求时引导就医' 不是改药指令。"""
-    return (any(cue in text for cue in REFERRAL_CUES)
-            and any(cue in text for cue in CONDITIONAL_CUES)
-            and any(cue in text for cue in CHANGE_CUES))
+SENTENCE_DELIMS = "。；;！!？?\n"
+# 同一分句里出现"把/请/建议…+停/改/换/加减药"时，不再按转介豁免
+INLINE_INSTRUCTION = __import__("re").compile(
+    r"(把|将|请|建议|应|可以|帮我|给我|需要)[^，,。；;！!？?]{0,8}"
+    r"(停|改|换|加|减|增加|减少|调整|停用|更换)[^，,。；;！!？?]{0,6}"
+    r"(药|片|粒|剂量|单位)"
+    r"|(把|将|请|建议|应|可以|帮我|给我)[^，,。；;！!？?]{0,8}"
+    r"(药|片|粒|剂量|单位)[^，,。；;！!？?]{0,4}"
+    r"(停|改|换|加|减|增加|减少|调整|停用|更换)"
+)
+
+
+def _clause_at(text: str, start: int, end: int) -> str:
+    left = max((text.rfind(ch, 0, start) for ch in SENTENCE_DELIMS), default=-1) + 1
+    rights = [pos for pos in (text.find(ch, end) for ch in SENTENCE_DELIMS) if pos != -1]
+    right = min(rights) if rights else len(text)
+    return text[left:right]
+
+
+def _is_conditional_referral(text: str, start: int = 0, end: int | None = None) -> bool:
+    """条件式转介：'遇到调整用药需求时引导就医' 不是改药指令。
+
+    只看命中所在分句；同句混入独立越权指令时不豁免（B-032-01）。
+    """
+    clause = _clause_at(text, start, end if end is not None else start)
+    if INLINE_INSTRUCTION.search(clause):
+        return False
+    return (any(cue in clause for cue in REFERRAL_CUES)
+            and any(cue in clause for cue in CONDITIONAL_CUES)
+            and any(cue in clause for cue in CHANGE_CUES))
 
 
 def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
@@ -174,8 +201,6 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
         if terms and not any(term in lowered for term in terms):
             continue
         hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])], generated=generated)
-        if hit and _is_conditional_referral(lowered):
-            continue
         if hit:
             return {
                 "allowed": False,

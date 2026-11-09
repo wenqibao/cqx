@@ -6,9 +6,9 @@
 
 ## 最终联调基线
 
-后端固定为 `v0.3.3`，标签指向 `5398caf2252a369456b4cf3032bce1ca1d662c6e`，包含安全门与任务类型修复提交 `cee9c887739e78697234c214bc97e317eaee8cde`。前端业务源码取 `405ace3b4f768f5113006ea284f6782a7a27773b`。后端启动时自动迁移旧库至 schema 3 并归一已知任务类型。 [后端冻结标签](https://github.com/wenqibao/cqx/tree/v0.3.3) · [接口契约](https://github.com/wenqibao/cqx/blob/v0.3.3/docs/api_contract.yaml)
+后端固定为 `v0.3.4`，标签指向 `9d5fe6ae556c4d6e961ce1bd8cf31e0f971f5bad`。前端业务源码取 `405ace3b4f768f5113006ea284f6782a7a27773b`。后端启动时自动迁移旧库至 schema 3 并归一已知任务类型。 [后端冻结标签](https://github.com/wenqibao/cqx/tree/v0.3.4) · [接口契约](https://github.com/wenqibao/cqx/blob/v0.3.4/docs/api_contract.yaml)
 
-联调时单独检出后端标签 `v0.3.3`，用 `git rev-parse HEAD` 核对上述完整 SHA。启动后用 `GET /api/health` 和 `GET /api/version` 核对版本为 `0.3.3`，再将前端的 `VITE_API_BASE_URL` 指向该服务。
+联调时单独检出后端标签 `v0.3.4`，用 `git rev-parse HEAD` 核对上述完整 SHA。启动后用 `GET /api/health` 和 `GET /api/version` 核对版本为 `0.3.4`，再将前端的 `VITE_API_BASE_URL` 指向该服务。
 
 ## 安装与启动
 
@@ -74,13 +74,13 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e
-# 使用专用契约服务时，后端独立检出 v0.3.3，并准备隔离库
+# 使用专用契约服务时，后端独立检出 v0.3.4，并准备隔离库
 npm run test:contract
 ```
 
 E2E 入口守卫要求 HTTP 后端处于 Mock 模式，并使用专用 `workbench-test.db`。常规 E2E 默认端口为 8020，C1 使用独立端口与冻结后端。
 
-本次在 `v0.3.3` 合成库上验证了健康、版本、患者状态、任务列表和审计接口。实测 OpenAPI 去掉 `info.version` 后与 `v0.3.2` 一致。此处记录基线冒烟，14 项浏览器契约结果仍归属上一轮 `v0.3.2`。 [v0.3.2 C1 回归](docs/C1_V032_CONTRACT_REGRESSION.md) · [历史测试报告](docs/TEST_REPORT_V2.md)
+本次在 `v0.3.4` 合成库上验证了健康、版本、患者状态、任务列表和审计接口。实测 OpenAPI 去掉 `info.version` 后与 `v0.3.3` 一致。此处记录基线冒烟，14 项浏览器契约结果归属 `v0.3.2`。 [v0.3.2 C1 回归](docs/C1_V032_CONTRACT_REGRESSION.md) · [历史测试报告](docs/TEST_REPORT_V2.md)
 
 历史浏览器 DeepSeek 冒烟使用独立 PR #3 后端，共 **2 次业务触发、6 次厂商 HTTP 请求、21,924 tokens**。知识回答 PASS，自动触发后的模型只读未行动 FAIL。`5192` 历史预览已用满该批次预算，可只读核验。
 

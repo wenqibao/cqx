@@ -1,0 +1,46 @@
+{
+  "patient": {
+    "id": "VDEMO-104",
+    "name": "视频演示病例04（虚构）",
+    "age": 64,
+    "sex": "男",
+    "diabetes_type": "T2DM",
+    "duration_years": 11,
+    "complications": [
+      "高血压"
+    ],
+    "goals": [
+      "保持日常记录"
+    ],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 7.1,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 3.5,
+      "hours_ago": 1,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "symptom",
+      "value": null,
+      "hours_ago": 1,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]",
+      "payload": {
+        "text": "心慌、出汗、手抖"
+      }
+    }
+  ],
+  "expected_event_codes": [
+    "HYPOGLYCEMIA_RECORD"
+  ],
+  "demo_purpose": "低血糖风险升级与人工复核"
+}

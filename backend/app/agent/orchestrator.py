@@ -570,6 +570,76 @@ def _resolved_rejection_indexes(rejections: list[dict[str, Any]], executed: list
     return resolved
 
 
+MISSING_FIELD_LABELS = {
+    "medication_taken": "最近的服药执行情况",
+    "fasting_glucose": "最近的空腹血糖记录",
+    "steps": "最近的活动步数",
+    "weight": "最近的体重记录",
+}
+
+
+def _required_fields_for_events(events: list[dict[str, Any]]) -> list[str]:
+    from backend.app.config import task_rules
+
+    templates = task_rules().get("templates", {}) or {}
+    required: list[str] = []
+    for event in events:
+        for item in templates.get(event.get("code"), []) or []:
+            for field in item.get("required_fields") or []:
+                if field not in required:
+                    required.append(field)
+    return required
+
+
+def _ensure_missing_info_question(
+    conn: sqlite3.Connection,
+    *,
+    patient_id: str,
+    state: dict[str, Any],
+    events: list[dict[str, Any]],
+    run_id: str,
+    executed: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """REAL-A04：缺必要信息且模型没有提问时，兜底创建真实问题（不额外调用模型）。"""
+    if not events or any(e.get("tool") == "ask_user" and e.get("ok") for e in executed):
+        return None
+    waiting = conn.execute(
+        "SELECT id FROM questions WHERE patient_id=? AND status='waiting' LIMIT 1", (patient_id,)
+    ).fetchone()
+    if waiting:
+        return None
+    required = _required_fields_for_events(events)
+    missing = [field for field in required if field in (state.get("missing_fields") or [])]
+    if not missing:
+        return None
+    patient = state.get("patient") or {}
+    cues = " ".join([str(x) for x in (patient.get("goals") or []) + (patient.get("constraints") or [])])
+    # 只在患者目标/约束明确关注依从性（漏服、服药）时强制提问，避免干扰其他管理路径
+    adherence_fields = {"medication_taken"} if any(c in cues for c in ("漏服", "服药", "用药", "依从")) else set()
+    missing = [field for field in missing if field in adherence_fields]
+    if not missing:
+        return None
+    field = missing[0]
+    args = {
+        "patient_id": patient_id,
+        "question": f"为了继续处理当前情况，请补充{MISSING_FIELD_LABELS.get(field, field)}。",
+        "target_field": field,
+        "resume": {"intent": "event_response", "event_ids": [e["id"] for e in events]},
+    }
+    result = tools.execute(
+        tools.ToolContext(conn, patient_id=patient_id, run_id=run_id,
+                          event_ids=[e["id"] for e in events]),
+        "ask_user", args,
+    )
+    if not result.get("ok"):
+        return None
+    trace.add_step(conn, run_id, phase="act", kind="system_question", tool_name="ask_user",
+                   payload={"target_field": field, "reason": "模型未提问，系统兜底创建"},
+                   status="ok")
+    executed.append({"tool": "ask_user", "ok": True, "args": args, "result": result})
+    return result
+
+
 def _verify_task_coverage(
     conn: sqlite3.Connection,
     patient_id: str,
@@ -1030,6 +1100,13 @@ def _run_real_llm(
     parse_only = bool(message) and any(
         cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")
     ) and any(e.get("ok") and e["tool"] == "parse_constraint" for e in executed)
+    # REAL-A04：缺必要信息且模型没问 → 系统兜底创建真实问题，run 进入 waiting_user
+    question_result = _ensure_missing_info_question(
+        conn, patient_id=patient_id, state=state, events=events,
+        run_id=run_id, executed=executed,
+    )
+    if question_result:
+        question_created = True
     business_done = any(e.get("ok") and e["tool"] in MANAGEMENT_TOOLS for e in executed)
     coverage = None
     if not business_done and duplicate_context:

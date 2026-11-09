@@ -144,3 +144,38 @@ def test_action_budget_rejects_ninth_action_with_detail(conn):
         any("剩余动作额度" in (message.get("content") or "") for message in history)
         for history in llm.histories
     ), "应在后续轮次告知剩余动作额度"
+
+def _event(conn, pid="MQ1", code="GLUCOSE_RISING"):
+    conn.execute(
+        "INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at) "
+        "VALUES(?,?,?,'high','open','x','{}',?,NULL,?)",
+        (f"EVT-{pid}", pid, code, f"{pid}:{code}:x", iso(now(conn))),
+    )
+    return f"EVT-{pid}"
+
+
+def test_adherence_patient_without_medication_gets_question(conn):
+    patients.create_patient(conn, {"id": "MQ1", "name": "MQ1", "age": 62, "duration_years": 10,
+                                   "goals": ["减少漏服"], "constraints": ["早餐后服药"]})
+    evt = _event(conn)
+    llm = CaptureLLM([LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+        "patient_id": "MQ1", "task_type": "record_glucose", "title": "补录血糖",
+        "event_id": evt, "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已创建补录任务。", tool_calls=[], raw={})])
+    result = orchestrator.run_agent(conn, "MQ1", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "waiting_user", result
+    question = conn.execute("SELECT * FROM questions WHERE patient_id='MQ1' AND status='waiting'").fetchone()
+    assert question and question["target_field"] == "medication_taken"
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='MQ1'").fetchone()["c"] == 1
+
+
+def test_non_adherence_patient_is_not_forced_to_ask(conn):
+    _patient(conn, "MQ2")
+    evt = _event(conn, "MQ2")
+    llm = CaptureLLM([LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+        "patient_id": "MQ2", "task_type": "record_glucose", "title": "补录血糖",
+        "event_id": evt, "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已创建补录任务。", tool_calls=[], raw={})])
+    result = orchestrator.run_agent(conn, "MQ2", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM questions WHERE patient_id='MQ2'").fetchone()["c"] == 0

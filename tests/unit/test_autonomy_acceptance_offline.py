@@ -21,6 +21,10 @@ def load(monkeypatch, workdir):
     monkeypatch.setattr(module, "LOCK", workdir / "ledger.lock")
     monkeypatch.setattr(module, "REPORT", workdir / "reports")
     monkeypatch.setattr(module, "FIXTURES", workdir / "fixtures.json")
+    monkeypatch.setattr(module, "RERUN_FIXTURES", workdir / "rerun-fixtures.json")
+    (workdir / "rerun-fixtures.json").write_text(
+        json.dumps({"patient": "AUTO-R07-r2", "case": module.RERUN_CASE}), encoding="utf-8"
+    )
     (workdir / "fixtures.json").write_text(
         json.dumps({"patients": {case: "AUTO-" + case for case in module.CASES}}), encoding="utf-8"
     )
@@ -237,3 +241,31 @@ def test_scenario_that_requires_model_cannot_skip_vendor_calls(monkeypatch, work
     _Client.skip_count = True
     with pytest.raises(mod.BudgetError, match="没有记录厂商请求"):
         mod.run("R07")
+
+def test_rerun_requires_explicit_approval(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    mod.write_ledger(mod._default_ledger())
+    with pytest.raises(mod.BudgetError, match="显式授权"):
+        mod.run(mod.RERUN_CASE)
+
+
+def test_rerun_allows_one_extra_trigger_when_approved(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    monkeypatch.setenv("AUTONOMY_RERUN_APPROVED", "1")
+    ledger = mod._default_ledger()
+    ledger["business_triggers"]["done"] = {c: {"run_id": "R"} for c in mod.CASES}
+    mod.write_ledger(ledger)
+    mod.run(mod.RERUN_CASE)
+    done = mod.read_ledger()["business_triggers"]["done"]
+    assert mod.RERUN_CASE in done and done[mod.RERUN_CASE]["run_id"] == "RUN-T"
+    assert (workdir / "reports" / f"autonomy_{mod.RERUN_CASE}_response.json").exists()
+
+
+def test_rerun_approval_does_not_unlock_other_sixth_triggers(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    monkeypatch.setenv("AUTONOMY_RERUN_APPROVED", "1")
+    ledger = mod._default_ledger()
+    ledger["business_triggers"]["done"] = {c: {"run_id": "R"} for c in mod.CASES}
+    mod.write_ledger(ledger)
+    with pytest.raises(mod.BudgetError, match="预算已用尽"):
+        mod.reserve_business_trigger("R99")

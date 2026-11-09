@@ -40,10 +40,15 @@ sys.path.insert(0, str(ROOT))
 BASE = "http://127.0.0.1:8011/api"
 REPORT = ROOT / "evaluation/reports"
 FIXTURES = ROOT / ".tmp/deepseek-autonomy-fixtures.json"
+RERUN_FIXTURES = ROOT / ".tmp/deepseek-autonomy-rerun-fixtures.json"
 LEDGER = ROOT / ".tmp/deepseek-autonomy-ledger.json"
 LOCK = ROOT / ".tmp/deepseek-autonomy.lock"
 DB_PATH = ROOT / "data/runtime/deepseek_autonomy.db"
 CASES = ["R07", "R08", "R09", "R10", "R11"]
+# 用户明确批准的定向复跑：新患者、新报告、额外 1 次业务触发
+RERUN_CASE = "R07-r2"
+RERUN_OF = "R07"
+RERUN_PATIENT = "AUTO-R07-r2"
 MAX_TRIGGERS = 5
 MAX_VENDOR_ATTEMPTS = 16
 # R11 低血糖走安全快速路径，不调用模型；其余场景必须产生厂商调用
@@ -132,6 +137,10 @@ def ledger_lock():
         LOCK.unlink(missing_ok=True)
 
 
+def _allow_rerun() -> bool:
+    return os.environ.get("AUTONOMY_RERUN_APPROVED", "").strip() == "1"
+
+
 def reserve_business_trigger(case: str) -> None:
     """业务触发前持久化 pending，避免超时后误判未执行而重复收费。"""
     with ledger_lock():
@@ -144,8 +153,9 @@ def reserve_business_trigger(case: str) -> None:
         if case in triggers["uncertain"]:
             raise BudgetError(f"{case} 结果待确认，禁止自动重发；请只读确认")
         used = len(set(triggers["done"]) | set(triggers["pending"]) | set(triggers["uncertain"]))
-        if used >= MAX_TRIGGERS:
-            raise BudgetError(f"业务触发预算已用尽（{MAX_TRIGGERS}），发送前阻断")
+        limit = MAX_TRIGGERS + (1 if _allow_rerun() and case == RERUN_CASE else 0)
+        if used >= limit:
+            raise BudgetError(f"业务触发预算已用尽（{limit}），发送前阻断")
         triggers["pending"][case] = dt.datetime.now(dt.timezone.utc).isoformat()
         write_ledger(data)
 
@@ -294,20 +304,57 @@ def prepare() -> None:
     print(json.dumps({"prepared": True, "event_preview": fixture["event_preview"]}, ensure_ascii=False))
 
 
+def prepare_rerun() -> None:
+    """为已批准的 R07 复跑创建全新合成患者，不重建原验收数据。"""
+    from backend.app.config import settings
+    from backend.app.db.connection import connect, iso, now
+
+    cfg = settings()
+    assert Path(cfg.db_path).resolve() == DB_PATH.resolve(), f"请使用独立验收库：{DB_PATH}"
+    assert not RERUN_FIXTURES.exists(), "复跑已准备，禁止重复创建"
+    created = request("POST", "/patients", {
+        "id": RERUN_PATIENT, "name": "自主验收 R07 复跑（虚构）", "age": 56, "duration_years": 6,
+        "goals": ["稳定血糖", "规律记录"], "is_synthetic": True,
+    })
+    assert created["status"] == 201, created
+    for index, value in enumerate([7.0, 7.8, 8.6, 9.4]):
+        assert request("POST", f"/patients/{RERUN_PATIENT}/records", {
+            "kind": "fasting_glucose", "value": value,
+            "recorded_at": iso(now() - dt.timedelta(hours=24 * (4 - index))), "trigger_agent": False,
+        })["status"] == 201
+    assert request("POST", f"/patients/{RERUN_PATIENT}/records",
+                   {"kind": "steps", "value": 6000, "trigger_agent": False})["status"] == 201
+    assert request("POST", f"/patients/{RERUN_PATIENT}/records",
+                   {"kind": "medication_taken", "value": 1, "trigger_agent": False})["status"] == 201
+    connect(DB_PATH).close()
+    RERUN_FIXTURES.write_text(json.dumps({"patient": RERUN_PATIENT, "case": RERUN_CASE,
+                                          "prepared_at": iso()}, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps({"prepared": True, "case": RERUN_CASE, "patient": RERUN_PATIENT}, ensure_ascii=False))
+
+
 # ---------------- 执行 / 采集 ----------------
 
 def run(case: str) -> None:
-    assert case in CASES, f"未知场景 {case}"
+    assert case in CASES or case == RERUN_CASE, f"未知场景 {case}"
+    if case == RERUN_CASE:
+        if not _allow_rerun():
+            raise BudgetError("复跑需要 AUTONOMY_RERUN_APPROVED=1 的显式授权")
+        assert RERUN_FIXTURES.exists(), "请先执行 prepare-rerun"
     output = REPORT / f"autonomy_{case}_response.json"
     if output.exists():
         raise BudgetError("该场景已执行，禁止重复收费测试")
-    fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
+    if case == RERUN_CASE:
+        pid = json.loads(RERUN_FIXTURES.read_text(encoding="utf-8"))["patient"]
+        message = MESSAGES[RERUN_OF]
+    else:
+        fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
+        pid = fixtures["patients"][case]
+        message = MESSAGES[case]
     mode = preflight()
     reserve_business_trigger(case)
     vendor_before = read_ledger()["vendor_http_attempts"]["count"]
     try:
-        response = request("POST", f"/patients/{fixtures['patients'][case]}/agent/runs",
-                           {"message": MESSAGES[case]})
+        response = request("POST", f"/patients/{pid}/agent/runs", {"message": message})
     except (httpx.TimeoutException, httpx.TransportError) as exc:
         mark_uncertain(case, f"{type(exc).__name__}: {exc}")
         raise BudgetError("请求中断，结果待确认；禁止自动重发，请只用 collect 只读确认") from exc
@@ -335,9 +382,14 @@ def run(case: str) -> None:
 
 
 def collect(case: str) -> None:
-    assert case in CASES, f"未知场景 {case}"
-    fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
-    pid = fixtures["patients"][case]
+    assert case in CASES or case == RERUN_CASE, f"未知场景 {case}"
+    if case == RERUN_CASE:
+        pid = json.loads(RERUN_FIXTURES.read_text(encoding="utf-8"))["patient"]
+        expectation = "R07 复跑：只保留 1 条 scheduled 复评，任务不叠加"
+    else:
+        fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
+        pid = fixtures["patients"][case]
+        expectation = None
     runs = request("GET", f"/patients/{pid}/runs", collection=True)
     details = [request("GET", "/runs/" + item["id"], collection=True)["body"] for item in runs["body"]["items"]]
     snapshot = {
@@ -348,7 +400,7 @@ def collect(case: str) -> None:
         "reviews": request("GET", f"/patients/{pid}/reviews", collection=True),
         "state": request("GET", f"/patients/{pid}/state", collection=True),
         "audit": request("GET", "/system/audit", collection=True),
-        "expectations": {
+        "expectations": expectation or {
             "R07": "schedule_review 成功，reviews.status=scheduled，无多余任务",
             "R08": "不新增任务；已有任务被 update_task 调整或可核验覆盖",
             "R09": "覆盖说明可核验：任务存在、属于该患者、状态 pending/missed",
@@ -370,11 +422,13 @@ def collect(case: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["prepare", "run", "collect"])
+    parser.add_argument("action", choices=["prepare", "prepare-rerun", "run", "collect"])
     parser.add_argument("scenario", nargs="?")
     args = parser.parse_args()
     if args.action == "prepare":
         prepare()
+    elif args.action == "prepare-rerun":
+        prepare_rerun()
     elif args.action == "run":
         run(args.scenario)
     else:

@@ -208,3 +208,34 @@ python scripts/run_scenarios.py  → 33/33 PASS (mock)
 新增：复评合并 3 项（自动后显式、显式后自动、不同事件独立）、
 R11 快速路径 2 项（0 调用可收口、应调用场景不可跳过）。
 真实 DeepSeek 未重新调用；R07/R11 需 B 定向复跑。
+
+## 11. 追加：R07 定向复跑通道（用户已批准，2026-11-09）
+
+R07 真实结果 `PARTIAL / OPEN`（显式复评与任务自动复评叠加），用户批准复跑一次。
+
+### 设计
+- 新患者 `AUTO-R07-r2`，不覆盖原 `AUTO-R07` 数据；
+- `prepare-rerun` 只创建该患者与记录，不重建原验收数据；
+- 报告名 `autonomy_R07-r2_*`，不覆盖首份证据；
+- 业务触发额度：仅对 `R07-r2` 允许 +1（总 6），需 `AUTONOMY_RERUN_APPROVED=1` 显式授权；
+  其他第 6 次触发仍被拒绝；厂商额度仍为 16（当前 12，复跑预计 3 次）；
+- 账本不清空、不改历史记录。
+
+### 命令（B 执行）
+```powershell
+$env:AUTONOMY_RERUN_APPROVED="1"
+python scripts/deepseek_autonomy_acceptance.py prepare-rerun
+python scripts/deepseek_autonomy_acceptance.py run R07-r2
+python scripts/deepseek_autonomy_acceptance.py collect R07-r2
+```
+
+### Expected
+- `schedule_review` 与 `create_task` 自动复评合并为 **1 条** scheduled 复评；
+- 任务不叠加（任务数按模型动作，复评不重复）；
+- run `completed`，无 POSTCHECK_MISMATCH；
+- 报告与账本记录 `vendor_calls` 与 `fast_path`。
+
+### 回归
+`test_rerun_requires_explicit_approval`、`test_rerun_allows_one_extra_trigger_when_approved`、
+`test_rerun_approval_does_not_unlock_other_sixth_triggers`；
+全量 `pytest` 481 passed，Mock 场景 33/33 PASS。

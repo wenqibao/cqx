@@ -2,11 +2,17 @@
 
 面向医护健康管理人员的单 Agent 辅助工作台。仅合成病例演示，不提供诊断、处方、改药或医疗处置。采用 React、TypeScript、Vite、React Router、Ant Design、ECharts、Zod、Vitest 和 Playwright。
 
-当前前端版本为 V3（0.3.0）。C1 联调后端固定为 `v0.3.2`，完整提交为 `06cb1f0c0fb3e60edf6bfd1434e32bd6368cf7f9`。后端启动时自动将旧库迁移至 schema 3 并归一已知任务类型。C-DS-01 写请求超时为 60 秒，C-DS-03 通过随访问题列表读取并提交答复。契约专项包含 14 项既有用例，支持 Edge。 [v0.3.2 C1 回归](docs/C1_V032_CONTRACT_REGRESSION.md) · [v0.2.1 历史交接](docs/C_TO_B_V021_RETEST_RESPONSE_20261108.md)
+当前前端版本为 V3（0.3.0）。C-DS-01 写请求超时为 60 秒，C-DS-03 通过随访问题列表读取并提交答复。契约专项包含 14 项既有用例，支持 Edge。
+
+## 最终联调基线
+
+后端固定为 `v0.3.3`，标签指向 `5398caf2252a369456b4cf3032bce1ca1d662c6e`，包含安全门与任务类型修复提交 `cee9c887739e78697234c214bc97e317eaee8cde`。前端业务源码取 `405ace3b4f768f5113006ea284f6782a7a27773b`。后端启动时自动迁移旧库至 schema 3 并归一已知任务类型。 [后端冻结标签](https://github.com/wenqibao/cqx/tree/v0.3.3) · [接口契约](https://github.com/wenqibao/cqx/blob/v0.3.3/docs/api_contract.yaml)
+
+联调时单独检出后端标签 `v0.3.3`，用 `git rev-parse HEAD` 核对上述完整 SHA。启动后用 `GET /api/health` 和 `GET /api/version` 核对版本为 `0.3.3`，再将前端的 `VITE_API_BASE_URL` 指向该服务。
 
 ## 安装与启动
 
-本机验证 Node 24.22.1、npm 12、Python 3.13.5。C1 使用上方报告中的 `v0.3.2` 独立检出与专用契约服务。以下命令用于当前检出的日常开发。
+本机验证 Node 24.22.1、npm 12、Python 3.13.5。以下命令用于当前检出的日常开发，最终联调使用上方指定的后端标签。
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -68,11 +74,13 @@ npm run typecheck
 npm test
 npm run build
 npm run test:e2e
-# 使用专用契约服务时，按 v0.3.2 C1 报告准备冻结源码和隔离库
+# 使用专用契约服务时，后端独立检出 v0.3.3，并准备隔离库
 npm run test:contract
 ```
 
-E2E 入口守卫要求 HTTP 后端处于 Mock 模式，并使用专用 `workbench-test.db`。常规 E2E 默认端口为 8020，C1 使用独立端口与冻结后端。 [当前 C1 结果](docs/C1_V032_CONTRACT_REGRESSION.md) · [历史测试报告](docs/TEST_REPORT_V2.md)
+E2E 入口守卫要求 HTTP 后端处于 Mock 模式，并使用专用 `workbench-test.db`。常规 E2E 默认端口为 8020，C1 使用独立端口与冻结后端。
+
+本次在 `v0.3.3` 合成库上验证了健康、版本、患者状态、任务列表和审计接口。实测 OpenAPI 去掉 `info.version` 后与 `v0.3.2` 一致。此处记录基线冒烟，14 项浏览器契约结果仍归属上一轮 `v0.3.2`。 [v0.3.2 C1 回归](docs/C1_V032_CONTRACT_REGRESSION.md) · [历史测试报告](docs/TEST_REPORT_V2.md)
 
 历史浏览器 DeepSeek 冒烟使用独立 PR #3 后端，共 **2 次业务触发、6 次厂商 HTTP 请求、21,924 tokens**。知识回答 PASS，自动触发后的模型只读未行动 FAIL。`5192` 历史预览已用满该批次预算，可只读核验。
 

@@ -167,6 +167,8 @@ def test_r02_like_run_completes_with_disclaimer_task(conn):
     for i, value in enumerate([7.0, 8.2, 9.6]):
         records.add_record(conn, "R02X", {"kind": "fasting_glucose", "value": value,
                                           "recorded_at": iso(now() - timedelta(hours=24 * (2 - i)))})
+    records.add_record(conn, "R02X", {"kind": "medication_taken", "value": 1, "recorded_at": iso(now(conn))})
+    records.add_record(conn, "R02X", {"kind": "steps", "value": 6000, "recorded_at": iso(now(conn))})
     events = detect_events(conn, "R02X")["created"]
     assert events
     due = (now() + timedelta(days=1)).isoformat()

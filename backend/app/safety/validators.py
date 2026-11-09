@@ -75,14 +75,16 @@ def validate_plan(
     limits = safety_rules().get("limits", {})
     max_actions = max_actions_per_run()
     actions = plan.get("actions", []) or []
+    # respond 只做收口说明，不消耗动作额度（A-033-03）
+    counted = [a for a in actions if a.get("tool") != "respond"]
     rejections: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
-    if len(actions) > max_actions:
+    if len(counted) > max_actions:
         rejections.append(
             {"code": TOO_MANY_ACTIONS,
-             "message": f"单次运行动作额度已满（{len(actions)} > {max_actions}）；请停止新增动作，"
+             "message": f"单次运行动作额度已满（{len(counted)} > {max_actions}）；请停止新增动作，"
                         "总结已完成结果与未完成事项，并建议人工下一步",
-             "index": None, "detail": {"count": len(actions), "cap": max_actions}}
+             "index": None, "detail": {"count": len(counted), "cap": max_actions}}
         )
     for tool, maximum in (("create_task", int(limits.get("max_tasks_per_run", 5))),
                           ("ask_user", int(limits.get("max_questions_per_run", 2)))):

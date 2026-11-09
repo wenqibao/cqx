@@ -612,11 +612,7 @@ def _ensure_missing_info_question(
     missing = [field for field in required if field in (state.get("missing_fields") or [])]
     if not missing:
         return None
-    patient = state.get("patient") or {}
-    cues = " ".join([str(x) for x in (patient.get("goals") or []) + (patient.get("constraints") or [])])
-    # 只在患者目标/约束明确关注依从性（漏服、服药）时强制提问，避免干扰其他管理路径
-    adherence_fields = {"medication_taken"} if any(c in cues for c in ("漏服", "服药", "用药", "依从")) else set()
-    missing = [field for field in missing if field in adherence_fields]
+    # A-033-02：事件模板要求的字段缺失时都应先核实，不依赖患者目标里是否出现依从性关键词
     if not missing:
         return None
     field = missing[0]

@@ -29,6 +29,11 @@ class CapturingLLM:
 
 def _patient(conn, pid):
     patients.create_patient(conn, {"id": pid, "name": pid, "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    # 基础记录齐全，避免缺项兜底提问干扰本文件的管理动作断言
+    from backend.app.services import records
+
+    records.add_record(conn, pid, {"kind": "medication_taken", "value": 1, "recorded_at": iso(now(conn))})
+    records.add_record(conn, pid, {"kind": "steps", "value": 6000, "recorded_at": iso(now(conn))})
 
 
 def _glucose_event(conn, pid, code="GLUCOSE_RISING", severity="high", evidence=None):
@@ -93,7 +98,7 @@ def test_missing_information_triggers_question(conn):
     assert result["status"] == "waiting_user", result
     q = conn.execute("SELECT * FROM questions WHERE patient_id='AUT-D' AND status='waiting'").fetchone()
     assert q and q["target_field"] == "medication_taken"
-    assert conn.execute("SELECT COUNT(*) c FROM health_records WHERE kind='medication_taken'").fetchone()["c"] == 0
+    assert conn.execute("SELECT COUNT(*) c FROM health_records WHERE patient_id='AUT-D' AND kind='medication_taken'").fetchone()["c"] == 1
 
 
 def test_high_risk_goes_to_human_review(conn):

@@ -190,6 +190,11 @@ def tool_schemas(only: set[str] | None = None) -> list[dict[str, Any]]:
                 base, "string"
             )
             props[param] = {"type": jtype}
+            if param == "task_type":
+                from backend.app.tasks.types import canonical_task_types
+
+                props[param]["enum"] = canonical_task_types()
+                props[param]["description"] = "规范任务类型（见枚举）"
             if jtype == "array":
                 props[param]["items"] = {"type": "string"}
             if not optional:

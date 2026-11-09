@@ -21,6 +21,7 @@ TOOL_EXECUTION_FAILED = "TOOL_EXECUTION_FAILED"
 POSTCHECK_MISMATCH = "POSTCHECK_MISMATCH"
 UNSAFE_CLAIM = "UNSAFE_CLAIM"
 UNKNOWN_TOOL = "UNKNOWN_TOOL"
+INVALID_TASK_TYPE = "INVALID_TASK_TYPE"
 
 ALL_CODES = [
     NO_EVIDENCE,
@@ -35,6 +36,7 @@ ALL_CODES = [
     POSTCHECK_MISMATCH,
     UNSAFE_CLAIM,
     UNKNOWN_TOOL,
+    INVALID_TASK_TYPE,
 ]
 
 
@@ -56,6 +58,11 @@ def _due_ok(conn: sqlite3.Connection, due_at: str | None) -> tuple[bool, str]:
     return True, ""
 
 
+def max_actions_per_run() -> int:
+    limits = safety_rules().get("limits", {})
+    return int(limits.get("max_tasks_per_run", 5)) + 3
+
+
 def validate_plan(
     conn: sqlite3.Connection,
     *,
@@ -66,13 +73,16 @@ def validate_plan(
 ) -> dict[str, Any]:
     """执行前校验：越权动作、无证据结论、时间越界、重复任务、超量动作。"""
     limits = safety_rules().get("limits", {})
-    max_actions = int(limits.get("max_tasks_per_run", 5)) + 3
+    max_actions = max_actions_per_run()
     actions = plan.get("actions", []) or []
     rejections: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     if len(actions) > max_actions:
         rejections.append(
-            {"code": TOO_MANY_ACTIONS, "message": f"单次计划动作过多（{len(actions)} > {max_actions}）", "index": None}
+            {"code": TOO_MANY_ACTIONS,
+             "message": f"单次运行动作额度已满（{len(actions)} > {max_actions}）；请停止新增动作，"
+                        "总结已完成结果与未完成事项，并建议人工下一步",
+             "index": None, "detail": {"count": len(actions), "cap": max_actions}}
         )
     for tool, maximum in (("create_task", int(limits.get("max_tasks_per_run", 5))),
                           ("ask_user", int(limits.get("max_questions_per_run", 2)))):
@@ -91,7 +101,15 @@ def validate_plan(
             rejections.append({"code": MISSING_REQUIRED_DATA, "message": "工具参数必须为对象", "index": idx, "tool": tool})
             continue
         from backend.app.agent.tools import TOOL_SPECS
+        from backend.app.tasks.types import normalize_task_type, task_type_candidates
 
+        if tool == "create_task" and normalize_task_type(args.get("task_type")) is None:
+            rejections.append({"code": INVALID_TASK_TYPE,
+                               "message": f"不支持的任务类型: {args.get('task_type')}；"
+                                          f"可用类型: {task_type_candidates()}",
+                               "index": idx, "tool": tool,
+                               "candidates": task_type_candidates()})
+            continue
         invalid = []
         for name, spec in TOOL_SPECS.get(tool, {}).get("parameters", {}).items():
             value = args.get(name)

@@ -142,6 +142,7 @@ def _state_brief(state: dict[str, Any]) -> str:
         f"已安排的复评（不要重复安排）: {state.get('open_reviews', [])}",
         f"已保存的回答上下文: {state.get('answer_context')}",
         f"有效偏好: {[(p['kind'], p['value']) for p in state['preferences']]}",
+        f"单次运行动作额度: {validators.max_actions_per_run()} 个；优先必要管理动作，避免重复读取",
     ])
     return "\n".join(lines)
 
@@ -569,6 +570,76 @@ def _resolved_rejection_indexes(rejections: list[dict[str, Any]], executed: list
     return resolved
 
 
+MISSING_FIELD_LABELS = {
+    "medication_taken": "最近的服药执行情况",
+    "fasting_glucose": "最近的空腹血糖记录",
+    "steps": "最近的活动步数",
+    "weight": "最近的体重记录",
+}
+
+
+def _required_fields_for_events(events: list[dict[str, Any]]) -> list[str]:
+    from backend.app.config import task_rules
+
+    templates = task_rules().get("templates", {}) or {}
+    required: list[str] = []
+    for event in events:
+        for item in templates.get(event.get("code"), []) or []:
+            for field in item.get("required_fields") or []:
+                if field not in required:
+                    required.append(field)
+    return required
+
+
+def _ensure_missing_info_question(
+    conn: sqlite3.Connection,
+    *,
+    patient_id: str,
+    state: dict[str, Any],
+    events: list[dict[str, Any]],
+    run_id: str,
+    executed: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """REAL-A04：缺必要信息且模型没有提问时，兜底创建真实问题（不额外调用模型）。"""
+    if not events or any(e.get("tool") == "ask_user" and e.get("ok") for e in executed):
+        return None
+    waiting = conn.execute(
+        "SELECT id FROM questions WHERE patient_id=? AND status='waiting' LIMIT 1", (patient_id,)
+    ).fetchone()
+    if waiting:
+        return None
+    required = _required_fields_for_events(events)
+    missing = [field for field in required if field in (state.get("missing_fields") or [])]
+    if not missing:
+        return None
+    patient = state.get("patient") or {}
+    cues = " ".join([str(x) for x in (patient.get("goals") or []) + (patient.get("constraints") or [])])
+    # 只在患者目标/约束明确关注依从性（漏服、服药）时强制提问，避免干扰其他管理路径
+    adherence_fields = {"medication_taken"} if any(c in cues for c in ("漏服", "服药", "用药", "依从")) else set()
+    missing = [field for field in missing if field in adherence_fields]
+    if not missing:
+        return None
+    field = missing[0]
+    args = {
+        "patient_id": patient_id,
+        "question": f"为了继续处理当前情况，请补充{MISSING_FIELD_LABELS.get(field, field)}。",
+        "target_field": field,
+        "resume": {"intent": "event_response", "event_ids": [e["id"] for e in events]},
+    }
+    result = tools.execute(
+        tools.ToolContext(conn, patient_id=patient_id, run_id=run_id,
+                          event_ids=[e["id"] for e in events]),
+        "ask_user", args,
+    )
+    if not result.get("ok"):
+        return None
+    trace.add_step(conn, run_id, phase="act", kind="system_question", tool_name="ask_user",
+                   payload={"target_field": field, "reason": "模型未提问，系统兜底创建"},
+                   status="ok")
+    executed.append({"tool": "ask_user", "ok": True, "args": args, "result": result})
+    return result
+
+
 def _verify_task_coverage(
     conn: sqlite3.Connection,
     patient_id: str,
@@ -789,6 +860,11 @@ def _run_real_llm(
         # 一条请求轨迹对应一次 plan_actions，包含异常尝试；本客户端不做隐藏重试。
         trace.add_step(conn, run_id, phase="plan", kind="llm_request",
                        payload={"round": round_no, "model": llm.model_name})
+        if accepted_actions:
+            remaining = max(0, validators.max_actions_per_run() - len(accepted_actions))
+            history.append({"role": "system",
+                            "content": f"已执行 {len(accepted_actions)} 个动作，剩余动作额度 {remaining}；"
+                                       "优先安排必要的管理动作，避免重复读取；额度用尽时总结未完成事项。"})
         if force_reuse_task_id:
             tool_list = llm_module.tool_schemas(only=REUSE_TOOLS)
         elif intent == "knowledge_question":
@@ -927,6 +1003,13 @@ def _run_real_llm(
                     item["round"] = round_no
                     item["call_index"] = index
                     item["call_id"] = tool_call_id
+                    if item.get("code") == validators.TOO_MANY_ACTIONS:
+                        item["detail"] = {"executed": len(accepted_actions),
+                                          "cap": validators.max_actions_per_run(),
+                                          "omitted_tool": call.name}
+                        history.append({"role": "system",
+                                        "content": "动作额度已满：不要继续新增动作，请总结已完成结果、"
+                                                   "未完成事项，并给出人工下一步建议。"})
                 if errors[0]['code'] == validators.INVALID_DUE:
                     # 可修正提示：既回给模型，也脱敏写入拒绝轨迹，便于技术日志核对
                     errors[0]["server_now"] = iso(now(conn))
@@ -983,7 +1066,8 @@ def _run_real_llm(
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
         correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED,
-                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED", validators.DUPLICATE_TASK}
+                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED", validators.DUPLICATE_TASK,
+                   validators.INVALID_TASK_TYPE}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:
@@ -1016,6 +1100,13 @@ def _run_real_llm(
     parse_only = bool(message) and any(
         cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")
     ) and any(e.get("ok") and e["tool"] == "parse_constraint" for e in executed)
+    # REAL-A04：缺必要信息且模型没问 → 系统兜底创建真实问题，run 进入 waiting_user
+    question_result = _ensure_missing_info_question(
+        conn, patient_id=patient_id, state=state, events=events,
+        run_id=run_id, executed=executed,
+    )
+    if question_result:
+        question_created = True
     business_done = any(e.get("ok") and e["tool"] in MANAGEMENT_TOOLS for e in executed)
     coverage = None
     if not business_done and duplicate_context:

@@ -30,7 +30,9 @@ TOOL_SPECS: dict[str, dict[str, Any]] = {
         "parameters": {"patient_id": "string", "question": "string", "target_field": "string?", "options": "array?"},
     },
     "create_task": {
-        "description": "创建健康管理任务（不是医疗处置）；正式复评/随访请用 schedule_review，不要用任务替代",
+        "description": "创建健康管理任务（不是医疗处置）。task_type 必须使用 Schema 枚举中的规范类型；"
+                       "说明只写记录、提醒、核实、转交，不写具体用药调整建议；"
+                       "正式复评/随访请用 schedule_review，不要用任务替代",
         "parameters": {
             "patient_id": "string",
             "task_type": "string",
@@ -171,10 +173,17 @@ def _ask_user(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _create_task(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    from backend.app.tasks.types import normalize_task_type, task_type_candidates
+
+    raw_type = args.get("task_type")
+    task_type = normalize_task_type(raw_type)
+    if task_type is None:
+        return _fail("INVALID_TASK_TYPE",
+                     f"不支持的任务类型: {raw_type}；可用类型: {task_type_candidates()}")
     task, created = tasks.create_task(
         ctx.conn,
         args.get("patient_id") or ctx.patient_id,
-        task_type=args["task_type"],
+        task_type=task_type,
         title=args["title"],
         description=args.get("description", ""),
         due_at=args.get("due_at"),

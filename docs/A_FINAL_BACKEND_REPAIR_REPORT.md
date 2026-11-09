@@ -311,3 +311,44 @@ Expected：
 - R07-r3：`schedule_review` 成功、复评 1 条、**任务 0 条**（只要求复评）、completed；
 - R09-r2：既有 `confirm_medication` 可复用或按缺项新建 `record_glucose`，任务有依据；
   `schedule_review` 不再因作用域失败（自动关联当前事件），rejections 为空或仅可修正。
+
+## 14. v0.3.2：REAL-A01/A02/A03（2026-11-09）
+
+### REAL-A01 任务类型规范
+- 新增 `backend/app/tasks/types.py`：规范类型来自 `config/task_rules.yaml`（7 类），
+  旧别名（`glucose_record_check`、`record_reminder`、`medication_verification` 等）归一；
+- `create_task` 工具 Schema 暴露 `enum`；未知类型返回 `INVALID_TASK_TYPE` 与候选值（可修正）；
+- 写入前校验（`validators.validate_plan`）拒绝未知类型；
+- 迁移 `SCHEMA_VERSION=3`：历史任务类型别名一次性归一，旧任务可被 `record_glucose` 等完成动作找到。
+
+### REAL-A02 安全措辞
+- 否定词补充：`不自行 / 不要自行 / 勿自行 / 不可自行 / 避免自行 / 不要随意`；
+- 条件式转介豁免：`遇到调整用药需求时引导就医`、`如出现调整剂量需求请联系医生` 不判 `FORBIDDEN_ACTION`；
+- 剂量增减表达补充：`建议减少二甲双胍剂量`、`剂量降低` 仍拦截；
+- 工具说明明确"只写记录、提醒、核实、转交，不写用药调整建议"。
+
+### REAL-A03 动作额度
+- `_state_brief` 展示单次运行动作额度；
+- 每轮把"已执行/剩余额度"写入模型上下文；
+- 超限拒绝带 `detail{executed,cap,omitted_tool}`，并强提示总结未完成事项、给出人工下一步；
+- 既有上限（8）不变，不产生额外写入。
+
+### 回归
+```text
+python -m pytest                 → 498 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+```
+
+新增 12 项：类型归一/未知拒绝/Schema 枚举/迁移、S02/S03 成对安全措辞、9 动作额度拒绝与剩余额度提示。
+真实模型未调用；B18/S02/S03/B19/R09 复跑需新批次授权。
+
+### REAL-A04（S02 真实复验后补充）
+
+S02 真实运行中模型处理了事件并建任务，但没有先问缺失的服药信息。
+新增确定性兜底：当患者目标/约束明确关注依从性（漏服、服药、用药、依从）、
+事件模板要求 `medication_taken` 且 7 天内没有服药记录、模型本轮没有 `ask_user` 时，
+系统创建一条真实 `waiting` 问题并让 run 进入 `waiting_user`（不额外调用模型）；
+患者回答后仍按原有 resume 流程恢复。非依从性患者不受影响。
+
+回归：新增 2 项（依从性患者→提问；普通患者→不强制提问）。
+全量 `pytest` 500 passed，Mock 场景 33/33 PASS。

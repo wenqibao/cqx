@@ -43,7 +43,7 @@ def test_claim_supported_by_later_tool_in_same_round(conn):
     llm = _ScriptedLLM([
         LLMResponse(content="", tool_calls=[
             ToolCall("respond", {"patient_id": "CT1", "text": "我已为您创建一条记录提醒任务，方便您从今天开始固定时间点记录。"}, "c1"),
-            ToolCall("create_task", {"patient_id": "CT1", "task_type": "glucose_logging",
+            ToolCall("create_task", {"patient_id": "CT1", "task_type": "record_glucose",
                                      "title": "固定时间点记录空腹血糖", "due_at": due}, "c2"),
         ], raw={}),
         LLMResponse(content="已记录，按任务执行即可。", tool_calls=[], raw={}),

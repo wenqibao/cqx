@@ -10,6 +10,7 @@ from backend.app.db.connection import dumps, iso, now
 
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
 DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺", "不制定", "不设置", "不设", "不开具", "不开展", "不建议", "不需要", "不予", "未提供", "未给出", "未包含", "未做", "未进行", "未调整", "并未", "未曾",
+                   "不自行", "不要自行", "勿自行", "不可自行", "避免自行", "不要随意",
                    "不要", "不用", "不必", "勿", "不可以", "不新增", "不减少", "不替换", "不更换", "不改变", "不变更")
 DISCLAIMER_WINDOW = 24
 # 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
@@ -124,6 +125,18 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
     return None
 
 
+REFERRAL_CUES = ("就医", "就诊", "咨询医生", "联系医生", "复诊", "专业复核", "人工复核", "医生评估")
+CONDITIONAL_CUES = ("遇到", "如", "若", "一旦", "当", "需要时", "必要时", "如果")
+CHANGE_CUES = ("调整用药", "用药调整", "调整药物", "调整剂量", "更改用药", "更换药物", "停用药物")
+
+
+def _is_conditional_referral(text: str) -> bool:
+    """条件式转介：'遇到调整用药需求时引导就医' 不是改药指令。"""
+    return (any(cue in text for cue in REFERRAL_CUES)
+            and any(cue in text for cue in CONDITIONAL_CUES)
+            and any(cue in text for cue in CHANGE_CUES))
+
+
 def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
     """检查患者输入/模型输出中是否包含被禁止的医疗动作意图。
 
@@ -161,6 +174,8 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
         if terms and not any(term in lowered for term in terms):
             continue
         hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])], generated=generated)
+        if hit and _is_conditional_referral(lowered):
+            continue
         if hit:
             return {
                 "allowed": False,

@@ -234,6 +234,7 @@ def prepare() -> None:
     from backend.app.events.detector import detect_events
     from backend.app.tasks.service import create_task
 
+    (ROOT / ".tmp").mkdir(parents=True, exist_ok=True)
     cfg = settings()
     assert Path(cfg.db_path).resolve() == DB_PATH.resolve(), f"请使用独立验收库：{DB_PATH}"
     assert not FIXTURES.exists(), "已准备，禁止重建"
@@ -309,6 +310,7 @@ def prepare_rerun() -> None:
     from backend.app.config import settings
     from backend.app.db.connection import connect, iso, now
 
+    (ROOT / ".tmp").mkdir(parents=True, exist_ok=True)
     cfg = settings()
     assert Path(cfg.db_path).resolve() == DB_PATH.resolve(), f"请使用独立验收库：{DB_PATH}"
     assert not RERUN_FIXTURES.exists(), "复跑已准备，禁止重复创建"

@@ -14,7 +14,7 @@ from typing import Any
 from backend.app.db.connection import dumps, get_meta, iso, loads, set_meta
 from backend.app.util import short_hash
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def schema_version(conn: sqlite3.Connection) -> int:
@@ -119,6 +119,14 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
     )
 
 
+def _normalize_task_types(conn: sqlite3.Connection) -> None:
+    """REAL-A01：把历史别名归一为规范类型，保持旧任务可追踪。"""
+    from backend.app.tasks.types import TASK_TYPE_ALIASES
+
+    for legacy, canonical in TASK_TYPE_ALIASES.items():
+        conn.execute("UPDATE tasks SET task_type=? WHERE task_type=?", (canonical, legacy))
+
+
 def migrate(conn: sqlite3.Connection) -> int:
     current = schema_version(conn)
     if current >= SCHEMA_VERSION:
@@ -131,6 +139,7 @@ def migrate(conn: sqlite3.Connection) -> int:
         _normalize_questions(conn)
         _normalize_reviews(conn)
         _normalize_preferences(conn)
+        _normalize_task_types(conn)
         _create_indexes(conn)
         set_meta(conn, "schema_version", str(SCHEMA_VERSION))
         conn.execute("COMMIT")

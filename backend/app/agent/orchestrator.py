@@ -142,6 +142,7 @@ def _state_brief(state: dict[str, Any]) -> str:
         f"已安排的复评（不要重复安排）: {state.get('open_reviews', [])}",
         f"已保存的回答上下文: {state.get('answer_context')}",
         f"有效偏好: {[(p['kind'], p['value']) for p in state['preferences']]}",
+        f"单次运行动作额度: {validators.max_actions_per_run()} 个；优先必要管理动作，避免重复读取",
     ])
     return "\n".join(lines)
 
@@ -789,6 +790,11 @@ def _run_real_llm(
         # 一条请求轨迹对应一次 plan_actions，包含异常尝试；本客户端不做隐藏重试。
         trace.add_step(conn, run_id, phase="plan", kind="llm_request",
                        payload={"round": round_no, "model": llm.model_name})
+        if accepted_actions:
+            remaining = max(0, validators.max_actions_per_run() - len(accepted_actions))
+            history.append({"role": "system",
+                            "content": f"已执行 {len(accepted_actions)} 个动作，剩余动作额度 {remaining}；"
+                                       "优先安排必要的管理动作，避免重复读取；额度用尽时总结未完成事项。"})
         if force_reuse_task_id:
             tool_list = llm_module.tool_schemas(only=REUSE_TOOLS)
         elif intent == "knowledge_question":
@@ -927,6 +933,13 @@ def _run_real_llm(
                     item["round"] = round_no
                     item["call_index"] = index
                     item["call_id"] = tool_call_id
+                    if item.get("code") == validators.TOO_MANY_ACTIONS:
+                        item["detail"] = {"executed": len(accepted_actions),
+                                          "cap": validators.max_actions_per_run(),
+                                          "omitted_tool": call.name}
+                        history.append({"role": "system",
+                                        "content": "动作额度已满：不要继续新增动作，请总结已完成结果、"
+                                                   "未完成事项，并给出人工下一步建议。"})
                 if errors[0]['code'] == validators.INVALID_DUE:
                     # 可修正提示：既回给模型，也脱敏写入拒绝轨迹，便于技术日志核对
                     errors[0]["server_now"] = iso(now(conn))
@@ -983,7 +996,8 @@ def _run_real_llm(
             break
         # 整轮都被拒绝或工具失败时停止收费循环；可修正的参数错误允许模型再试一次
         correctable = {validators.INVALID_DUE, validators.MISSING_REQUIRED_DATA, validators.TOOL_EXECUTION_FAILED,
-                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED", validators.DUPLICATE_TASK}
+                   "TOOL_CHOICE_INVALID", "TOOL_NOT_ALLOWED", validators.DUPLICATE_TASK,
+                   validators.INVALID_TASK_TYPE}
         if outcomes and not any(o['ok'] for o in outcomes) and not any(o.get('code') in correctable for o in outcomes):
             break
     if not executed and not responses and not rejections:

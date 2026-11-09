@@ -427,9 +427,14 @@ python scripts/run_scenarios.py  → 33/33 PASS (mock)
 
 ### 回归
 ```text
-python -m pytest                 → 525 passed / 0 failed
+python -m pytest                 → 529 passed / 0 failed
 python scripts/run_scenarios.py  → 33/33 PASS (mock)
 ```
 
 新增：同句逗号混合 3 组、合法续接、引用既有复评正反向、恢复不重复提问。
 真实模型未调用；需 B 复跑 A-034 反例与 B11 恢复段。
+
+### 补充（同日复验反馈）
+
+- 新增“省略药物名的剂量调整”规则：建议减少剂量、停用药物、调整用药 一律拦截；
+- 说明性文本 调整剂量会影响血糖趋势 仍放行；合法核实句 核实是否按时服药，有无漏服或自行停药 仍放行。

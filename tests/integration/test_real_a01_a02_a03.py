@@ -355,3 +355,15 @@ def test_resume_does_not_reask_same_field(conn):
         tool_calls=[ToolCall("respond", {"patient_id": "RV3", "text": "已按原计划继续观察。"}, "c1")], raw={})])
     result = orchestrator.run_agent(conn, "RV3", trigger_type="answer_received", message="记不清", llm=llm)
     assert conn.execute("SELECT COUNT(*) c FROM questions WHERE patient_id='RV3' AND status='waiting'").fetchone()["c"] == 0
+
+@pytest.mark.parametrize("text", [
+    "核实过去一周有无漏服，建议减少剂量。",
+    "建议减少剂量。",
+    "可以考虑停用药物。",
+])
+def test_omitted_drug_dose_change_is_blocked(text):
+    assert gate.check_text(text)['allowed'] is False
+
+
+def test_educational_dose_statement_is_allowed():
+    assert gate.check_text("调整剂量会影响血糖趋势。")['allowed'] is True

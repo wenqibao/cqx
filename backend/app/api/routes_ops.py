@@ -105,6 +105,16 @@ def audit_log(limit: int = 100, conn: sqlite3.Connection = Depends(get_conn)) ->
     }
 
 
+@router.get("/system/vendor-budget", tags=["system"], summary="厂商请求预算状态（只读）")
+def vendor_budget_status() -> dict[str, Any]:
+    from backend.app.agent import vendor_budget
+
+    try:
+        return {"ok": True, **vendor_budget.snapshot()}
+    except vendor_budget.VendorBudgetError as exc:
+        return {"ok": False, "enabled": vendor_budget.ledger_path() is not None, "error": str(exc)}
+
+
 @router.get("/system/mode", tags=["system"], summary="当前运行模式（mock / real）")
 def system_mode() -> dict[str, Any]:
     from backend.app.agent.llm import get_llm

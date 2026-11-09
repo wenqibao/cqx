@@ -60,6 +60,8 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
 READ_ONLY_TOOLS = frozenset({"search_knowledge", "query_history", "get_preferences", "list_tasks"})
 ACTION_TOOLS = frozenset({"create_task", "update_task", "complete_task", "ask_user", "request_human_review",
                           "schedule_review", "save_preference", "create_notification"})
+# 能让一次管理事件"有业务进展"的动作（ask_user 另行以 waiting 处理）
+MANAGEMENT_TOOLS = frozenset({"create_task", "update_task", "schedule_review", "request_human_review"})
 MAX_SEARCH_CALLS = 2
 # 重复任务被拒后，下一轮强制走复用路径
 REUSE_TOOLS = frozenset({"update_task", "respond", "list_tasks"})
@@ -274,6 +276,7 @@ def _run_agent_body(
             resolved_indexes = _resolved_rejection_indexes(rejections, executed)
             hard_rejections = [r for i, r in enumerate(rejections) if i not in resolved_indexes]
             warnings = [{**r, "resolved": True} for i, r in enumerate(rejections) if i in resolved_indexes]
+            warnings.extend(plan.get("warnings") or [])
             trace.finish_run(
                 conn,
                 run_id,
@@ -344,6 +347,9 @@ def _run_agent_body(
             responses.append(result["text"])
 
     status = _status_for(executed, rejections, question_created)
+    # 契约：未解决的 NO_EVIDENCE 属于失败；兜底回复与拒绝码保留
+    if any(r.get("code") == validators.NO_EVIDENCE for r in rejections):
+        status = "failed"
     if plan.get("intent") == "unsafe_request":
         status = "blocked"
     _finalize_events(conn, run_id, events, question_created, executed)
@@ -552,6 +558,35 @@ def _resolved_rejection_indexes(rejections: list[dict[str, Any]], executed: list
     return resolved
 
 
+def _verify_task_coverage(
+    conn: sqlite3.Connection,
+    patient_id: str,
+    context: dict[str, Any],
+    responses: list[str],
+) -> dict[str, Any] | None:
+    """核验模型"已有任务覆盖"的说法：任务必须真实、属于当前患者、仍有效且类型匹配。"""
+    task_id = context.get("existing_task_id")
+    task_type = context.get("task_type")
+    if not task_id:
+        return None
+    row = conn.execute("SELECT * FROM tasks WHERE id=? AND patient_id=?", (task_id, patient_id)).fetchone()
+    if not row or row["status"] not in ("pending", "missed"):
+        return None
+    if task_type and row["task_type"] != task_type:
+        return None
+    text = " ".join(responses)
+    if task_id not in text and row["title"] not in text and "已有任务" not in text and "现有任务" not in text:
+        return None
+    return {
+        "task_id": task_id,
+        "task_type": row["task_type"],
+        "status": row["status"],
+        "title": row["title"],
+        "event_id": row["event_id"],
+        "response_mentions_task": task_id in text or row["title"] in text,
+    }
+
+
 def _finalize_events(
     conn: sqlite3.Connection,
     run_id: str,
@@ -574,11 +609,20 @@ def _finalize_events(
             many = source.get("event_ids")
             if isinstance(many, list):
                 referenced.update(item for item in many if isinstance(item, str))
-    if not referenced and len(events) == 1 and any(
-        entry.get("ok") and entry.get("tool") in business for entry in executed
-    ):
-        # 单事件场景且确有管理动作：可视为处理；纯读取仍保持 open
-        referenced = {events[0]["id"]}
+        # 以数据库实际关联为准：update_task 返回不含 event_id，需按 task_id 反查
+        if entry.get("tool") == "update_task":
+            task_id = (entry.get("result") or {}).get("task_id") or (entry.get("args") or {}).get("task_id")
+            if task_id:
+                row = conn.execute("SELECT event_id FROM tasks WHERE id=?", (task_id,)).fetchone()
+                if row and row["event_id"]:
+                    referenced.add(row["event_id"])
+        if entry.get("tool") in ("schedule_review", "request_human_review"):
+            review_id = (entry.get("result") or {}).get("review_id")
+            if review_id:
+                row = conn.execute("SELECT event_id FROM reviews WHERE id=?", (review_id,)).fetchone()
+                if row and row["event_id"]:
+                    referenced.add(row["event_id"])
+    # B1-002：不再用"只剩一个事件"推断关联；只有明确关联才关闭
     targets = [event["id"] for event in events if event["id"] in referenced]
     if targets:
         mark_handled(conn, targets, run_id)
@@ -706,6 +750,8 @@ def _run_real_llm(
     claim_texts: list[str] = []
     responded = False
     force_reuse_task_id: str | None = None
+    duplicate_context: dict[str, Any] | None = None
+    extra_warnings: list[dict[str, Any]] = []
     question_created = False
     rounds = []
     user = "\n".join([
@@ -790,6 +836,13 @@ def _run_real_llm(
                                     "content": json.dumps(guidance, ensure_ascii=False)})
                     outcomes.append({"tool": call.name, "ok": False, "code": "DUPLICATE_TASK"})
                     force_reuse_task_id = existing_task["id"]
+                    duplicate_context = {
+                        "task_type": str(call.arguments.get("task_type") or ""),
+                        "event_id": call.arguments.get("event_id"),
+                        "existing_task_id": existing_task["id"],
+                    }
+                    extra_warnings.append({"code": "DUPLICATE_TASK", "tool": "create_task",
+                                           "resolved": False, "existing_task_id": existing_task["id"]})
                     history.append({
                         "role": "system",
                         "content": f"上一轮重复创建被拒绝。下一轮只允许 update_task({existing_task['id']}) "
@@ -898,8 +951,8 @@ def _run_real_llm(
                            payload={"round": round_no, "message": "本轮只有读取动作，未产生管理动作"})
             history.append({
                 "role": "system",
-                "content": "本轮只有读取动作，没有产生任何管理动作。请立即执行 create_task / ask_user / request_human_review，"
-                           "或说明为什么无法继续；不要再次检索同一主题。",
+                "content": "本轮只有读取动作，没有产生任何管理动作。请立即执行 create_task / update_task / "
+                           "schedule_review / ask_user / request_human_review，或说明为什么无法继续；不要再次检索同一主题。",
             })
         # A0-FULL-P1-04：respond 成功后不再进入下一轮，避免"工具轮 + 纯文本轮"重复答复
         if responded:
@@ -939,14 +992,32 @@ def _run_real_llm(
     parse_only = bool(message) and any(
         cue in message for cue in ("只解析", "仅解析", "只是解析", "不要修改", "不修改", "别改", "不要改")
     ) and any(e.get("ok") and e["tool"] == "parse_constraint" for e in executed)
-    if intent in ('event_response', 'negotiate_plan') and not question_created and not parse_only and not any(
-        e.get('ok') and e['tool'] in ('create_task', 'update_task', 'request_human_review') for e in executed
-    ):
+    business_done = any(e.get("ok") and e["tool"] in MANAGEMENT_TOOLS for e in executed)
+    coverage = None
+    if not business_done and duplicate_context:
+        coverage = _verify_task_coverage(conn, patient_id, duplicate_context, responses)
+        if coverage:
+            trace.add_step(conn, run_id, phase="observe", kind="task_coverage",
+                           payload=coverage, status="ok")
+            if coverage.get("event_id") and coverage["event_id"] in {e["id"] for e in events}:
+                mark_handled(conn, [coverage["event_id"]], run_id)
+                coverage["event_closed"] = True
+    # 重复任务告警只有在真实 update_task 或覆盖核验通过后才算已解决
+    resolved_tasks = {e["result"].get("task_id") for e in executed
+                      if e.get("ok") and e["tool"] == "update_task" and isinstance(e.get("result"), dict)}
+    if coverage:
+        resolved_tasks.add(coverage.get("task_id"))
+    for warning in extra_warnings:
+        if warning.get("existing_task_id") in resolved_tasks:
+            warning["resolved"] = True
+    if intent in ("event_response", "negotiate_plan") and not question_created and not parse_only \
+            and not business_done and not coverage:
         reject([{"code": validators.POSTCHECK_MISMATCH, "message": "所需业务动作未执行，不能标记完成"}])
     if rejections and not responses:
         responses.append("执行未全部通过核验，请查看拒绝原因；没有足够资料时不生成健康结论。")
     plan = {"intent": intent, "reasoning_summary": ["真实模型通过原生工具调用决策，执行结果已核验"],
             "actions": [{"tool": e['tool']} for e in executed], "tool_rounds": rounds,
+            "warnings": extra_warnings,
             "priority_order": [e['id'] for e in events]}
     return plan, evidence, responses, question_created, executed, rejections
 

@@ -95,3 +95,51 @@ def test_notification_same_text_without_ref_is_deduped(conn):
     first = notifications.create_notification(conn, "CB4", kind="info", title="提醒", body="记录血糖")
     second = notifications.create_notification(conn, "CB4", kind="info", title="提醒", body="记录血糖")
     assert second["id"] == first["id"]
+
+def test_explicit_event_review_merges_with_task_auto_review(conn):
+    _patient(conn)
+    conn.execute(
+        """INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at)
+           VALUES('EVT-MERGE','CB1','GLUCOSE_RISING','high','open','x','{}','CB1:x',NULL,?)""",
+        (iso(now(conn)),),
+    )
+    task, _ = tasks.create_task(conn, "CB1", task_type="record_glucose", title="记录",
+                                event_id="EVT-MERGE", due_at=iso(now(conn) + timedelta(days=1)))
+    auto = conn.execute("SELECT * FROM reviews WHERE task_id=?", (task["id"],)).fetchone()
+    assert auto is not None
+    explicit = reviews.schedule_review(conn, "CB1", event_id="EVT-MERGE", delay_hours=24)
+    assert explicit["id"] == auto["id"], "同一事件只保留一条复评"
+    assert explicit.get("updated") is True
+    rows = conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='CB1'").fetchone()["c"]
+    assert rows == 1
+    row = conn.execute("SELECT task_id FROM reviews WHERE id=?", (auto["id"],)).fetchone()
+    assert row["task_id"] == task["id"], "合并后保留任务关联"
+
+
+def test_explicit_review_first_then_task_auto_merges(conn):
+    _patient(conn)
+    conn.execute(
+        """INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at)
+           VALUES('EVT-MERGE2','CB1','GLUCOSE_RISING','high','open','x','{}','CB1:y',NULL,?)""",
+        (iso(now(conn)),),
+    )
+    explicit = reviews.schedule_review(conn, "CB1", event_id="EVT-MERGE2", delay_hours=24)
+    task, _ = tasks.create_task(conn, "CB1", task_type="record_glucose", title="记录",
+                                event_id="EVT-MERGE2", due_at=iso(now(conn) + timedelta(days=1)))
+    rows = conn.execute("SELECT * FROM reviews WHERE patient_id='CB1'").fetchall()
+    assert len(rows) == 1
+    assert rows[0]["id"] == explicit["id"]
+    assert rows[0]["task_id"] == task["id"]
+
+
+def test_reviews_for_different_events_stay_separate(conn):
+    _patient(conn)
+    for eid in ("EVT-A1", "EVT-A2"):
+        conn.execute(
+            """INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at)
+               VALUES(?, 'CB1','GLUCOSE_RISING','high','open','x','{}',?,NULL,?)""",
+            (eid, f"CB1:{eid}", iso(now(conn))),
+        )
+    reviews.schedule_review(conn, "CB1", event_id="EVT-A1", delay_hours=24)
+    reviews.schedule_review(conn, "CB1", event_id="EVT-A2", delay_hours=48)
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='CB1'").fetchone()["c"] == 2

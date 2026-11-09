@@ -201,9 +201,19 @@ def post_execution_check(
         return {"ok": True, "detail": {"task_id": task_id, "status": row["status"]}}
     if tool == "update_task":
         task_id = args.get("task_id")
-        row = conn.execute("SELECT version FROM tasks WHERE id=?", (task_id,)).fetchone()
+        row = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"任务 {task_id} 不存在"}
+        if args.get("patient_id") and row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务不属于当前患者"}
+        if args.get("due_at") and row["due_at"]:
+            try:
+                same = abs((parse_ts(row["due_at"]) - parse_ts(args["due_at"])).total_seconds()) <= 1
+            except Exception:
+                same = str(row["due_at"]) == str(args["due_at"])
+            if not same:
+                return {"ok": False, "code": POSTCHECK_MISMATCH,
+                        "message": f"任务截止时间与调用不一致: DB={row['due_at']} 调用={args['due_at']}"}
         expected = result.get("version")
         if expected is not None and int(row["version"]) != int(expected):
             return {
@@ -227,6 +237,8 @@ def post_execution_check(
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评患者归属不一致"}
         if args.get("task_id") and row["task_id"] != args.get("task_id"):
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未关联指定任务"}
+        if args.get("event_id") and row["event_id"] != args.get("event_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未关联指定事件"}
         if row["status"] != "scheduled":
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"复评状态异常: {row['status']}"}
         return {"ok": True, "detail": {"review_id": review_id, "scheduled_for": row["scheduled_for"]}}
@@ -237,6 +249,10 @@ def post_execution_check(
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核未真实创建"}
         if row["patient_id"] != args.get("patient_id"):
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核患者归属不一致"}
+        if row["status"] != "pending_human":
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"人工复核状态异常: {row['status']}"}
+        if args.get("event_id") and row["event_id"] != args.get("event_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核未关联指定事件"}
         return {"ok": True, "detail": {"review_id": review_id, "status": row["status"]}}
     if tool == "ask_user":
         qid = result.get("question_id")
@@ -256,11 +272,23 @@ def post_execution_check(
         ).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "偏好未写入"}
+        if args.get("value") is not None and str(row["value"]) != str(args["value"]):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "偏好值与调用参数不一致"}
+        if args.get("source") and row["source"] and row["source"] != args["source"]:
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "偏好来源与调用参数不一致"}
         return {"ok": True, "detail": {"preference_id": row["id"]}}
     if tool == "create_notification":
         row = conn.execute("SELECT * FROM notifications WHERE id=?", (result.get("notification_id"),)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知未写入"}
+        if args.get("patient_id") and row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知患者归属不一致"}
+        if args.get("kind") and row["kind"] != args.get("kind"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知类型与调用参数不一致"}
+        if args.get("ref_type") and row["ref_type"] != args.get("ref_type"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知引用类型不一致"}
+        if args.get("ref_id") and row["ref_id"] != args.get("ref_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知引用对象不一致"}
         return {"ok": True, "detail": {"notification_id": row["id"]}}
     return {"ok": True, "detail": {}}
 

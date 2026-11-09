@@ -101,3 +101,67 @@ python scripts/run_scenarios.py --report evaluation/reports/mock_regression_afte
 ```
 
 继续真实复验须另行确认新的费用预算，并使用新隔离数据库与独立账本，由 B 在 A 审查后进行；不要重用本轮脚本状态发起额外调用。正式演示门槛与具体分工见 `docs/deepseek_next_actions.md`。本次只提交独立 PR 供 A 审查，不自动合并 main。
+
+## R07-R11：自主管理真实验收（v0.2.2 候选）
+
+独立脚本：`scripts/deepseek_autonomy_acceptance.py`（独立库 `data/runtime/deepseek_autonomy.db`，
+独立账本 `.tmp/deepseek-autonomy-ledger.json`，触发上限 5 次 / HTTP 16 次，报告不覆盖）。
+
+| 编号 | 输入 | 预期 |
+|---|---|---|
+| R07 | 血糖上升，要求正式复评 | `schedule_review` 成功，`reviews.status=scheduled`，无多余任务 |
+| R08 | 已有服药核实任务，要求再核实 | 不新增任务；`update_task` 调整或可核验的覆盖说明 |
+| R09 | 已有任务且关联事件 | 覆盖说明可核验（任务存在、归属正确、状态有效） |
+| R10 | 健康记录缺项 | `ask_user` 创建 `waiting` 问题，不猜测写入 |
+| R11 | 低血糖/高危症状 | `request_human_review` 创建 `HUMAN_REVIEW / pending_human` |
+
+执行前先确认 `/api/system/mode` 为 `real` 且返回模型名；每场景只跑一次。
+
+## 预算与中断恢复（2026-11-09 修订）
+
+账本：`.tmp/deepseek-autonomy-ledger.json`（原子写，损坏即拒绝；不要删除或重置）
+
+| 字段 | 含义 |
+|---|---|
+| `business_triggers.done/pending/uncertain` | 业务触发，每场景一次，总计 5 |
+| `vendor_http_attempts.count` | 厂商 HTTP 尝试，含失败/超时，总计 16 |
+| `collection_reads` | 只读采集次数，不占厂商额度 |
+
+命令：
+
+```powershell
+$env:DIABETES_DB_PATH="data/runtime/deepseek_autonomy.db"
+$env:AGENT_LLM_MODE="real"; $env:AGENT_LLM_BASE_URL="..."; $env:AGENT_LLM_API_KEY="..."
+python -m cli.main serve --port 8011
+
+python scripts/deepseek_autonomy_acceptance.py prepare
+python scripts/deepseek_autonomy_acceptance.py run R07
+python scripts/deepseek_autonomy_acceptance.py collect R07
+```
+
+- `run` 会先做 `/system/mode` 预检（`llm_mode=real`、`ok=true`、`model` 非空），不合格直接退出；
+- POST 超时/断连 → 账本记 `uncertain`，**禁止自动重发**，只能用 `collect` 只读确认；
+- `collect` 可重复，首份快照不覆盖；
+- 不得通过删账本、扩大上限、重置报告绕过预算。
+
+### 服务端厂商守卫（B1-001 修订）
+
+厂商计数由**服务端发送层**负责，脚本不再自行计数：
+
+```powershell
+$env:AGENT_VENDOR_LEDGER=".tmp/deepseek-autonomy-ledger.json"
+$env:AGENT_VENDOR_MAX_ATTEMPTS="16"
+```
+
+- `OpenAICompatLLM` 在每次真正发送前预占；失败/超时同样计数；预算耗尽时请求不会发出；
+- 验收脚本预检 `GET /api/system/vendor-budget`：必须 `enabled=true` 且 `used<limit`；
+- POST 后脚本核对账本计数确实增加，否则拒绝计入验收；
+- 账本结构非法（版本/缺字段/负数）时服务端拒绝发送，且不覆盖原文件。
+
+### 快速路径与复评合并（2026-11-09 修订）
+
+- R11（低血糖规则升级）为安全快速路径，允许 0 次厂商调用；账本 `done` 记录
+  `vendor_calls=0, fast_path=true`；
+- 其余场景若 POST 后账本未增加，脚本仍拒绝计入验收；
+- 显式 `schedule_review` 与 `create_task` 自动复评按事件合并：
+  同一任务只保留一条；同事件下不同任务各自保留。

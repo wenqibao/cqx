@@ -253,3 +253,171 @@ def test_duplicate_rejection_forces_reuse_toolset(conn):
     second_tools = set(llm.tools_by_call[1])
     assert second_tools <= {"update_task", "respond", "list_tasks"}, second_tools
     assert "create_task" not in second_tools
+
+def test_a5_01_schedule_review_completes_management_event(conn):
+    _patient(conn, "A5A")
+    evt = _glucose_event(conn, "A5A")
+    llm = CapturingLLM([LLMResponse(content="安排正式复评", tool_calls=[ToolCall("schedule_review", {
+        "patient_id": "A5A", "event_id": evt, "delay_hours": 48, "reason": "血糖上升需复评"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "A5A", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    review = conn.execute("SELECT * FROM reviews WHERE patient_id='A5A'").fetchone()
+    assert review and review["status"] == "scheduled" and review["event_id"] == evt
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt,)).fetchone()["status"] == "handled"
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='A5A'").fetchone()["c"] == 0
+
+
+def test_a5_02_review_only_closes_its_own_event(conn):
+    _patient(conn, "A5B")
+    evt_a = _glucose_event(conn, "A5B", code="GLUCOSE_RISING")
+    evt_b = _glucose_event(conn, "A5B", code="LOW_ACTIVITY", severity="medium")
+    llm = CapturingLLM([LLMResponse(content="只处理血糖事件", tool_calls=[ToolCall("schedule_review", {
+        "patient_id": "A5B", "event_id": evt_a, "delay_hours": 48}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "A5B", trigger_type="event_detected", event_ids=[evt_a, evt_b], llm=llm)
+    assert result["status"] == "completed", result
+    status_a = conn.execute("SELECT status FROM events WHERE id=?", (evt_a,)).fetchone()["status"]
+    status_b = conn.execute("SELECT status FROM events WHERE id=?", (evt_b,)).fetchone()["status"]
+    assert status_a == "handled" and status_b == "open"
+
+
+def test_a5_03_existing_task_coverage_via_respond(conn):
+    _patient(conn, "A5C")
+    evt = _glucose_event(conn, "A5C")
+    task, _ = tasks.create_task(conn, "A5C", task_type="confirm_medication", title="核实近3天服药",
+                                event_id=evt, due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([
+        LLMResponse(content="先建任务", tool_calls=[ToolCall("create_task", {
+            "patient_id": "A5C", "task_type": "confirm_medication", "title": "核实服药",
+            "event_id": evt, "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content=f"已有任务 {task['id']}（{task['title']}）覆盖本事件，无需重复创建。",
+                    tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "A5C", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='A5C'").fetchone()["c"] == 1
+    assert result.get("warnings"), "重复创建被拒应保留 warning"
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt,)).fetchone()["status"] == "handled"
+
+
+def test_a5_04_unsupported_coverage_claim_is_rejected(conn):
+    _patient(conn, "A5D")
+    evt = _glucose_event(conn, "A5D")
+    tasks.create_task(conn, "A5D", task_type="confirm_medication", title="核实近3天服药",
+                      due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([
+        LLMResponse(content="先建任务", tool_calls=[ToolCall("create_task", {
+            "patient_id": "A5D", "task_type": "confirm_medication", "title": "核实服药",
+            "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已经处理好了。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "A5D", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "failed", result
+    assert any(r["code"] == "POSTCHECK_MISMATCH" for r in result["rejections"])
+
+
+def test_a5_05_update_task_closes_only_linked_event(conn):
+    _patient(conn, "A5E")
+    evt_a = _glucose_event(conn, "A5E", code="GLUCOSE_RISING")
+    evt_b = _glucose_event(conn, "A5E", code="LOW_ACTIVITY", severity="medium")
+    task, _ = tasks.create_task(conn, "A5E", task_type="confirm_medication", title="核实服药",
+                                event_id=evt_a, due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="调整已有任务", tool_calls=[ToolCall("update_task", {
+        "patient_id": "A5E", "task_id": task["id"],
+        "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "A5E", trigger_type="event_detected", event_ids=[evt_a, evt_b], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt_a,)).fetchone()["status"] == "handled"
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt_b,)).fetchone()["status"] == "open"
+
+
+def test_a5_06_read_only_does_not_complete_or_close(conn):
+    _patient(conn, "A5F")
+    evt = _glucose_event(conn, "A5F")
+    llm = CapturingLLM([LLMResponse(content="", tool_calls=[ToolCall("list_tasks", {"patient_id": "A5F"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "A5F", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "failed", result
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt,)).fetchone()["status"] == "open"
+
+
+def test_a5_07_parse_only_still_allowed(conn):
+    _patient(conn, "A5G")
+    llm = CapturingLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("parse_constraint", {
+            "message": "只解析，不要修改：明天早上8点提醒我测血糖"}, "c1")], raw={}),
+        LLMResponse(content="已解析：明天 08:00。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "A5G", trigger_type="user_request",
+                                    message="只解析，不要修改：明天早上8点提醒我测血糖", llm=llm)
+    assert result["status"] == "completed", result
+
+def test_unlinked_update_task_keeps_single_event_open(conn):
+    _patient(conn, "B1A")
+    evt = _glucose_event(conn, "B1A")
+    task, _ = tasks.create_task(conn, "B1A", task_type="record_steps", title="记录步数",
+                                event_id=None, due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="调整步数任务", tool_calls=[ToolCall("update_task", {
+        "patient_id": "B1A", "task_id": task["id"],
+        "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "B1A", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt,)).fetchone()["status"] == "open"
+
+
+def test_unlinked_schedule_review_keeps_single_event_open(conn):
+    _patient(conn, "B1B")
+    evt = _glucose_event(conn, "B1B")
+    task, _ = tasks.create_task(conn, "B1B", task_type="record_steps", title="记录步数",
+                                event_id=None, due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="安排复评", tool_calls=[ToolCall("schedule_review", {
+        "patient_id": "B1B", "task_id": task["id"], "delay_hours": 24}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "B1B", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt,)).fetchone()["status"] == "open"
+
+
+def test_linked_update_task_closes_single_event(conn):
+    _patient(conn, "B1C")
+    evt = _glucose_event(conn, "B1C")
+    task, _ = tasks.create_task(conn, "B1C", task_type="record_glucose", title="记录",
+                                event_id=evt, due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([LLMResponse(content="调整任务", tool_calls=[ToolCall("update_task", {
+        "patient_id": "B1C", "task_id": task["id"],
+        "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "B1C", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert conn.execute("SELECT status FROM events WHERE id=?", (evt,)).fetchone()["status"] == "handled"
+
+
+def test_unresolved_duplicate_warning_stays_unresolved(conn):
+    _patient(conn, "B1D")
+    evt = _glucose_event(conn, "B1D")
+    tasks.create_task(conn, "B1D", task_type="confirm_medication", title="核实服药",
+                      due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([
+        LLMResponse(content="先建任务", tool_calls=[ToolCall("create_task", {
+            "patient_id": "B1D", "task_type": "confirm_medication", "title": "核实服药",
+            "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已经处理好了。", tool_calls=[], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "B1D", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "failed", result
+    warnings = [w for w in result.get("warnings", []) if w.get("code") == "DUPLICATE_TASK"]
+    assert warnings and warnings[0]["resolved"] is False
+
+
+def test_resolved_duplicate_warning_after_update(conn):
+    _patient(conn, "B1E")
+    evt = _glucose_event(conn, "B1E")
+    existing, _ = tasks.create_task(conn, "B1E", task_type="confirm_medication", title="核实服药",
+                                    due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    llm = CapturingLLM([
+        LLMResponse(content="先建任务", tool_calls=[ToolCall("create_task", {
+            "patient_id": "B1E", "task_type": "confirm_medication", "title": "核实服药",
+            "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="改为调整已有任务", tool_calls=[ToolCall("update_task", {
+            "patient_id": "B1E", "task_id": existing["id"],
+            "due_at": (now(conn) + timedelta(days=2)).isoformat()}, "c2")], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "B1E", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "completed", result
+    warnings = [w for w in result.get("warnings", []) if w.get("code") == "DUPLICATE_TASK"]
+    assert warnings and warnings[0]["resolved"] is True

@@ -26,6 +26,8 @@ def _seed_event(conn, pid="WB01"):
             pid,
             {"kind": "fasting_glucose", "value": value, "recorded_at": iso(now(conn) - timedelta(hours=24 * (4 - i)))},
         )
+    for kind, value in (("medication_taken", 1), ("steps", 6000)):
+        records.add_record(conn, pid, {"kind": kind, "value": value, "recorded_at": iso(now(conn))})
     events = detect_events(conn, pid)["created"]
     assert events, "测试前置：必须产生事件"
     return events[0]

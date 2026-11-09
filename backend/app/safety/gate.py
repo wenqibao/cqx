@@ -119,6 +119,8 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
                 continue
             if _is_conditional_referral(text, m.start(), m.end()):
                 continue
+            if _is_verification_or_explanation(text, m.start(), m.end(), generated=generated):
+                continue
             if _is_question_inquiry(text, m.start(), m.end()):
                 continue
             if _is_directly_negated(text, m.start()):
@@ -149,6 +151,31 @@ def _clause_at(text: str, start: int, end: int) -> str:
     rights = [pos for pos in (text.find(ch, end) for ch in SENTENCE_DELIMS) if pos != -1]
     right = min(rights) if rights else len(text)
     return text[left:right]
+
+
+VERIFY_CUES = ("核实", "确认", "回顾", "过去", "近一周", "近7天", "近 7 天", "历史")
+EDUCATIONAL_CUES = ("会", "可能", "容易", "导致", "影响", "风险", "趋势", "说明")
+IMPERATIVE_CUES = ("请", "建议", "应该", "立即", "马上", "把", "将", "帮我", "给我")
+
+
+def _is_verification_or_explanation(text: str, start: int, end: int, *, generated: bool = False) -> bool:
+    """A-033-01：核实历史事实、说明风险、转介解释不是用药指令。"""
+    clause = _clause_at(text, start, end)
+    if INLINE_INSTRUCTION.search(clause):
+        return False
+    if any(cue in clause for cue in VERIFY_CUES):
+        return True
+    if any(cue in clause for cue in EDUCATIONAL_CUES) and not any(cue in clause for cue in IMPERATIVE_CUES):
+        return True
+    import re as _re
+    referral = (any(cue in clause for cue in REFERRAL_CUES)
+                or ("咨询" in clause and "医生" in clause)
+                or ("联系" in clause and "医生" in clause))
+    if generated and referral and not _re.search(
+        r"(请|建议|应|立即|马上|把|将)[^，,。；;！!？?]{0,4}(调整|停|改|换|加|减|增|降|停用|更换)", clause
+    ):
+        return True
+    return False
 
 
 def _is_conditional_referral(text: str, start: int = 0, end: int | None = None) -> bool:
@@ -188,6 +215,8 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
                 if _is_question_inquiry(lowered, match.start(), match.end()):
                     continue
                 if _is_directly_negated(lowered, match.start()):
+                    continue
+                if _is_verification_or_explanation(lowered, match.start(), match.end(), generated=generated):
                     continue
                 return {
                     "allowed": False,

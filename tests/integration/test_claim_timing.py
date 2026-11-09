@@ -33,6 +33,8 @@ def _seed_event(conn, pid):
     for i, value in enumerate([7.0, 7.9, 8.8]):
         records.add_record(conn, pid, {"kind": "fasting_glucose", "value": value,
                                        "recorded_at": iso(now() - timedelta(hours=24 * (2 - i)))})
+    for kind, value in (("medication_taken", 1), ("steps", 6000)):
+        records.add_record(conn, pid, {"kind": kind, "value": value, "recorded_at": iso(now(conn))})
     return detect_events(conn, pid)["created"][0]
 
 

@@ -17,6 +17,10 @@ from backend.app.tasks.types import canonical_task_types, normalize_task_type
 
 def _patient(conn, pid="TT1"):
     patients.create_patient(conn, {"id": pid, "name": pid, "age": 60, "duration_years": 5, "goals": ["稳定"]})
+    from backend.app.services import records
+
+    for kind, value in (("medication_taken", 1), ("steps", 6000)):
+        records.add_record(conn, pid, {"kind": kind, "value": value, "recorded_at": iso(now(conn))})
 
 
 def _ctx(conn, pid="TT1"):
@@ -230,3 +234,70 @@ def test_unknown_task_type_writes_nothing(conn):
     result = orchestrator.run_agent(conn, "AL2", trigger_type="request", message="建个任务", llm=llm)
     assert conn.execute("SELECT COUNT(*) c FROM tasks WHERE patient_id='AL2'").fetchone()["c"] == 0
     assert any(r["code"] in ("INVALID_TASK_TYPE", "TOOL_EXECUTION_FAILED") for r in result["rejections"])
+
+def test_missing_required_field_triggers_question_without_adherence_goals(conn):
+    patients.create_patient(conn, {"id": "MQ3", "name": "MQ3", "age": 55, "duration_years": 6,
+                                   "goals": ["保持日常记录稳定"]})
+    evt = _event(conn, "MQ3")
+    llm = CaptureLLM([LLMResponse(content="", tool_calls=[ToolCall("create_task", {
+        "patient_id": "MQ3", "task_type": "record_glucose", "title": "补录血糖",
+        "event_id": evt, "due_at": (now(conn) + timedelta(days=1)).isoformat()}, "c1")], raw={}),
+        LLMResponse(content="已创建补录任务。", tool_calls=[], raw={})])
+    result = orchestrator.run_agent(conn, "MQ3", trigger_type="event_detected", event_ids=[evt], llm=llm)
+    assert result["status"] == "waiting_user", result
+    question = conn.execute("SELECT * FROM questions WHERE patient_id='MQ3' AND status='waiting'").fetchone()
+    assert question and question["target_field"] == "medication_taken"
+
+B10_TEXT = "请核实过去一周有无漏服、漏打或停药的情况。"
+B22_TEXT = "核实是否按时服药，有无漏服或自行停药。"
+R07_TEXT = "漏服或自行调整剂量会影响血糖趋势，请如实记录。"
+B02_TEXT = "关于胰岛素剂量，请咨询内分泌科医生。"
+
+
+@pytest.mark.parametrize("text", [B10_TEXT, B22_TEXT, R07_TEXT])
+def test_retrospective_verification_is_allowed(text):
+    assert gate.check_text(text, generated=True)["allowed"] is True
+
+
+def test_generated_referral_reference_is_allowed():
+    assert gate.check_text(B02_TEXT, generated=True)["allowed"] is True
+
+
+@pytest.mark.parametrize("text", [
+    "请把降糖药停掉。",
+    "建议减少二甲双胍剂量。",
+    "您有没有停过药？",
+    "是否要停药？",
+])
+def test_instruction_and_inquiry_are_still_blocked(text):
+    assert gate.check_text(text, generated=True)["allowed"] is False
+
+
+def test_ask_user_verification_text_is_not_blocked(conn):
+    _patient(conn, "V33A")
+    llm = CaptureLLM([
+        LLMResponse(content="", tool_calls=[ToolCall("ask_user", {
+            "patient_id": "V33A", "question": B10_TEXT, "target_field": "medication_taken"}, "c1")], raw={}),
+    ])
+    result = orchestrator.run_agent(conn, "V33A", trigger_type="request",
+                                    message="核实一下我最近的服药情况", llm=llm)
+    assert result["status"] == "waiting_user", result
+    assert not [r for r in result["rejections"] if r["code"] == "FORBIDDEN_ACTION"]
+
+
+def test_respond_summary_does_not_consume_action_budget(conn):
+    _patient(conn, "V33B")
+    responses = []
+    for round_index in range(3):
+        calls = [ToolCall("create_notification", {
+            "patient_id": "V33B", "title": f"提醒{round_index * 3 + i}",
+            "body": f"内容{round_index * 3 + i}"}, f"c{round_index * 3 + i}") for i in range(3)]
+        if round_index == 2:
+            calls = calls[:2] + [ToolCall("respond", {
+                "patient_id": "V33B", "text": "已创建提醒并说明情况。"}, "c9")]
+        responses.append(LLMResponse(content="", tool_calls=calls, raw={}))
+    llm = CaptureLLM(responses)
+    result = orchestrator.run_agent(conn, "V33B", trigger_type="request", message="给我一些提醒", llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM notifications WHERE patient_id='V33B'").fetchone()["c"] == 8
+    assert not [r for r in result["rejections"] if r["code"] == "TOO_MANY_ACTIONS"]

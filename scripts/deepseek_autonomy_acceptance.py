@@ -46,6 +46,8 @@ DB_PATH = ROOT / "data/runtime/deepseek_autonomy.db"
 CASES = ["R07", "R08", "R09", "R10", "R11"]
 MAX_TRIGGERS = 5
 MAX_VENDOR_ATTEMPTS = 16
+# R11 低血糖走安全快速路径，不调用模型；其余场景必须产生厂商调用
+EXPECT_VENDOR_CALLS = {"R07": True, "R08": True, "R09": True, "R10": True, "R11": False}
 LOCK_STALE_SECONDS = 600
 
 MESSAGES = {
@@ -148,11 +150,15 @@ def reserve_business_trigger(case: str) -> None:
         write_ledger(data)
 
 
-def finish_business_trigger(case: str, run_id: str | None, status: str | None) -> None:
+def finish_business_trigger(case: str, run_id: str | None, status: str | None, *,
+                            vendor_calls: int = 0, fast_path: bool = False) -> None:
     with ledger_lock():
         data = read_ledger()
         data["business_triggers"]["pending"].pop(case, None)
-        data["business_triggers"]["done"][case] = {"run_id": run_id, "status": status}
+        data["business_triggers"]["done"][case] = {
+            "run_id": run_id, "status": status,
+            "vendor_calls": vendor_calls, "fast_path": fast_path,
+        }
         write_ledger(data)
 
 
@@ -307,10 +313,21 @@ def run(case: str) -> None:
         raise BudgetError("请求中断，结果待确认；禁止自动重发，请只用 collect 只读确认") from exc
     body = response["body"]
     vendor_after = read_ledger()["vendor_http_attempts"]["count"]
-    if vendor_after <= vendor_before:
-        raise BudgetError("服务端发送层没有记录厂商请求，拒绝把结果计入验收")
-    finish_business_trigger(case, body.get("run_id"), body.get("status"))
-    dump(output.name, {"mode": mode, "response": response})
+    vendor_calls = vendor_after - vendor_before
+    fast_path = False
+    if vendor_calls <= 0:
+        if EXPECT_VENDOR_CALLS[case]:
+            raise BudgetError("服务端发送层没有记录厂商请求，拒绝把结果计入验收")
+        # 允许的安全快速路径（如低血糖规则升级）：确认没有模型决策轮次
+        run_id = body.get("run_id")
+        steps = request("GET", f"/runs/{run_id}", collection=True)["body"].get("steps", []) if run_id else []
+        if any(step.get("kind") in ("decision_rationale", "llm_request") for step in steps):
+            raise BudgetError("出现模型决策轮次但账本未增加，拒绝计入验收")
+        fast_path = True
+    finish_business_trigger(case, body.get("run_id"), body.get("status"),
+                            vendor_calls=vendor_calls, fast_path=fast_path)
+    dump(output.name, {"mode": mode, "response": response, "vendor_calls": vendor_calls,
+                      "fast_path": fast_path})
     print(json.dumps({"scenario": case, "http_status": response["status"],
                       "run_id": body.get("run_id"), "status": body.get("status")}, ensure_ascii=False))
     # run 的语义：触发后立即只读采集一次；后续可用 collect 补采

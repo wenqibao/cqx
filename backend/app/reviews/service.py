@@ -77,23 +77,52 @@ def schedule_review(
             raise ReviewError("delay_hours=0 只允许用于人工复核升级")
     due = now(conn) + timedelta(hours=delay_hours if delay_hours is not None else default_delay_hours())
     # 复评单一责任：同一 task/event 只保留一条 scheduled；显式时间覆盖自动时间
-    existing_scheduled = conn.execute(
-        """SELECT * FROM reviews WHERE patient_id=? AND status='scheduled'
-           AND COALESCE(task_id,'')=? AND COALESCE(event_id,'')=?
-           ORDER BY created_at LIMIT 1""",
-        (patient_id, task_id or "", event_id or ""),
-    ).fetchone()
+    # 同一事件只保留一条 scheduled：显式复评（可能无 task_id）与
+    # create_task 的自动复评（有 task_id）按 event_id 合并，避免 R07 叠加
+    if event_id:
+        rows = conn.execute(
+            """SELECT * FROM reviews WHERE patient_id=? AND status='scheduled' AND event_id=?
+               ORDER BY created_at""",
+            (patient_id, event_id),
+        ).fetchall()
+        if task_id:
+            # 同一任务的复评才合并；同事件下不同任务各自保留（S05 三分支）
+            existing_scheduled = next((r for r in rows if r["task_id"] == task_id), None)
+            if existing_scheduled is None:
+                # 事件已有显式复评（无任务）时，任务自动复评并入它
+                existing_scheduled = next((r for r in rows if not r["task_id"]), None)
+        else:
+            # 显式 event-only 复评：优先并入无任务的复评，否则并入该事件已有复评
+            existing_scheduled = next((r for r in rows if not r["task_id"]), None) or (rows[0] if rows else None)
+    elif task_id:
+        existing_scheduled = conn.execute(
+            """SELECT * FROM reviews WHERE patient_id=? AND status='scheduled' AND task_id=?
+               ORDER BY created_at LIMIT 1""",
+            (patient_id, task_id),
+        ).fetchone()
+    else:
+        existing_scheduled = None
     if existing_scheduled:
         same_window = abs((parse_ts(existing_scheduled["scheduled_for"]) - due).total_seconds()) <= 3600
+        merged_task = task_id or existing_scheduled["task_id"]
+        merged_event = event_id or existing_scheduled["event_id"]
         if delay_hours is None or same_window:
+            if merged_task != existing_scheduled["task_id"] or merged_event != existing_scheduled["event_id"]:
+                window_key = (f"{patient_id}|{merged_task or ''}|{merged_event or ''}|"
+                              f"{existing_scheduled['scheduled_for'][:13]}")
+                conn.execute("UPDATE reviews SET task_id=?, event_id=?, review_key=? WHERE id=?",
+                             (merged_task, merged_event, window_key, existing_scheduled["id"]))
             review = get_review(conn, existing_scheduled["id"])
             if review:
                 review["duplicate"] = True
                 return review
-        window_key = f"{patient_id}|{task_id or ''}|{event_id or ''}|{iso(due)[:13]}"
+        merged_task = task_id or existing_scheduled["task_id"]
+        merged_event = event_id or existing_scheduled["event_id"]
+        window_key = f"{patient_id}|{merged_task or ''}|{merged_event or ''}|{iso(due)[:13]}"
         conn.execute(
-            "UPDATE reviews SET scheduled_for=?, review_key=?, reason=?, detail=? WHERE id=?",
-            (iso(due), window_key, reason, dumps({"scheduled_by": run_id or "system", "rescheduled": True}),
+            "UPDATE reviews SET task_id=?, event_id=?, scheduled_for=?, review_key=?, reason=?, detail=? WHERE id=?",
+            (merged_task, merged_event, iso(due), window_key, reason,
+             dumps({"scheduled_by": run_id or "system", "rescheduled": True}),
              existing_scheduled["id"]),
         )
         _scheduler = __import__("backend.app.automation.scheduler", fromlist=["enqueue_job"])

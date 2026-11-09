@@ -222,3 +222,18 @@ def test_repeated_collect_is_read_only_and_does_not_overwrite(monkeypatch, workd
     assert (workdir / "reports" / "autonomy_R07_snapshot.json").exists()
     assert (workdir / "reports" / "autonomy_R07_snapshot_recheck_1.json").exists()
     assert mod.read_ledger()["vendor_http_attempts"]["count"] == 0
+
+def test_safety_fast_path_allows_zero_vendor_calls(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    _Client.skip_count = True
+    mod.run("R11")
+    ledger = mod.read_ledger()
+    assert ledger["vendor_http_attempts"]["count"] == 0
+    done = ledger["business_triggers"]["done"]["R11"]
+    assert done["fast_path"] is True and done["vendor_calls"] == 0
+
+def test_scenario_that_requires_model_cannot_skip_vendor_calls(monkeypatch, workdir):
+    mod = load(monkeypatch, workdir)
+    _Client.skip_count = True
+    with pytest.raises(mod.BudgetError, match="没有记录厂商请求"):
+        mod.run("R07")

@@ -157,3 +157,11 @@ $env:AGENT_VENDOR_MAX_ATTEMPTS="16"
 - 验收脚本预检 `GET /api/system/vendor-budget`：必须 `enabled=true` 且 `used<limit`；
 - POST 后脚本核对账本计数确实增加，否则拒绝计入验收；
 - 账本结构非法（版本/缺字段/负数）时服务端拒绝发送，且不覆盖原文件。
+
+### 快速路径与复评合并（2026-11-09 修订）
+
+- R11（低血糖规则升级）为安全快速路径，允许 0 次厂商调用；账本 `done` 记录
+  `vendor_calls=0, fast_path=true`；
+- 其余场景若 POST 后账本未增加，脚本仍拒绝计入验收；
+- 显式 `schedule_review` 与 `create_task` 自动复评按事件合并：
+  同一任务只保留一条；同事件下不同任务各自保留。

@@ -174,3 +174,37 @@ python scripts/run_scenarios.py  → 33/33 PASS (mock)
 `tests/unit/test_autonomy_acceptance_offline.py`（16 项，预算/账本/中断/采集），
 `test_real_autonomous_decision.py` 增加 B1-002/B1-005 共 5 项。
 真实 DeepSeek 调用 0 次；R07-R11 仍为 NOT RUN。
+
+## 10. 追加：R07 复评叠加与 R11 快速路径（2026-11-09）
+
+### R07：显式复评与任务自动复评叠加
+真实运行 `RUN-48447b682178` 中同一事件产生 2 条 scheduled 复评：一条由 `create_task`
+自动派生（带 task_id），一条由模型显式 `schedule_review`（仅 event_id）。
+
+修复（`reviews.schedule_review`）：
+- 有 `event_id` 时按事件查重：**同一任务**的复评合并；
+  只有 event 没有 task 的显式复评并入该事件已有复评；
+  任务自动复评遇到"该事件已有无任务的显式复评"时接管它（回填 task_id）；
+- **同事件下不同任务各自保留复评**（S05 三分支场景不受影响）；
+- 合并时同步更新 `review_key` 与 `review_due` 作业时间。
+
+### R11：安全快速路径 0 厂商调用
+低血糖规则升级不调用模型，但脚本统一要求"POST 后账本必须增加"，导致误报
+`服务端发送层没有记录厂商请求`，并让 R11 停在 pending。
+
+修复（验收脚本）：
+- `EXPECT_VENDOR_CALLS` 明确每场景是否预期调用模型，R11 为 false；
+- 0 厂商调用时再查 run 轨迹，若没有 `decision_rationale/llm_request` 轮次则判定为安全快速路径，
+  记录 `vendor_calls=0 / fast_path=true` 并正常收口 `done`；
+- 预期必须调用模型的场景（R07–R10）若账本未增加，仍拒绝计入验收。
+
+### 回归
+
+```text
+python -m pytest                 → 478 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+```
+
+新增：复评合并 3 项（自动后显式、显式后自动、不同事件独立）、
+R11 快速路径 2 项（0 调用可收口、应调用场景不可跳过）。
+真实 DeepSeek 未重新调用；R07/R11 需 B 定向复跑。

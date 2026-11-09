@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: 糖衡智管 Agent API
-  version: 0.2.1
+  version: 0.3.0
   description: |
     单 Agent 稳定期 2 型糖尿病健康管理演示系统。
     本契约由成员 A 维护；C 按此契约接入前端，B 按此契约做接口测试。
@@ -800,7 +800,7 @@ components:
               score: { type: number }
 
 x_contract_notes:
-  frozen_at: v0.2.1
+  frozen_at: v0.3.0
   run_result:
     warnings: "可修正拒绝被后续同工具成功纠正时保留在 rejections，并在 warnings 标记 resolved=true"
     status: "存在未解决的安全/业务拒绝才为 failed；可修正拒绝被纠正后按实际动作计算（通常 completed）"

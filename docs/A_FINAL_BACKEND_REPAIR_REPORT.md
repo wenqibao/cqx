@@ -239,3 +239,27 @@ python scripts/deepseek_autonomy_acceptance.py collect R07-r2
 `test_rerun_requires_explicit_approval`、`test_rerun_allows_one_extra_trigger_when_approved`、
 `test_rerun_approval_does_not_unlock_other_sixth_triggers`；
 全量 `pytest` 481 passed，Mock 场景 33/33 PASS。
+
+## 12. v0.3.0 版本说明（2026-11-09）
+
+版本号统一为 `0.3.0`：`pyproject.toml`、`backend/app/__init__.py`、`docs/api_contract.yaml`
+（含 `frozen_at: v0.3.0`）与版本测试。
+
+### 本版包含
+- Real 模式患者个体化自主管理（事件证据、已有任务/复评、决策协议、decision_rationale）；
+- 知识问答收敛（仅 search_knowledge + respond）；
+- 完成判定统一（含 schedule_review）、覆盖说明数据库核验、事件按明确关联关闭；
+- 执行后内容级核验（任务/复评/人工复核/偏好/通知）；
+- 验收程序：真实模式预检、发送层厂商预算守卫、业务触发/采集额度分离、超时 uncertain 不重发；
+- 复评单一责任（同任务/同事件合并，不同任务保留）；
+- R07-r2 真实 DeepSeek 定向复跑 PASS（1 任务、1 复评、completed）。
+
+### 回归
+```text
+python -m pytest                 → 481 passed / 0 failed
+python scripts/run_scenarios.py  → 33/33 PASS (mock)
+python -m cli.main version       → 0.3.0
+```
+
+### 真实模型状态
+R07-r2 PASS（`995a095`）；R08–R11 沿用既有真实结果；本版本号提交未调用真实模型。

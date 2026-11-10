@@ -26,7 +26,7 @@ import {
 } from "../../components/common";
 import { businessName, businessText } from "../../utils/business";
 import { TrendChart } from "../../components/TrendChart";
-import { link, name, recordContent, text, when } from "../../utils/format";
+import { link, name, recordContent, recordNote, text, when } from "../../utils/format";
 import { Tabs, Descriptions, Select, Alert } from "antd";
 export default function Patients() {
   const { boot, busy, perform, refresh } = useWorkbench();
@@ -38,17 +38,17 @@ export default function Patients() {
     <>
       <Heading
         title="患者管理"
-        description="查找合成患者，查看健康档案与管理进度。"
+        description="查找患者，查看健康档案与管理进度。"
         extra={
           <Button type="primary" onClick={() => setOpen(true)}>
-            新建合成患者
+            新建患者
           </Button>
         }
       />
       <Card>
         <Input.Search
           aria-label="检索患者"
-          placeholder="搜索患者 ID 或姓名"
+          placeholder="搜索姓名或编号"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="search"
@@ -65,7 +65,6 @@ export default function Patients() {
               render: (_, p) => (
                 <Link to={link("/patients/" + encodeURIComponent(p.id), p.id)}>
                   {p.name}
-                  <small className="block muted">{p.id}</small>
                 </Link>
               ),
             },
@@ -75,14 +74,6 @@ export default function Patients() {
               title: "已确认目标",
               dataIndex: "goals",
               render: (v) => (v.length ? v.join("；") : "未提供"),
-            },
-            {
-              title: "数据标识",
-              render: (_, p) => (
-                <Tag color={p.is_synthetic ? "cyan" : "error"}>
-                  {p.is_synthetic ? "合成病例" : "非演示数据"}
-                </Tag>
-              ),
             },
             {
               title: "操作",
@@ -96,7 +87,7 @@ export default function Patients() {
         />
       </Card>
       <Modal
-        title="新建合成患者"
+        title="新建患者"
         open={open}
         onCancel={() => !busy && setOpen(false)}
         footer={null}
@@ -126,7 +117,7 @@ export default function Patients() {
           }}
         >
           <Form.Item
-            label="患者姓名（虚构）"
+            label="患者姓名"
             name="name"
             rules={[{ required: true, whitespace: true }]}
           >
@@ -223,12 +214,11 @@ function Detail() {
               <div>
                 <h2>{d.profile.name}</h2>
                 <span>
-                  {id} · {text(d.profile.age)} 岁 · 病程{" "}
+                  {text(d.profile.age)} 岁 · 病程{" "}
                   {text(d.profile.duration_years)} 年
                 </span>
               </div>
               <div className="summary-spacer" />
-              <Tag color="cyan">合成患者</Tag>
               <Tag>
                 {d.state.profile_complete ? "基础档案完整" : "基础档案存在缺项"}
               </Tag>
@@ -312,7 +302,7 @@ function Detail() {
                         <Link
                           to={link("/followups", id, { tab: "preferences" })}
                         >
-                          查看偏好历史及模拟确认入口 →
+                          查看偏好记录 →
                         </Link>
                       </Card>
                     </div>
@@ -356,7 +346,9 @@ function Detail() {
                             dataIndex: "recorded_at",
                             render: when,
                           },
-                          { title: "备注", dataIndex: "note", render: text },
+                          ...(d.records.some((r) => recordNote(r.note))
+                            ? [{ title: "备注", dataIndex: "note", render: recordNote }]
+                            : []),
                         ]}
                       />
                     </Card>
@@ -461,7 +453,7 @@ function Detail() {
                               <Link
                                 to={link("/followups", id, { question: q.id })}
                               >
-                                查看模拟答复
+                                查看答复
                               </Link>
                             ),
                           },

@@ -89,7 +89,6 @@ export default function Followups() {
             label: "主动提问与答复",
             children: (
               <>
-                <p className="action-note">当前以工作人员身份模拟患者答复。</p>
                 <CostNotice />
                 <DataView resource={resource}>
                   {(d) =>
@@ -178,7 +177,7 @@ export default function Followups() {
             children: (
               <>
                 <div className="two-columns">
-                  <Card title="保存模拟患者偏好">
+                  <Card title="记录患者偏好">
                     <Form
                       layout="vertical"
                       initialValues={{

@@ -7,10 +7,10 @@ test("八种真实记录类型、重复处理和类型切换不残留数值 [F03
   const pid = await fixture(request, "八种记录");
   await visit(page, "/monitoring", pid);
   await page
-    .getByText("保存后由后端自动检测并按需触发 Agent", { exact: true })
+    .getByText("保存后自动检测事件并按需触发 Agent", { exact: true })
     .click();
   await page
-    .getByLabel("记录时间（本地时间，留空使用后端演示时钟）")
+    .getByLabel("记录时间（选填）")
     .fill(new Date().toISOString().slice(0, 16));
   const results: unknown[] = [];
   for (const [kind, title, value] of [
@@ -32,7 +32,7 @@ test("八种真实记录类型、重复处理和类型切换不残留数值 [F03
       await page.getByLabel("收缩压（mmHg）").fill("120");
       await page.getByLabel("舒张压（mmHg）").fill("80");
     } else if (kind === "medication_taken")
-      await page.getByText("模拟确认已服药", { exact: true }).click();
+      await page.getByText("已服药", { exact: true }).click();
     else {
       await expect(page.getByLabel("记录数值", { exact: true })).toHaveValue(
         "",

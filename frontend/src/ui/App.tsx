@@ -102,27 +102,26 @@ function Shell() {
             智能监测与随访监管<span>医护健康管理工作台</span>
           </div>
           <div className="header-status">
-            <Tag color={client.mode === "http" ? "cyan" : "orange"}>
-              {client.mode === "http" ? "真实 HTTP API" : "前端模拟数据"}
-            </Tag>
+            {client.mode === "mock" && <Tag color="orange">前端模拟数据</Tag>}
             <Tag color={online ? "success" : "error"}>
               {online ? "后端已连接" : "后端连接失败"}
             </Tag>
-            <span className="mode">
-              llm_mode：{boot?.mode.llm_mode || "未知"}
-              <small>{boot?.mode.model || "模型未返回"}</small>
-            </span>
             <Select
-              aria-label="当前演示患者"
+              aria-label="当前患者"
               value={patientId || undefined}
               disabled={busy || !boot}
-              placeholder="选择合成患者"
+              placeholder="选择患者"
               onChange={setPatient}
               showSearch
-              optionFilterProp="label"
+              filterOption={(input, option) =>
+                !!option &&
+                `${option.label} ${option.value}`
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
               options={boot?.patients.map((p) => ({
                 value: p.id,
-                label: `${p.name} · ${p.id}`,
+                label: p.name,
               }))}
               className="patient-select"
               getPopupContainer={(trigger) => trigger}
@@ -135,18 +134,6 @@ function Shell() {
             </Link>
           </div>
         </header>
-        <div className="disclosure">
-          <span>合成数据演示 · 不提供诊断、处方或用药调整</span>
-          <span>
-            {busy
-              ? "正在处理，请勿重复提交"
-              : boot?.mode.llm_mode === "mock"
-                ? "确定性演示模式"
-                : boot?.mode.llm_mode === "real"
-                  ? "真实模型模式"
-                  : "等待后端返回模式"}
-          </span>
-        </div>
         <main>
           <OperationFeedback />
           {loading ? (
@@ -237,7 +224,7 @@ function Shell() {
           )}
         </main>
         <footer>
-          <Link to="/system?tab=guide">使用说明与系统信息</Link>
+          <Link to="/system">系统信息</Link>
         </footer>
       </div>
     </div>

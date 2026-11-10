@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Alert,
   Button,
   Card,
   Checkbox,
@@ -35,7 +34,7 @@ import {
   importRows,
   name,
   recordContent,
-  text,
+  recordNote,
   when,
 } from "../../utils/format";
 export default function Monitoring() {
@@ -90,7 +89,7 @@ export default function Monitoring() {
     <>
       <Heading
         title="健康监测"
-        description={`${patient?.name} · ${patientId}；新增记录由后端检测事件并按实际规则触发 Agent。`}
+        description={patient?.name}
         extra={
           <>
             <Button onClick={resource.reload}>重新读取状态</Button>
@@ -111,7 +110,7 @@ export default function Monitoring() {
             key: "record",
             label: "健康数据录入",
             children: (
-              <Card title="新增合成健康记录">
+              <Card title="新增健康记录">
                 <Form
                   form={form}
                   layout="vertical"
@@ -167,8 +166,8 @@ export default function Monitoring() {
                     >
                       <Radio.Group
                         options={[
-                          { value: 1, label: "模拟确认已服药" },
-                          { value: 0, label: "模拟确认未服药" },
+                          { value: 1, label: "已服药" },
+                          { value: 0, label: "未服药" },
                         ]}
                       />
                     </Form.Item>
@@ -201,7 +200,7 @@ export default function Monitoring() {
                     </div>
                   )}
                   <Form.Item
-                    label="记录时间（本地时间，留空使用后端演示时钟）"
+                    label="记录时间（选填）"
                     name="time"
                   >
                     <Input type="datetime-local" />
@@ -209,22 +208,17 @@ export default function Monitoring() {
                   <Form.Item label="记录备注" name="note">
                     <Input maxLength={300} />
                   </Form.Item>
-                  <p className="action-note">
-                    单位由后端按记录类型保存；血压、症状和饮食字段自动组装为
-                    payload，无需编写 JSON。
-                  </p>
                   <Checkbox
                     checked={trigger}
                     disabled={busy}
                     onChange={(e) => setTrigger(e.target.checked)}
                   >
-                    保存后由后端自动检测并按需触发 Agent
+                    保存后自动检测事件并按需触发 Agent
                   </Checkbox>
                   <div className="form-actions" style={{ marginTop: 18 }}>
                     <Button type="primary" htmlType="submit" loading={busy}>
                       保存并查看自动触发结果
                     </Button>
-                    <span className="muted">不会额外调用“运行 Agent”接口</span>
                   </div>
                 </Form>
               </Card>
@@ -234,11 +228,7 @@ export default function Monitoring() {
             key: "import",
             label: "CSV / JSON 导入",
             children: (
-              <Card title="导入合成健康记录">
-                <Alert
-                  type="info"
-                  title="CSV使用kind,value,recorded_at,text,systolic,diastolic等列；JSON为记录对象数组。坏行和重复行以实际后端结果显示。"
-                />
+              <Card title="导入健康记录">
                 <label>
                   选择 CSV 或 JSON 文件
                   <input
@@ -310,7 +300,6 @@ export default function Monitoring() {
             label: "事件中心",
             children: (
               <>
-                <p className="action-note">事件级别来自健康管理规则。</p>
                 <Card
                   title="事件与多事件协调"
                   extra={
@@ -318,7 +307,7 @@ export default function Monitoring() {
                       title="扫描当前记录并更新管理事件？"
                       onConfirm={() => act(() => api.scan(patientId))}
                     >
-                      <Button disabled={busy}>演示：手动扫描事件</Button>
+                      <Button disabled={busy}>扫描事件</Button>
                     </Popconfirm>
                   }
                 >
@@ -375,7 +364,7 @@ export default function Monitoring() {
       {result !== undefined && (
         <WriteResult value={result} patientId={patientId} />
       )}
-      <Card title="近期健康记录（后端近14天、最多200条）">
+      <Card title="近 14 天健康记录">
         <DataView resource={resource}>
           {(d) => (
             <Table
@@ -390,7 +379,9 @@ export default function Monitoring() {
                   render: (_, r) => recordContent(r),
                 },
                 { title: "记录时间", dataIndex: "recorded_at", render: when },
-                { title: "备注", dataIndex: "note", render: text },
+                ...(d.records.some((r) => recordNote(r.note))
+                  ? [{ title: "备注", dataIndex: "note", render: recordNote }]
+                  : []),
               ]}
             />
           )}

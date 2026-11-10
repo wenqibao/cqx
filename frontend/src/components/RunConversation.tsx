@@ -63,7 +63,7 @@ export function RunConversation({
             </div>
             {typeof q.answer_text === "string" && q.answer_text && (
               <div className="conversation-message patient-message">
-                <span className="message-speaker">患者答复 · 模拟</span>
+                <span className="message-speaker">患者答复</span>
                 <p>{businessText(q.answer_text)}</p>
                 {obj(q.answer).uncertain === true && (
                   <Tag color="gold">尚不确定</Tag>

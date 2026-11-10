@@ -3,10 +3,7 @@ import {
   Alert,
   Button,
   Card,
-  Checkbox,
   Descriptions,
-  Form,
-  InputNumber,
   Table,
   Tabs,
   Tag,
@@ -22,7 +19,6 @@ import {
   ErrorBox,
   Heading,
   Status,
-  WriteResult,
 } from "../../components/common";
 import { link, name, text, when } from "../../utils/format";
 import {
@@ -51,53 +47,17 @@ const commands = [
     "python scripts/run_scenarios.py --report frontend/.runtime/scenarios.json",
   ],
 ];
-const guide = [
-  [
-    "D01",
-    "多患者监管",
-    "/",
-    "从真实待办发现重点患者，查看档案和事件。入口只导航，不生成测试结果。",
-  ],
-  [
-    "D02",
-    "新增记录自动触发",
-    "/monitoring",
-    "使用已有上升记录的合成患者，录入9.6并检查实际事件、run_id与任务；未触发则如实说明。",
-  ],
-  [
-    "D03",
-    "主动随访",
-    "/followups",
-    "先由Agent核实缺项产生问题，再模拟答复“记不清”，查看恢复run及未知事实保留。",
-  ],
-  [
-    "D04",
-    "动态重规划",
-    "/agent?tab=negotiate",
-    "已有普通管理任务时输入模拟时间约束；或人工改期，分别核对来源与版本。",
-  ],
-  [
-    "D05",
-    "复评与人工接管",
-    "/tasks?tab=reviews",
-    "完成真实任务、查看实际复评分支；待人工复核事项由工作人员填写结案。",
-  ],
-  [
-    "D06",
-    "安全与可解释性",
-    "/audit",
-    "合成患者发起禁止剂量调整的请求后，检查拒绝码及轨迹；安全门拒绝不是模型自主拒绝。",
-  ],
-];
 export default function System() {
-  const { boot, patientId, busy, perform } = useWorkbench();
+  const { patientId } = useWorkbench();
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") || "status";
+  const requestedTab = params.get("tab");
+  const tab = requestedTab === "cli" || requestedTab === "reports"
+    ? requestedTab
+    : "status";
   const [report, setReport] = useState<Report>();
   const [filename, setFilename] = useState("");
   const [cliLog, setCliLog] = useState("");
   const [error, setError] = useState<unknown>();
-  const [result, setResult] = useState<unknown>();
   const [copied, setCopied] = useState("");
   const resource = useResource("system", async (s) => ({
     health: await client.health(s),
@@ -105,15 +65,6 @@ export default function System() {
     version: await api.version(s),
     jobs: await api.jobs(s),
   }));
-  async function maintenance(action: () => Promise<unknown>) {
-    setError(undefined);
-    try {
-      setResult(await perform(action));
-      resource.reload();
-    } catch (e) {
-      setError(e);
-    }
-  }
   async function importFile(f: File | undefined, kind: "report" | "cli") {
     if (!f) return;
     setError(undefined);
@@ -142,7 +93,6 @@ export default function System() {
     <>
       <Heading
         title="系统验证中心"
-        description="开发核验与比赛演示入口。复制命令、导入报告不代表浏览器已执行 CLI、pytest 或场景脚本。"
         extra={<Button onClick={resource.reload}>刷新 API 状态</Button>}
       />
       <Tabs
@@ -180,45 +130,22 @@ export default function System() {
                                 : "连接失败",
                             },
                             {
-                              key: "path",
-                              label: "后端报告路径",
-                              children: d.health.database.path || "未提供",
-                            },
-                            {
-                              key: "mode",
-                              label: "模型模式",
-                              children: d.mode.llm_mode,
-                            },
-                            {
-                              key: "model",
-                              label: "模型名称",
-                              children: d.mode.model || "未返回",
-                            },
-                            {
-                              key: "config",
-                              label: "模型配置",
-                              children: d.mode.ok
-                                ? "配置可用（不等于已调用厂商）"
-                                : d.mode.error || "配置不可用",
-                            },
-                            {
                               key: "time",
                               label: "后端时钟",
                               children: when(d.health.time),
                             },
                           ]}
                         />
+                        <details>
+                          <summary>运行详情</summary>
+                          <p>本地演示使用合成病例，供健康管理流程展示。</p>
+                          <Debug
+                            value={{ mode: d.mode, database: d.health.database }}
+                            label="接口字段"
+                          />
+                        </details>
                       </Card>
-                      <Card title="持久化核验方式">
-                        <p>
-                          写入后本工作台重新 GET
-                          业务对象；刷新页面仍从后端读取。任务版本和实际 ID
-                          可继续查询，不以成功弹窗代替保存证据。
-                        </p>
-                        <p>
-                          验证重启持久化需在本机重启后端并重新
-                          GET，同一数据库不可重置。实际过程与结果记录在本轮联调报告。
-                        </p>
+                      <Card title="患者档案">
                         <Link
                           to={link(
                             "/patients/" + encodeURIComponent(patientId),
@@ -227,9 +154,6 @@ export default function System() {
                         >
                           查看当前患者档案
                         </Link>
-                        <p className="action-note">
-                          此系统未实现正式机构认证或患者授权关系。演示时只绑定127.0.0.1；前端按钮不是权限保护。
-                        </p>
                       </Card>
                     </div>
                     <JobList jobs={d.jobs} />
@@ -243,11 +167,7 @@ export default function System() {
             label: "CLI 命令与证据",
             children: (
               <>
-                <Alert
-                  type="info"
-                  title="CLI与Web共用后端业务service及SQLite。下列按钮只复制文字，不执行Shell；执行时需在本机设置相同DIABETES_DB_PATH，并核对模式。"
-                />
-                <Card title="实际支持的命令参考">
+                <Card title="命令参考">
                   <Table
                     rowKey="command"
                     pagination={false}
@@ -282,12 +202,12 @@ export default function System() {
                     ]}
                   />
                   {copied && (
-                    <Alert type="info" title={"已复制，尚未执行：" + copied} />
+                    <Alert type="info" title={"已复制：" + copied} />
                   )}
                 </Card>
-                <Card title="导入实际 CLI 执行日志">
+                <Card title="导入 CLI 日志">
                   <label>
-                    选择本地日志（不会执行其中命令）
+                    选择本地日志
                     <input
                       className="file-input"
                       type="file"
@@ -297,15 +217,9 @@ export default function System() {
                     />
                   </label>
                   {cliLog ? (
-                    <>
-                      <Alert
-                        type="info"
-                        title="以下是用户导入的记录，不是本页刚执行的结果；来源真实性需结合本机命令与API核验。"
-                      />
-                      <pre className="json">{cliLog}</pre>
-                    </>
+                    <pre className="json">{cliLog}</pre>
                   ) : (
-                    <p className="muted">尚未导入CLI证据，不显示已执行。</p>
+                    <p className="muted">尚未导入日志</p>
                   )}
                 </Card>
               </>
@@ -316,7 +230,7 @@ export default function System() {
             label: "场景与实测报告",
             children: (
               <>
-                <Card title="导入真实生成的 JSON 验证报告">
+                <Card title="导入验证报告">
                   <label>
                     选择场景回放或DeepSeek验收报告
                     <input
@@ -329,9 +243,6 @@ export default function System() {
                       }
                     />
                   </label>
-                  <p className="action-note">
-                    文件仅在浏览器内解析，不上传服务器。支持脚本results数组、真实模型验收scenarios数组；原样区分Mock/Stub/Real，不执行测试。
-                  </p>
                   {report ? (
                     <>
                       <p>文件：{filename}</p>
@@ -407,15 +318,11 @@ export default function System() {
                   ) : (
                     <Alert
                       type="info"
-                      title="暂无验证报告；不生成通过率或实测成绩。"
+                      title="暂无验证报告"
                     />
                   )}
                 </Card>
-                <Card title="既有合成场景目录">
-                  <p className="muted">
-                    从仓库 evaluation/scenarios
-                    读取的编号与描述；仅表示场景存在，不表示本轮运行成功。
-                  </p>
+                <Card title="场景目录">
                   <Table
                     rowKey="id"
                     dataSource={catalog}
@@ -433,124 +340,15 @@ export default function System() {
               </>
             ),
           },
-          {
-            key: "guide",
-            label: "演示导览",
-            children: (
-              <Card title="建议5–7分钟的真实操作路径">
-                <Alert
-                  type="info"
-                  title="导览只是导航。先确认起始数据、操作模式与费用，失败时保留实际结果，不播放预设成功动画。"
-                />
-                {guide.map(([id, title, path, description]) => (
-                  <div className="guide-step" key={id}>
-                    <div className="guide-number">{id}</div>
-                    <div>
-                      <h3>{title}</h3>
-                      <p>{description}</p>
-                      <Link
-                        to={
-                          path +
-                          (path.includes("?") ? "&" : "?") +
-                          "patient=" +
-                          encodeURIComponent(patientId)
-                        }
-                      >
-                        进入对应页面 →
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </Card>
-            ),
-          },
-          {
-            key: "maintenance",
-            label: "本地演示维护",
-            children: (
-              <>
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="仅限合成数据演示：全局时钟与tick会影响同一后端数据库的所有病例。"
-                  description="这里没有服务端权限保护，勾选框只是操作确认，不是授权。后台轮询是否启用须核对启动配置；手动tick不代表后台一直自动执行。未暴露admin/reset或任意命令执行。"
-                />
-                <Card title="受控演示时钟与作业执行">
-                  <Form
-                    layout="vertical"
-                    onFinish={(v) => maintenance(() => api.clock(v.seconds))}
-                  >
-                    <Form.Item
-                      label="向前推进秒数"
-                      name="seconds"
-                      initialValue={3600}
-                      rules={[{ required: true }]}
-                    >
-                      <InputNumber min={0} max={1209600} precision={0} />
-                    </Form.Item>
-                    <Form.Item
-                      name="confirm"
-                      valuePropName="checked"
-                      rules={[
-                        {
-                          validator: (_, v) =>
-                            v
-                              ? Promise.resolve()
-                              : Promise.reject(
-                                  new Error("请核对专用合成数据库"),
-                                ),
-                        },
-                      ]}
-                    >
-                      <Checkbox>
-                        已核对为专用合成数据库，理解时钟对全部患者生效
-                      </Checkbox>
-                    </Form.Item>
-                    <Button htmlType="submit" loading={busy}>
-                      确认推进演示时钟
-                    </Button>
-                  </Form>
-                  <hr />
-                  <Form onFinish={() => maintenance(() => api.tick())}>
-                    <Form.Item
-                      name="confirmTick"
-                      valuePropName="checked"
-                      rules={[
-                        {
-                          validator: (_, v) =>
-                            v
-                              ? Promise.resolve()
-                              : Promise.reject(
-                                  new Error("请确认实际执行作业及可能模型费用"),
-                                ),
-                        },
-                      ]}
-                    >
-                      <Checkbox>
-                        确认执行当前到期作业；real模式可能触发收费模型
-                      </Checkbox>
-                    </Form.Item>
-                    <Button htmlType="submit" loading={busy}>
-                      确认执行一次 tick
-                    </Button>
-                  </Form>
-                </Card>
-                <DataView resource={resource}>
-                  {(d) => <JobList jobs={d.jobs} />}
-                </DataView>
-              </>
-            ),
-          },
         ]}
       />
       {error && <ErrorBox error={error} />}
-      {result !== undefined && (
-        <WriteResult value={result} patientId={patientId} />
-      )}
     </>
   );
 }
 function JobList({ jobs }: { jobs: Awaited<ReturnType<typeof api.jobs>> }) {
+  const { boot } = useWorkbench();
+  const patientNames = new Map(boot?.patients.map((p) => [p.id, p.name]));
   return (
     <Card title="实际调度作业">
       <Table
@@ -559,7 +357,11 @@ function JobList({ jobs }: { jobs: Awaited<ReturnType<typeof api.jobs>> }) {
         scroll={{ x: 950 }}
         columns={[
           { title: "作业ID", dataIndex: "id" },
-          { title: "患者", dataIndex: "patient_id", render: text },
+          {
+            title: "患者",
+            dataIndex: "patient_id",
+            render: (id) => patientNames.get(id) || "—",
+          },
           { title: "类型", dataIndex: "kind" },
           { title: "计划时间", dataIndex: "run_at", render: when },
           {

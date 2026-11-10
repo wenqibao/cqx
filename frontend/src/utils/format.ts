@@ -181,6 +181,9 @@ export function importRows(raw: string): Record<string, unknown>[] {
   return parsed.map((r) => ({ ...obj(r), ...obj(obj(r).payload) }));
 }
 
+export const recordNote = (note: string | null | undefined) =>
+  note?.replaceAll("[合成演示数据｜非真实患者｜非临床结论]", "").trim() || "";
+
 export function recordContent(record: {
   kind: string;
   value: number | null;

@@ -3,10 +3,10 @@ import fs from "node:fs/promises";
 import { BASE, evidence, fixture, json, visit, select } from "./helpers";
 test("新建合成患者并重新读取档案 [F01 F02 F18]", async ({ page, request }) => {
   await visit(page, "/patients");
-  await page.getByRole("button", { name: "新建合成患者" }).click();
+  await page.getByRole("button", { name: "新建患者" }).click();
   const dialog = page.getByRole("dialog");
   const name = `UI新建${Date.now()}（虚构）`;
-  await dialog.getByLabel("患者姓名（虚构）").fill(name);
+  await dialog.getByLabel("患者姓名").fill(name);
   await dialog.getByLabel("年龄", { exact: true }).fill("52");
   await dialog.getByLabel("病程（年）").fill("5");
   await dialog.getByText("确认全部信息为虚构演示数据").click();

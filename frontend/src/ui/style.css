@@ -186,29 +186,6 @@ header {
   min-width: 202px;
   max-width: 280px;
 }
-.mode {
-  font-size: 12px;
-}
-.mode small {
-  display: block;
-  color: var(--muted);
-  font-size: 10px;
-  margin-top: 4px;
-}
-.disclosure {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 28px;
-  background: #eaf3f2;
-  color: var(--primary-dark);
-  font-size: 11px;
-  line-height: 1.6;
-}
-.disclosure > span:first-child {
-  font-weight: 600;
-  white-space: nowrap;
-}
 main {
   padding: 28px;
   min-height: calc(100vh - 160px);
@@ -236,6 +213,13 @@ footer {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+.heading-actions:has(> :nth-child(2):last-child) {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+.heading-actions > a > .ant-btn {
+  width: 100%;
 }
 .intro-strip {
   display: flex;
@@ -423,12 +407,20 @@ code {
   display: grid;
   gap: 8px;
 }
-.work-links a {
+.work-links > * {
   display: block;
   color: var(--ink);
   padding: 17px 0;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
+}
+.work-links > button {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
 }
 .work-links strong {
   font-size: 23px;
@@ -513,31 +505,6 @@ code {
 .run-overview .mono {
   font-size: 14px;
 }
-.guide-step {
-  display: flex;
-  gap: 16px;
-  padding: 17px 0;
-  border-bottom: 1px solid var(--border);
-}
-.guide-number {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 7px;
-  background: #e8f3f0;
-  color: var(--primary-dark);
-  font-weight: 600;
-}
-.guide-step h3 {
-  margin: 0 0 7px;
-  font-size: 15px;
-}
-.guide-step p {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0 0 9px;
-}
 .file-input {
   display: block;
   margin: 12px 0;
@@ -590,7 +557,6 @@ textarea.ant-input {
   main {
     padding: 32px 40px;
   }
-  .disclosure,
   header {
     padding-left: 40px;
     padding-right: 40px;
@@ -654,9 +620,6 @@ textarea.ant-input {
   .three-columns {
     grid-template-columns: 1fr;
   }
-  .disclosure {
-    flex-wrap: wrap;
-  }
   .intro-strip h2 {
     font-size: 24px;
   }
@@ -693,9 +656,6 @@ textarea.ant-input {
   header {
     padding: 12px;
   }
-  .disclosure {
-    padding: 10px 12px;
-  }
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -720,9 +680,6 @@ textarea.ant-input {
   }
   .patient-select {
     max-width: 220px;
-  }
-  .mode {
-    font-size: 11px;
   }
   .intro-strip p {
     font-size: 12px;

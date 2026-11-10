@@ -127,8 +127,8 @@ export default function Tasks() {
                           title: "操作",
                           render: (_, t) => (
                             <Popconfirm
-                              title="医护演示工作人员确认此管理任务已完成？"
-                              description="由医护演示工作人员确认；执行规则复评，不额外运行模型。"
+                              title="确认任务已完成？"
+                              description="完成后将发起复评。"
                               disabled={
                                 busy ||
                                 !["pending", "missed"].includes(t.status)
@@ -323,7 +323,6 @@ function TaskDetail({
             ]}
           />
           <Card title="医护工作人员直接调整普通管理任务">
-            <p className="action-note">本次改期由工作人员确认并记录。</p>
             <Form
               layout="vertical"
               onFinish={(v) =>

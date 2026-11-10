@@ -22,9 +22,6 @@ export default function Knowledge() {
           />
         }
       />
-      <p className="action-note">
-        资料为已收录内容的摘编，来源与版本随条目列出。
-      </p>
       <Card title="检索知识片段">
         <Input.Search
           aria-label="知识检索关键词"
@@ -68,7 +65,7 @@ export default function Knowledge() {
                 <Alert
                   type="info"
                   title="未找到匹配知识依据"
-                  description={r?.note || "资料不足时不生成替代结论。"}
+                  description={r?.note}
                 />
               )
             }

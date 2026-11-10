@@ -44,7 +44,7 @@ import {
 } from "../../utils/business";
 export { toolDescriptions } from "../../utils/business";
 export default function Agent() {
-  const { patientId, patient, busy, perform, boot } = useWorkbench();
+  const { patientId, patient, busy, perform } = useWorkbench();
   const [params, setParams] = useSearchParams();
   const selected = params.get("run") || "";
   const tab = params.get("tab") || "runs";
@@ -124,24 +124,6 @@ export default function Agent() {
                         placeholder="例如：请核实当前记录缺少哪些信息，必要时先提问；或请检索知识库说明连续记录的依据。"
                       />
                     </Form.Item>
-                    {boot?.mode.llm_mode === "real" && (
-                      <Form.Item
-                        name="cost"
-                        valuePropName="checked"
-                        rules={[
-                          {
-                            validator: (_, v) =>
-                              v
-                                ? Promise.resolve()
-                                : Promise.reject(
-                                    new Error("请确认真实模型费用"),
-                                  ),
-                          },
-                        ]}
-                      >
-                        <Checkbox>确认本次可能产生模型 API 费用</Checkbox>
-                      </Form.Item>
-                    )}
                     <Button type="primary" htmlType="submit" loading={busy}>
                       运行一次 Agent
                     </Button>
@@ -218,17 +200,6 @@ export default function Agent() {
                             render: (v) => <Status value={v} />,
                           },
                           {
-                            title: "模型模式",
-                            render: (_, r) => (
-                              <>
-                                {name(r.llm_mode)}
-                                <small className="block muted">
-                                  {r.model_name || "模型未返回"}
-                                </small>
-                              </>
-                            ),
-                          },
-                          {
                             title: "开始时间",
                             dataIndex: "started_at",
                             render: when,
@@ -250,10 +221,7 @@ export default function Agent() {
             key: "negotiate",
             label: "计划协商",
             children: (
-              <Card title="由 Agent 理解模拟患者的时间约束">
-                <p className="muted">
-                  模拟患者提出时间安排，由 Agent 协商后续计划。
-                </p>
+              <Card title="协商任务时间">
                 <CostNotice />
                 <Form layout="vertical" onFinish={(v) => run(v.message)}>
                   <Form.Item

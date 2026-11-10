@@ -153,14 +153,14 @@ export function Heading({
   extra,
 }: {
   title: string;
-  description: string;
+  description?: string;
   extra?: ReactNode;
 }) {
   return (
     <div className="page-heading">
       <div>
         <h1>{title}</h1>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
       </div>
       {extra && <div className="heading-actions">{extra}</div>}
     </div>
@@ -168,7 +168,7 @@ export function Heading({
 }
 export function PatientScope({ children }: { children: ReactNode }) {
   const { patientId, patient, boot } = useWorkbench();
-  if (!patientId) return <Empty description="暂无合成患者，请先新建患者" />;
+  if (!patientId) return <Empty description="暂无患者，请先新建" />;
   if (boot && !patient)
     return (
       <Alert
@@ -204,9 +204,7 @@ export function TechnicalLog({
   }
   return (
     <>
-      <Button size="small" onClick={() => setOpen(true)}>
-        {label}
-      </Button>
+      <Button onClick={() => setOpen(true)}>{label}</Button>
       <Drawer
         title="技术日志"
         open={open}
@@ -247,7 +245,7 @@ export function CostNotice() {
   const { boot } = useWorkbench();
   return boot?.mode.llm_mode === "real" ? (
     <p className="action-note">
-      本次操作可能产生 DeepSeek API 费用，请确认后提交。
+      本次操作可能产生 DeepSeek API 费用。
     </p>
   ) : null;
 }

@@ -35,7 +35,7 @@ test("多事件协调保留实际优先序列、任务与去重依据 [F05 F09 F
   const scanned = page.waitForResponse((r) =>
     r.url().endsWith(`/patients/${pid}/events/scan`),
   );
-  await page.getByRole("button", { name: "演示：手动扫描事件" }).click();
+  await page.getByRole("button", { name: "扫描事件" }).click();
   await page.getByRole("button", { name: /确\s*定/ }).click();
   const scan = await (await scanned).json();
   expect(scan.created.length).toBeGreaterThanOrEqual(3);

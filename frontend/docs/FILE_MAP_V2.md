@@ -76,6 +76,14 @@
 
 2026-11-08 B 反馈增量：`tools/contract-server.py` 为两种过期场景提供独立夹具；`e2e/contract-v021.spec.ts` 分开验证已过期无表单与提交时才过期的 422；`playwright.contract.config.ts` 支持 `CONTRACT_BROWSER_CHANNEL` 选择 Edge/Chrome。最新交接为 `docs/C_TO_B_V021_RETEST_RESPONSE_20261108.md`，证据为 `docs/evidence/contract-v021-b-retest/`。
 
+## 录制界面精简
+
+`src/ui/App.tsx` 和 `src/ui/style.css` 精简公共顶栏；患者、总览、健康监测、随访、Agent 与审计页面以业务信息为主。`src/utils/format.ts` 过滤数据包的重复记录标注。`src/pages/system/System.tsx` 保留运行详情、命令、报告入口；时钟和到期作业使用隔离后端 API 验证。相关浏览器脚本同步更新界面定位。
+
+监管总览的待处理工作按待办归属跳转。单一归属直接进入对应患者，多位患者存在待办时按姓名选择。回归覆盖见 `e2e/dashboard-work-links.spec.ts`。
+
+Agent 运行表单直接按现有接口提交请求，模型费用提示为只读说明。公共页头的成对操作按钮使用一致尺寸。
+
 ## v0.3.2 契约回归
 
 | 文件 | 职责 |

@@ -131,11 +131,11 @@ test("患者切换及三种桌面尺寸页面 [F01 F02 F04 F15]", async ({ page 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("监管总览");
   await expect(page.locator("body")).not.toContainText("我的健康空间");
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByLabel("当前演示患者").click();
-  await page.getByLabel("当前演示患者").fill("P002");
+  await page.getByLabel("当前患者").click();
+  await page.getByLabel("当前患者").fill("P002");
   await page
     .locator(".ant-select-dropdown:visible")
-    .getByText("李秀英（虚构） · P002", { exact: true })
+    .getByText("李秀英（虚构）", { exact: true })
     .click();
   await expect(page.locator("header")).toContainText("李秀英");
   await page.goto("/patients/P002?tab=records");

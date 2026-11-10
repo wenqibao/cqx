@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Empty, List, Table } from "antd";
-import { Link } from "react-router-dom";
+import { Alert, Button, Card, Dropdown, Empty, List, Table } from "antd";
+import { Link, useNavigate } from "react-router-dom";
 import { useWorkbench } from "../../app/WorkbenchContext";
 import { client } from "../../api/client";
 import { api } from "../../api/workbench";
@@ -8,6 +8,7 @@ import { DataView, Heading, RunLink, Status } from "../../components/common";
 import { link, name, when } from "../../utils/format";
 export default function Dashboard() {
   const { boot } = useWorkbench();
+  const navigate = useNavigate();
   const patients = boot?.patients || [];
   const resource = useResource(
     "dashboard:" + patients.map((p) => p.id).join(","),
@@ -41,12 +42,7 @@ export default function Dashboard() {
         title="监管总览"
         description="患者记录、管理事件与 Agent 行动，在同一处监督。"
         extra={
-          <>
-            <Link to="/system?tab=guide">
-              <Button>演示导览</Button>
-            </Link>
-            <Button onClick={resource.reload}>刷新总览</Button>
-          </>
+          <Button onClick={resource.reload}>刷新总览</Button>
         }
       />
       <div className="intro-strip">
@@ -75,8 +71,62 @@ export default function Dashboard() {
           const notices = loaded.flatMap((r) =>
             r.notices.filter((n) => n.status === "unread"),
           );
+          function workTargets(
+            itemsFor: (row: (typeof loaded)[number]) => { id?: unknown }[],
+            path: string,
+            detail?: "question" | "task",
+            params: Record<string, string> = {},
+          ) {
+            return loaded.flatMap((row) => {
+              const items = itemsFor(row);
+              if (!items.length) return [];
+              const id = items[0].id;
+              const query =
+                items.length === 1 && detail && typeof id === "string"
+                  ? { ...params, [detail]: id }
+                  : params;
+              return [
+                {
+                  name: row.patient.name,
+                  count: items.length,
+                  to: link(path, row.patient.id, query),
+                },
+              ];
+            });
+          }
+          const work = [
+            {
+              title: "待回答问题",
+              targets: workTargets(
+                (r) => r.state?.pending_questions ?? [],
+                "/followups",
+                "question",
+              ),
+            },
+            {
+              title: "未完成任务",
+              targets: workTargets(
+                (r) => r.state?.open_tasks ?? [],
+                "/tasks",
+                "task",
+              ),
+            },
+            {
+              title: "人工复核事项",
+              statTitle: "待人工复核",
+              targets: workTargets(
+                (r) => r.reviews.filter((v) => v.status === "pending_human"),
+                "/tasks",
+                undefined,
+                { tab: "reviews" },
+              ),
+            },
+          ].map((item) => ({
+            ...item,
+            count: item.targets.reduce((sum, target) => sum + target.count, 0),
+          }));
           const stats = [
-            ["合成患者", patients.length],
+            ["患者", patients.length],
             [
               "待处理事件",
               loaded.reduce(
@@ -84,26 +134,7 @@ export default function Dashboard() {
                 0,
               ),
             ],
-            [
-              "待回答问题",
-              loaded.reduce(
-                (n, r) => n + (r.state?.pending_questions.length || 0),
-                0,
-              ),
-            ],
-            [
-              "未完成任务",
-              loaded.reduce((n, r) => n + (r.state?.open_tasks.length || 0), 0),
-            ],
-            [
-              "待人工复核",
-              loaded.reduce(
-                (n, r) =>
-                  n +
-                  r.reviews.filter((v) => v.status === "pending_human").length,
-                0,
-              ),
-            ],
+            ...work.map((item) => [item.statTitle ?? item.title, item.count]),
             ["最近运行", runs.length],
             ["运行失败", runs.filter((r) => r.status === "failed").length],
           ];
@@ -115,7 +146,7 @@ export default function Dashboard() {
                   title={`仅成功加载 ${loaded.length}/${patients.length} 名患者；统计为已加载数据，不能代表全部患者。`}
                   description={rows
                     .filter((r) => r.error)
-                    .map((r) => r.patient.id + ": " + r.error)
+                    .map((r) => r.patient.name + " · " + r.error)
                     .join("；")}
                 />
               )}
@@ -145,7 +176,7 @@ export default function Dashboard() {
                   scroll={{ x: 1050 }}
                   columns={[
                     {
-                      title: "合成患者",
+                      title: "患者",
                       render: (_, r) => (
                         <Link
                           to={link(
@@ -154,7 +185,6 @@ export default function Dashboard() {
                           )}
                         >
                           <strong>{r.patient.name}</strong>
-                          <small className="block muted">{r.patient.id}</small>
                         </Link>
                       ),
                     },
@@ -225,7 +255,7 @@ export default function Dashboard() {
                           <RunLink id={r.id} patient={r.patient_id} />
                           <small className="block muted">
                             {r.patientName} · {name(r.trigger_type)} ·{" "}
-                            {name(r.llm_mode)} · {when(r.started_at)}
+                            {when(r.started_at)}
                           </small>
                         </div>
                         <Status value={r.status} />
@@ -242,21 +272,50 @@ export default function Dashboard() {
                   }
                 >
                   <div className="work-links">
-                    <Link to="/followups">
-                      <strong>{stats[2][1]}</strong> 待回答问题
-                      <span>模拟患者反馈入口 →</span>
-                    </Link>
-                    <Link to="/tasks">
-                      <strong>{stats[3][1]}</strong> 未完成任务
-                      <span>计划与版本记录 →</span>
-                    </Link>
-                    <Link to="/tasks?tab=reviews">
-                      <strong>{stats[4][1]}</strong> 人工复核事项
-                      <span>工作人员确认结案 →</span>
-                    </Link>
+                    {work.map(({ title, targets, count }) => {
+                      const label = (
+                        <>
+                          <strong>{count}</strong> {title}
+                        </>
+                      );
+                      if (!targets.length) {
+                        return (
+                          <div key={title}>
+                            {label}
+                            <span>暂无待办</span>
+                          </div>
+                        );
+                      }
+                      if (targets.length === 1) {
+                        return (
+                          <Link key={title} to={targets[0].to}>
+                            {label}
+                            <span>{targets[0].name} →</span>
+                          </Link>
+                        );
+                      }
+                      return (
+                        <Dropdown
+                          key={title}
+                          trigger={["click"]}
+                          menu={{
+                            items: targets.map((target) => ({
+                              key: target.to,
+                              label: `${target.name} · ${target.count} 项`,
+                            })),
+                            onClick: ({ key }) => navigate(key),
+                          }}
+                        >
+                          <button type="button" aria-haspopup="menu">
+                            {label}
+                            <span>选择患者 →</span>
+                          </button>
+                        </Dropdown>
+                      );
+                    })}
                   </div>
                   {!patients.length && (
-                    <Empty description="暂无患者，请先新建合成患者" />
+                    <Empty description="暂无患者，请先新建患者" />
                   )}
                 </Card>
               </div>

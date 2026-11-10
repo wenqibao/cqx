@@ -60,7 +60,7 @@ VITE_API_WRITE_TIMEOUT_MS=60000
 | `/agent` | 请求、运行查询、业务化轨迹；`?tab=negotiate`做Agent协商 |
 | `/agent/knowledge` | 知识包与独立检索 |
 | `/audit` | 真实拒绝、升级、执行审计和后端计数口径提示 |
-| `/system` | API/持久化、CLI证据、报告导入、导览、本地时钟/tick维护 |
+| `/system` | API/持久化、CLI 证据、报告导入 |
 | `/notifications` | 实际通知、对象跳转、后端已读保存 |
 
 患者上下文为 `?patient=P001`，运行深链接为 `/agent?patient=P001&run=RUN-...`；任务用`task`、问题用`question`。切换患者清除对象参数，跨患者任务/run拒绝混用。旧`/records`、`/runs`重定向保留。

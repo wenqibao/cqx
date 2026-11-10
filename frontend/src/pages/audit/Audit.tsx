@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button, Card, Input, Table, Tag } from "antd";
+import { useWorkbench } from "../../app/WorkbenchContext";
 import { api } from "../../api/workbench";
 import { useResource } from "../../hooks/useResource";
 import {
@@ -9,10 +10,12 @@ import {
   TechnicalLog,
 } from "../../components/common";
 import { businessName } from "../../utils/business";
-import { text, when } from "../../utils/format";
+import { when } from "../../utils/format";
 export default function Audit() {
   const resource = useResource("audit", (s) => api.audit(s));
   const [filter, setFilter] = useState("");
+  const { boot } = useWorkbench();
+  const patientNames = new Map(boot?.patients.map((p) => [p.id, p.name]));
   return (
     <>
       <Heading
@@ -41,9 +44,6 @@ export default function Audit() {
                 </div>
                 <span className="muted">当前最多返回最近 200 条审计</span>
               </div>
-              <p className="action-note">
-                计数口径需结合业务记录核对，原始字段见审计日志。
-              </p>
             </Card>
             <Card title="实际审计日志">
               <Input.Search
@@ -56,14 +56,18 @@ export default function Audit() {
               <Table
                 rowKey="id"
                 dataSource={r.items.filter((v) =>
-                  `${v.patient_id} ${v.code} ${v.action} ${businessName(v.code)} ${businessName(v.action)}`
+                  `${v.patient_id} ${patientNames.get(v.patient_id ?? "") ?? ""} ${v.code} ${v.action} ${businessName(v.code)} ${businessName(v.action)}`
                     .toLowerCase()
                     .includes(filter.toLowerCase()),
                 )}
                 scroll={{ x: 1150 }}
                 columns={[
                   { title: "时间", dataIndex: "ts", render: when },
-                  { title: "患者", dataIndex: "patient_id", render: text },
+                  {
+                    title: "患者",
+                    dataIndex: "patient_id",
+                    render: (id) => patientNames.get(id) || "—",
+                  },
                   {
                     title: "来源（后端记录）",
                     dataIndex: "actor",

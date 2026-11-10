@@ -1,0 +1,1463 @@
+{
+  "run": {
+    "id": "RUN-04a267842b5d",
+    "patient_id": "WB-REAL-AUTO",
+    "trigger_type": "event_detected",
+    "trigger_ref": "EVT-0e3a1769a125",
+    "llm_mode": "real",
+    "model_name": "deepseek-flash",
+    "status": "failed",
+    "intent": "event_response",
+    "input": {
+      "event_ids": [
+        "EVT-0e3a1769a125"
+      ],
+      "message": null,
+      "trigger_type": "event_detected"
+    },
+    "plan": {
+      "actions": [
+        {
+          "tool": "search_knowledge"
+        },
+        {
+          "tool": "search_knowledge"
+        },
+        {
+          "tool": "search_knowledge"
+        },
+        {
+          "tool": "search_knowledge"
+        },
+        {
+          "tool": "query_history"
+        },
+        {
+          "tool": "get_preferences"
+        }
+      ],
+      "intent": "event_response",
+      "priority_order": [
+        "EVT-0e3a1769a125"
+      ],
+      "reasoning_summary": [
+        "真实模型通过原生工具调用决策，执行结果已核验"
+      ],
+      "tool_rounds": [
+        {
+          "round": 0,
+          "tools": [
+            {
+              "ok": true,
+              "tool": "search_knowledge"
+            },
+            {
+              "ok": true,
+              "tool": "search_knowledge"
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "tools": [
+            {
+              "ok": true,
+              "tool": "search_knowledge"
+            },
+            {
+              "ok": true,
+              "tool": "search_knowledge"
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "tools": [
+            {
+              "ok": true,
+              "tool": "query_history"
+            },
+            {
+              "ok": true,
+              "tool": "get_preferences"
+            }
+          ]
+        }
+      ]
+    },
+    "output": {
+      "actions": [
+        {
+          "args": {
+            "query": "空腹血糖升高 趋势 处理 2型糖尿病 日常管理"
+          },
+          "ok": true,
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "found": true,
+            "hits": [
+              {
+                "anchor": "#1-自我血糖监测的意义-1",
+                "chunk_id": "KD-001-C003",
+                "doc_id": "KD-001",
+                "heading": "1. 自我血糖监测的意义",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+                "score": 41.8229,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              },
+              {
+                "anchor": "#1-疾病负担-1",
+                "chunk_id": "KD-004-C003",
+                "doc_id": "KD-004",
+                "heading": "1. 疾病负担",
+                "published_at": "2023-04-05",
+                "publisher": "World Health Organization",
+                "quote": "糖尿病是一种慢性代谢性疾病，长期血糖升高可导致心血管、肾脏、眼底与神经等多系统并发症。全球范围内患病人数持续增加，2 型糖尿病占绝大多数。",
+                "score": 33.885,
+                "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+                "title": "世界卫生组织糖尿病关键事实",
+                "version": "2024"
+              },
+              {
+                "anchor": "#3-生活方式与体重管理-1",
+                "chunk_id": "KD-002-C007",
+                "doc_id": "KD-002",
+                "heading": "3. 生活方式与体重管理",
+                "published_at": "2024-01-01",
+                "publisher": "American Diabetes Association",
+                "quote": "营养治疗、规律活动与体重管理是 2 型糖尿病管理的基础组成。具体能量与营养配比需个体化制定。",
+                "score": 20.1045,
+                "source_url": "https://doi.org/10.2337/dc24-SINT",
+                "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+                "version": "2024"
+              },
+              {
+                "anchor": "#2-血糖控制目标需个体化-1",
+                "chunk_id": "KD-001-C005",
+                "doc_id": "KD-001",
+                "heading": "2. 血糖控制目标需个体化",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "糖化血红蛋白（HbA1c）是评价长期血糖控制的重要指标。多数非妊娠成人 2 型糖尿病患者的 HbA1c 控制目标为 <7.0%，但目标必须个体化：年龄较大、病程长、有严重低血糖史或合并症者，目标可适当放宽。",
+                "score": 18.1414,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              }
+            ],
+            "note": null,
+            "ok": true,
+            "query": "空腹血糖升高 趋势 处理 2型糖尿病 日常管理"
+          },
+          "tool": "search_knowledge"
+        },
+        {
+          "args": {
+            "query": "空腹血糖 目标范围 控制标准 成人2型糖尿病"
+          },
+          "ok": true,
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "found": true,
+            "hits": [
+              {
+                "anchor": "#1-自我血糖监测的意义-1",
+                "chunk_id": "KD-001-C003",
+                "doc_id": "KD-001",
+                "heading": "1. 自我血糖监测的意义",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+                "score": 43.0003,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              },
+              {
+                "anchor": "#2-血糖控制目标需个体化-1",
+                "chunk_id": "KD-001-C005",
+                "doc_id": "KD-001",
+                "heading": "2. 血糖控制目标需个体化",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "糖化血红蛋白（HbA1c）是评价长期血糖控制的重要指标。多数非妊娠成人 2 型糖尿病患者的 HbA1c 控制目标为 <7.0%，但目标必须个体化：年龄较大、病程长、有严重低血糖史或合并症者，目标可适当放宽。",
+                "score": 40.6154,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              },
+              {
+                "anchor": "#1-疾病负担-1",
+                "chunk_id": "KD-004-C003",
+                "doc_id": "KD-004",
+                "heading": "1. 疾病负担",
+                "published_at": "2023-04-05",
+                "publisher": "World Health Organization",
+                "quote": "糖尿病是一种慢性代谢性疾病，长期血糖升高可导致心血管、肾脏、眼底与神经等多系统并发症。全球范围内患病人数持续增加，2 型糖尿病占绝大多数。",
+                "score": 28.278,
+                "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+                "title": "世界卫生组织糖尿病关键事实",
+                "version": "2024"
+              },
+              {
+                "anchor": "#4-身体活动建议-1",
+                "chunk_id": "KD-001-C009",
+                "doc_id": "KD-001",
+                "heading": "4. 身体活动建议",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "成人 2 型糖尿病患者每周应进行至少 150 分钟中等强度有氧活动（如快走），并每周进行 2～3 次抗阻训练，具体方案需结合年龄、并发症与运动能力调整。",
+                "score": 22.1826,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              }
+            ],
+            "note": null,
+            "ok": true,
+            "query": "空腹血糖 目标范围 控制标准 成人2型糖尿病"
+          },
+          "tool": "search_knowledge"
+        },
+        {
+          "args": {
+            "query": "高血糖 危险信号 需就医 症状 酮症 转诊"
+          },
+          "ok": true,
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "found": true,
+            "hits": [
+              {
+                "anchor": "#2-分级管理与转诊-2",
+                "chunk_id": "KD-003-C006",
+                "doc_id": "KD-003",
+                "heading": "2. 分级管理与转诊",
+                "published_at": "2022-09-01",
+                "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+                "quote": "本系统遇到高风险信号时的统一动作是\"创建人工复核事项并提示就医\"，不代替转诊判断。",
+                "score": 28.303,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+                "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+                "version": "2022"
+              },
+              {
+                "anchor": "#6-记录与复诊-1",
+                "chunk_id": "KD-001-C013",
+                "doc_id": "KD-001",
+                "heading": "6. 记录与复诊",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "结构化记录（血糖、步数、体重、症状、用药执行情况）有助于在复诊时提供完整信息。建议在复诊前回顾近 1～2 周的记录，并列出需要向医生确认的问题。",
+                "score": 16.2736,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              },
+              {
+                "anchor": "#2-分级管理与转诊-1",
+                "chunk_id": "KD-003-C005",
+                "doc_id": "KD-003",
+                "heading": "2. 分级管理与转诊",
+                "published_at": "2022-09-01",
+                "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+                "quote": "基层机构对血糖控制不佳、出现急性并发症或严重低血糖等情况，应及时转诊至上级医疗机构。",
+                "score": 14.8925,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+                "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+                "version": "2022"
+              },
+              {
+                "anchor": "#4-低血糖风险-1",
+                "chunk_id": "KD-002-C009",
+                "doc_id": "KD-002",
+                "heading": "4. 低血糖风险",
+                "published_at": "2024-01-01",
+                "publisher": "American Diabetes Association",
+                "quote": "胰岛素或促泌剂治疗者存在低血糖风险，需教育患者识别症状并掌握基本应对方法，同时定期评估风险。",
+                "score": 13.8669,
+                "source_url": "https://doi.org/10.2337/dc24-SINT",
+                "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+                "version": "2024"
+              }
+            ],
+            "note": null,
+            "ok": true,
+            "query": "高血糖 危险信号 需就医 症状 酮症 转诊"
+          },
+          "tool": "search_knowledge"
+        },
+        {
+          "args": {
+            "query": "血糖监测记录 复测 空腹血糖 生活方式 饮食 运动 记录"
+          },
+          "ok": true,
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "found": true,
+            "hits": [
+              {
+                "anchor": "#1-自我血糖监测的意义-1",
+                "chunk_id": "KD-001-C003",
+                "doc_id": "KD-001",
+                "heading": "1. 自我血糖监测的意义",
+                "published_at": "2021-04-01",
+                "publisher": "中华医学会糖尿病学分会",
+                "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+                "score": 53.8467,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+                "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+                "version": "2020"
+              },
+              {
+                "anchor": "#3-健康教育要点-1",
+                "chunk_id": "KD-003-C007",
+                "doc_id": "KD-003",
+                "heading": "3. 健康教育要点",
+                "published_at": "2022-09-01",
+                "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+                "quote": "健康教育应覆盖：饮食与运动的基本方法、血糖监测的正确操作、低血糖识别与处理、用药依从性的重要性、定期复查项目。",
+                "score": 32.8337,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+                "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+                "version": "2022"
+              },
+              {
+                "anchor": "#1-基层随访的内容-1",
+                "chunk_id": "KD-003-C003",
+                "doc_id": "KD-003",
+                "heading": "1. 基层随访的内容",
+                "published_at": "2022-09-01",
+                "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+                "quote": "基层随访通常包括症状询问、生活方式评估、血糖与体重等指标记录、用药依从性核对，以及并发症相关检查的提醒。",
+                "score": 26.9333,
+                "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+                "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+                "version": "2022"
+              },
+              {
+                "anchor": "#5-依从性与随访-1",
+                "chunk_id": "KD-002-C011",
+                "doc_id": "KD-002",
+                "heading": "5. 依从性与随访",
+                "published_at": "2024-01-01",
+                "publisher": "American Diabetes Association",
+                "quote": "随访应关注用药执行、监测完成度与生活方式目标的达成情况；对反复未完成的事项，应分析障碍（时间、成本、理解偏差）而不是简单归因于\"不配合\"。",
+                "score": 25.2332,
+                "source_url": "https://doi.org/10.2337/dc24-SINT",
+                "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+                "version": "2024"
+              }
+            ],
+            "note": null,
+            "ok": true,
+            "query": "血糖监测记录 复测 空腹血糖 生活方式 饮食 运动 记录"
+          },
+          "tool": "search_knowledge"
+        },
+        {
+          "args": {
+            "days": 30,
+            "kind": "fasting_glucose",
+            "patient_id": "WB-REAL-AUTO"
+          },
+          "ok": true,
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "count": 5,
+            "ok": true,
+            "records": [
+              {
+                "created_at": "2026-11-05T01:04:48Z",
+                "id": 38,
+                "kind": "fasting_glucose",
+                "label": "空腹血糖",
+                "note": null,
+                "patient_id": "WB-REAL-AUTO",
+                "payload": {},
+                "recorded_at": "2026-11-05T01:04:48Z",
+                "source": "manual",
+                "unit": "mmol/L",
+                "value": 9.6
+              },
+              {
+                "created_at": "2026-11-05T01:03:32Z",
+                "id": 35,
+                "kind": "fasting_glucose",
+                "label": "空腹血糖",
+                "note": null,
+                "patient_id": "WB-REAL-AUTO",
+                "payload": {},
+                "recorded_at": "2026-11-04T01:03:32Z",
+                "source": "manual",
+                "unit": "mmol/L",
+                "value": 8.9
+              },
+              {
+                "created_at": "2026-11-05T01:03:32Z",
+                "id": 34,
+                "kind": "fasting_glucose",
+                "label": "空腹血糖",
+                "note": null,
+                "patient_id": "WB-REAL-AUTO",
+                "payload": {},
+                "recorded_at": "2026-11-03T01:03:32Z",
+                "source": "manual",
+                "unit": "mmol/L",
+                "value": 8.3
+              },
+              {
+                "created_at": "2026-11-05T01:03:32Z",
+                "id": 33,
+                "kind": "fasting_glucose",
+                "label": "空腹血糖",
+                "note": null,
+                "patient_id": "WB-REAL-AUTO",
+                "payload": {},
+                "recorded_at": "2026-11-02T01:03:32Z",
+                "source": "manual",
+                "unit": "mmol/L",
+                "value": 7.7
+              },
+              {
+                "created_at": "2026-11-05T01:03:32Z",
+                "id": 32,
+                "kind": "fasting_glucose",
+                "label": "空腹血糖",
+                "note": null,
+                "patient_id": "WB-REAL-AUTO",
+                "payload": {},
+                "recorded_at": "2026-11-01T01:03:32Z",
+                "source": "manual",
+                "unit": "mmol/L",
+                "value": 7
+              }
+            ]
+          },
+          "tool": "query_history"
+        },
+        {
+          "args": {
+            "patient_id": "WB-REAL-AUTO"
+          },
+          "ok": true,
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "count": 0,
+            "ok": true,
+            "preferences": []
+          },
+          "tool": "get_preferences"
+        }
+      ],
+      "rejections": [
+        {
+          "code": "POSTCHECK_MISMATCH",
+          "message": "所需业务动作未执行，不能标记完成"
+        }
+      ],
+      "responses": [
+        "执行未全部通过核验，请查看拒绝原因；没有足够资料时不生成健康结论。"
+      ]
+    },
+    "error": null,
+    "started_at": "2026-11-05T01:04:48Z",
+    "finished_at": "2026-11-05T01:05:54Z"
+  },
+  "steps": [
+    {
+      "step_no": 1,
+      "phase": "perceive",
+      "kind": "decision",
+      "tool_name": null,
+      "payload": {
+        "llm_mode": "real",
+        "missing_fields": [],
+        "open_events": [
+          "GLUCOSE_RISING"
+        ],
+        "patient_id": "WB-REAL-AUTO"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:04:48Z"
+    },
+    {
+      "step_no": 2,
+      "phase": "plan",
+      "kind": "decision",
+      "tool_name": null,
+      "payload": {
+        "intent": "event_response"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:04:48Z"
+    },
+    {
+      "step_no": 3,
+      "phase": "plan",
+      "kind": "llm_request",
+      "tool_name": null,
+      "payload": {
+        "model": "deepseek-flash",
+        "round": 0
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:04:48Z"
+    },
+    {
+      "step_no": 4,
+      "phase": "plan",
+      "kind": "llm_response",
+      "tool_name": null,
+      "payload": {
+        "model": "deepseek-flash",
+        "response_id": "253386e8-58cd-44a4-8aee-18e6e56a6a3d",
+        "round": 0,
+        "tool_calls": [
+          {
+            "arguments": {
+              "query": "空腹血糖升高 趋势 处理 2型糖尿病 日常管理"
+            },
+            "id": "call_00_PApF9NtsC1JKktN3fYrU9685",
+            "name": "search_knowledge"
+          },
+          {
+            "arguments": {
+              "query": "空腹血糖 目标范围 控制标准 成人2型糖尿病"
+            },
+            "id": "call_01_eB42vV5dQgLdRJQw85UR1759",
+            "name": "search_knowledge"
+          }
+        ],
+        "usage": {
+          "completion_tokens": 103,
+          "prompt_cache_hit_tokens": 1280,
+          "prompt_cache_miss_tokens": 708,
+          "prompt_tokens": 1988,
+          "prompt_tokens_details": {
+            "cached_tokens": 1280
+          },
+          "total_tokens": 2091
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 5,
+      "phase": "validate",
+      "kind": "validation",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "ok": true
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 6,
+      "phase": "act",
+      "kind": "tool_call",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "args": {
+          "query": "空腹血糖升高 趋势 处理 2型糖尿病 日常管理"
+        },
+        "reason": "模型决策"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 7,
+      "phase": "observe",
+      "kind": "tool_result",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "post_check": {
+          "detail": {},
+          "ok": true
+        },
+        "result": {
+          "found": true,
+          "hits": [
+            {
+              "anchor": "#1-自我血糖监测的意义-1",
+              "chunk_id": "KD-001-C003",
+              "doc_id": "KD-001",
+              "heading": "1. 自我血糖监测的意义",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+              "score": 41.8229,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            },
+            {
+              "anchor": "#1-疾病负担-1",
+              "chunk_id": "KD-004-C003",
+              "doc_id": "KD-004",
+              "heading": "1. 疾病负担",
+              "published_at": "2023-04-05",
+              "publisher": "World Health Organization",
+              "quote": "糖尿病是一种慢性代谢性疾病，长期血糖升高可导致心血管、肾脏、眼底与神经等多系统并发症。全球范围内患病人数持续增加，2 型糖尿病占绝大多数。",
+              "score": 33.885,
+              "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+              "title": "世界卫生组织糖尿病关键事实",
+              "version": "2024"
+            },
+            {
+              "anchor": "#3-生活方式与体重管理-1",
+              "chunk_id": "KD-002-C007",
+              "doc_id": "KD-002",
+              "heading": "3. 生活方式与体重管理",
+              "published_at": "2024-01-01",
+              "publisher": "American Diabetes Association",
+              "quote": "营养治疗、规律活动与体重管理是 2 型糖尿病管理的基础组成。具体能量与营养配比需个体化制定。",
+              "score": 20.1045,
+              "source_url": "https://doi.org/10.2337/dc24-SINT",
+              "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+              "version": "2024"
+            },
+            {
+              "anchor": "#2-血糖控制目标需个体化-1",
+              "chunk_id": "KD-001-C005",
+              "doc_id": "KD-001",
+              "heading": "2. 血糖控制目标需个体化",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "糖化血红蛋白（HbA1c）是评价长期血糖控制的重要指标。多数非妊娠成人 2 型糖尿病患者的 HbA1c 控制目标为 <7.0%，但目标必须个体化：年龄较大、病程长、有严重低血糖史或合并症者，目标可适当放宽。",
+              "score": 18.1414,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            }
+          ],
+          "note": null,
+          "ok": true,
+          "query": "空腹血糖升高 趋势 处理 2型糖尿病 日常管理"
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 8,
+      "phase": "validate",
+      "kind": "validation",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "ok": true
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 9,
+      "phase": "act",
+      "kind": "tool_call",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "args": {
+          "query": "空腹血糖 目标范围 控制标准 成人2型糖尿病"
+        },
+        "reason": "模型决策"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 10,
+      "phase": "observe",
+      "kind": "tool_result",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "post_check": {
+          "detail": {},
+          "ok": true
+        },
+        "result": {
+          "found": true,
+          "hits": [
+            {
+              "anchor": "#1-自我血糖监测的意义-1",
+              "chunk_id": "KD-001-C003",
+              "doc_id": "KD-001",
+              "heading": "1. 自我血糖监测的意义",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+              "score": 43.0003,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            },
+            {
+              "anchor": "#2-血糖控制目标需个体化-1",
+              "chunk_id": "KD-001-C005",
+              "doc_id": "KD-001",
+              "heading": "2. 血糖控制目标需个体化",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "糖化血红蛋白（HbA1c）是评价长期血糖控制的重要指标。多数非妊娠成人 2 型糖尿病患者的 HbA1c 控制目标为 <7.0%，但目标必须个体化：年龄较大、病程长、有严重低血糖史或合并症者，目标可适当放宽。",
+              "score": 40.6154,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            },
+            {
+              "anchor": "#1-疾病负担-1",
+              "chunk_id": "KD-004-C003",
+              "doc_id": "KD-004",
+              "heading": "1. 疾病负担",
+              "published_at": "2023-04-05",
+              "publisher": "World Health Organization",
+              "quote": "糖尿病是一种慢性代谢性疾病，长期血糖升高可导致心血管、肾脏、眼底与神经等多系统并发症。全球范围内患病人数持续增加，2 型糖尿病占绝大多数。",
+              "score": 28.278,
+              "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+              "title": "世界卫生组织糖尿病关键事实",
+              "version": "2024"
+            },
+            {
+              "anchor": "#4-身体活动建议-1",
+              "chunk_id": "KD-001-C009",
+              "doc_id": "KD-001",
+              "heading": "4. 身体活动建议",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "成人 2 型糖尿病患者每周应进行至少 150 分钟中等强度有氧活动（如快走），并每周进行 2～3 次抗阻训练，具体方案需结合年龄、并发症与运动能力调整。",
+              "score": 22.1826,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            }
+          ],
+          "note": null,
+          "ok": true,
+          "query": "空腹血糖 目标范围 控制标准 成人2型糖尿病"
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 11,
+      "phase": "plan",
+      "kind": "llm_request",
+      "tool_name": null,
+      "payload": {
+        "model": "deepseek-flash",
+        "round": 1
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:10Z"
+    },
+    {
+      "step_no": 12,
+      "phase": "plan",
+      "kind": "llm_response",
+      "tool_name": null,
+      "payload": {
+        "model": "deepseek-flash",
+        "response_id": "fef52a6b-fbf3-4bd0-8c21-9c14bdd9a0c5",
+        "round": 1,
+        "tool_calls": [
+          {
+            "arguments": {
+              "query": "高血糖 危险信号 需就医 症状 酮症 转诊"
+            },
+            "id": "call_00_3Vsu2BNcBfPSuzN4EdJZ9548",
+            "name": "search_knowledge"
+          },
+          {
+            "arguments": {
+              "query": "血糖监测记录 复测 空腹血糖 生活方式 饮食 运动 记录"
+            },
+            "id": "call_01_TkcB9oCgs1ORttAjGfx90622",
+            "name": "search_knowledge"
+          }
+        ],
+        "usage": {
+          "completion_tokens": 100,
+          "prompt_cache_hit_tokens": 2048,
+          "prompt_cache_miss_tokens": 1605,
+          "prompt_tokens": 3653,
+          "prompt_tokens_details": {
+            "cached_tokens": 2048
+          },
+          "total_tokens": 3753
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 13,
+      "phase": "validate",
+      "kind": "validation",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "ok": true
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 14,
+      "phase": "act",
+      "kind": "tool_call",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "args": {
+          "query": "高血糖 危险信号 需就医 症状 酮症 转诊"
+        },
+        "reason": "模型决策"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 15,
+      "phase": "observe",
+      "kind": "tool_result",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "post_check": {
+          "detail": {},
+          "ok": true
+        },
+        "result": {
+          "found": true,
+          "hits": [
+            {
+              "anchor": "#2-分级管理与转诊-2",
+              "chunk_id": "KD-003-C006",
+              "doc_id": "KD-003",
+              "heading": "2. 分级管理与转诊",
+              "published_at": "2022-09-01",
+              "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+              "quote": "本系统遇到高风险信号时的统一动作是\"创建人工复核事项并提示就医\"，不代替转诊判断。",
+              "score": 28.303,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+              "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+              "version": "2022"
+            },
+            {
+              "anchor": "#6-记录与复诊-1",
+              "chunk_id": "KD-001-C013",
+              "doc_id": "KD-001",
+              "heading": "6. 记录与复诊",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "结构化记录（血糖、步数、体重、症状、用药执行情况）有助于在复诊时提供完整信息。建议在复诊前回顾近 1～2 周的记录，并列出需要向医生确认的问题。",
+              "score": 16.2736,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            },
+            {
+              "anchor": "#2-分级管理与转诊-1",
+              "chunk_id": "KD-003-C005",
+              "doc_id": "KD-003",
+              "heading": "2. 分级管理与转诊",
+              "published_at": "2022-09-01",
+              "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+              "quote": "基层机构对血糖控制不佳、出现急性并发症或严重低血糖等情况，应及时转诊至上级医疗机构。",
+              "score": 14.8925,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+              "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+              "version": "2022"
+            },
+            {
+              "anchor": "#4-低血糖风险-1",
+              "chunk_id": "KD-002-C009",
+              "doc_id": "KD-002",
+              "heading": "4. 低血糖风险",
+              "published_at": "2024-01-01",
+              "publisher": "American Diabetes Association",
+              "quote": "胰岛素或促泌剂治疗者存在低血糖风险，需教育患者识别症状并掌握基本应对方法，同时定期评估风险。",
+              "score": 13.8669,
+              "source_url": "https://doi.org/10.2337/dc24-SINT",
+              "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+              "version": "2024"
+            }
+          ],
+          "note": null,
+          "ok": true,
+          "query": "高血糖 危险信号 需就医 症状 酮症 转诊"
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 16,
+      "phase": "validate",
+      "kind": "validation",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "ok": true
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 17,
+      "phase": "act",
+      "kind": "tool_call",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "args": {
+          "query": "血糖监测记录 复测 空腹血糖 生活方式 饮食 运动 记录"
+        },
+        "reason": "模型决策"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 18,
+      "phase": "observe",
+      "kind": "tool_result",
+      "tool_name": "search_knowledge",
+      "payload": {
+        "post_check": {
+          "detail": {},
+          "ok": true
+        },
+        "result": {
+          "found": true,
+          "hits": [
+            {
+              "anchor": "#1-自我血糖监测的意义-1",
+              "chunk_id": "KD-001-C003",
+              "doc_id": "KD-001",
+              "heading": "1. 自我血糖监测的意义",
+              "published_at": "2021-04-01",
+              "publisher": "中华医学会糖尿病学分会",
+              "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+              "score": 53.8467,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "version": "2020"
+            },
+            {
+              "anchor": "#3-健康教育要点-1",
+              "chunk_id": "KD-003-C007",
+              "doc_id": "KD-003",
+              "heading": "3. 健康教育要点",
+              "published_at": "2022-09-01",
+              "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+              "quote": "健康教育应覆盖：饮食与运动的基本方法、血糖监测的正确操作、低血糖识别与处理、用药依从性的重要性、定期复查项目。",
+              "score": 32.8337,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+              "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+              "version": "2022"
+            },
+            {
+              "anchor": "#1-基层随访的内容-1",
+              "chunk_id": "KD-003-C003",
+              "doc_id": "KD-003",
+              "heading": "1. 基层随访的内容",
+              "published_at": "2022-09-01",
+              "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+              "quote": "基层随访通常包括症状询问、生活方式评估、血糖与体重等指标记录、用药依从性核对，以及并发症相关检查的提醒。",
+              "score": 26.9333,
+              "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+              "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+              "version": "2022"
+            },
+            {
+              "anchor": "#5-依从性与随访-1",
+              "chunk_id": "KD-002-C011",
+              "doc_id": "KD-002",
+              "heading": "5. 依从性与随访",
+              "published_at": "2024-01-01",
+              "publisher": "American Diabetes Association",
+              "quote": "随访应关注用药执行、监测完成度与生活方式目标的达成情况；对反复未完成的事项，应分析障碍（时间、成本、理解偏差）而不是简单归因于\"不配合\"。",
+              "score": 25.2332,
+              "source_url": "https://doi.org/10.2337/dc24-SINT",
+              "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+              "version": "2024"
+            }
+          ],
+          "note": null,
+          "ok": true,
+          "query": "血糖监测记录 复测 空腹血糖 生活方式 饮食 运动 记录"
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 19,
+      "phase": "plan",
+      "kind": "llm_request",
+      "tool_name": null,
+      "payload": {
+        "model": "deepseek-flash",
+        "round": 2
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:33Z"
+    },
+    {
+      "step_no": 20,
+      "phase": "plan",
+      "kind": "llm_response",
+      "tool_name": null,
+      "payload": {
+        "model": "deepseek-flash",
+        "response_id": "650361e7-e188-4de7-a8d9-0a4ca8205340",
+        "round": 2,
+        "tool_calls": [
+          {
+            "arguments": {
+              "days": 30,
+              "kind": "fasting_glucose",
+              "patient_id": "WB-REAL-AUTO"
+            },
+            "id": "call_00_YoFEdI93yHe8Ud7ZFk9Y3751",
+            "name": "query_history"
+          },
+          {
+            "arguments": {
+              "patient_id": "WB-REAL-AUTO"
+            },
+            "id": "call_01_JXf6NAS06UZcfQEWEZct4176",
+            "name": "get_preferences"
+          }
+        ],
+        "usage": {
+          "completion_tokens": 114,
+          "prompt_cache_hit_tokens": 3712,
+          "prompt_cache_miss_tokens": 1526,
+          "prompt_tokens": 5238,
+          "prompt_tokens_details": {
+            "cached_tokens": 3712
+          },
+          "total_tokens": 5352
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 21,
+      "phase": "validate",
+      "kind": "validation",
+      "tool_name": "query_history",
+      "payload": {
+        "ok": true
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 22,
+      "phase": "act",
+      "kind": "tool_call",
+      "tool_name": "query_history",
+      "payload": {
+        "args": {
+          "days": 30,
+          "kind": "fasting_glucose",
+          "patient_id": "WB-REAL-AUTO"
+        },
+        "reason": "模型决策"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 23,
+      "phase": "observe",
+      "kind": "tool_result",
+      "tool_name": "query_history",
+      "payload": {
+        "post_check": {
+          "detail": {},
+          "ok": true
+        },
+        "result": {
+          "count": 5,
+          "ok": true,
+          "records": [
+            {
+              "created_at": "2026-11-05T01:04:48Z",
+              "id": 38,
+              "kind": "fasting_glucose",
+              "label": "空腹血糖",
+              "note": null,
+              "patient_id": "WB-REAL-AUTO",
+              "payload": {},
+              "recorded_at": "2026-11-05T01:04:48Z",
+              "source": "manual",
+              "unit": "mmol/L",
+              "value": 9.6
+            },
+            {
+              "created_at": "2026-11-05T01:03:32Z",
+              "id": 35,
+              "kind": "fasting_glucose",
+              "label": "空腹血糖",
+              "note": null,
+              "patient_id": "WB-REAL-AUTO",
+              "payload": {},
+              "recorded_at": "2026-11-04T01:03:32Z",
+              "source": "manual",
+              "unit": "mmol/L",
+              "value": 8.9
+            },
+            {
+              "created_at": "2026-11-05T01:03:32Z",
+              "id": 34,
+              "kind": "fasting_glucose",
+              "label": "空腹血糖",
+              "note": null,
+              "patient_id": "WB-REAL-AUTO",
+              "payload": {},
+              "recorded_at": "2026-11-03T01:03:32Z",
+              "source": "manual",
+              "unit": "mmol/L",
+              "value": 8.3
+            },
+            {
+              "created_at": "2026-11-05T01:03:32Z",
+              "id": 33,
+              "kind": "fasting_glucose",
+              "label": "空腹血糖",
+              "note": null,
+              "patient_id": "WB-REAL-AUTO",
+              "payload": {},
+              "recorded_at": "2026-11-02T01:03:32Z",
+              "source": "manual",
+              "unit": "mmol/L",
+              "value": 7.7
+            },
+            {
+              "created_at": "2026-11-05T01:03:32Z",
+              "id": 32,
+              "kind": "fasting_glucose",
+              "label": "空腹血糖",
+              "note": null,
+              "patient_id": "WB-REAL-AUTO",
+              "payload": {},
+              "recorded_at": "2026-11-01T01:03:32Z",
+              "source": "manual",
+              "unit": "mmol/L",
+              "value": 7
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 24,
+      "phase": "validate",
+      "kind": "validation",
+      "tool_name": "get_preferences",
+      "payload": {
+        "ok": true
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 25,
+      "phase": "act",
+      "kind": "tool_call",
+      "tool_name": "get_preferences",
+      "payload": {
+        "args": {
+          "patient_id": "WB-REAL-AUTO"
+        },
+        "reason": "模型决策"
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 26,
+      "phase": "observe",
+      "kind": "tool_result",
+      "tool_name": "get_preferences",
+      "payload": {
+        "post_check": {
+          "detail": {},
+          "ok": true
+        },
+        "result": {
+          "count": 0,
+          "ok": true,
+          "preferences": []
+        }
+      },
+      "status": "ok",
+      "code": null,
+      "created_at": "2026-11-05T01:05:54Z"
+    },
+    {
+      "step_no": 27,
+      "phase": "validate",
+      "kind": "rejection",
+      "tool_name": null,
+      "payload": {
+        "rejection": {
+          "code": "POSTCHECK_MISMATCH",
+          "message": "所需业务动作未执行，不能标记完成"
+        }
+      },
+      "status": "rejected",
+      "code": "POSTCHECK_MISMATCH",
+      "created_at": "2026-11-05T01:05:54Z"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "EVD-24f07f782762",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C003",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#1-自我血糖监测的意义-1",
+      "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+      "score": 53.8467,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#1-自我血糖监测的意义-1"
+    },
+    {
+      "id": "EVD-9979ff30bb32",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C003",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#1-自我血糖监测的意义-1",
+      "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+      "score": 43.0003,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#1-自我血糖监测的意义-1"
+    },
+    {
+      "id": "EVD-6357edd172d9",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C003",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#1-自我血糖监测的意义-1",
+      "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+      "score": 41.8229,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#1-自我血糖监测的意义-1"
+    },
+    {
+      "id": "EVD-0e8487141ba1",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C005",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#2-血糖控制目标需个体化-1",
+      "quote": "糖化血红蛋白（HbA1c）是评价长期血糖控制的重要指标。多数非妊娠成人 2 型糖尿病患者的 HbA1c 控制目标为 <7.0%，但目标必须个体化：年龄较大、病程长、有严重低血糖史或合并症者，目标可适当放宽。",
+      "score": 40.6154,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#2-血糖控制目标需个体化-1"
+    },
+    {
+      "id": "EVD-6060e7dce91b",
+      "doc_id": "KD-004",
+      "chunk_id": "KD-004-C003",
+      "title": "世界卫生组织糖尿病关键事实",
+      "publisher": "World Health Organization",
+      "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+      "anchor": "KD-004#1-疾病负担-1",
+      "quote": "糖尿病是一种慢性代谢性疾病，长期血糖升高可导致心血管、肾脏、眼底与神经等多系统并发症。全球范围内患病人数持续增加，2 型糖尿病占绝大多数。",
+      "score": 33.885,
+      "citation": "世界卫生组织糖尿病关键事实·World Health Organization·KD-004#1-疾病负担-1"
+    },
+    {
+      "id": "EVD-2eeb075ce8a6",
+      "doc_id": "KD-003",
+      "chunk_id": "KD-003-C007",
+      "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+      "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+      "anchor": "KD-003#3-健康教育要点-1",
+      "quote": "健康教育应覆盖：饮食与运动的基本方法、血糖监测的正确操作、低血糖识别与处理、用药依从性的重要性、定期复查项目。",
+      "score": 32.8337,
+      "citation": "国家基层糖尿病防治管理指南（2022）要点摘编·中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室·KD-003#3-健康教育要点-1"
+    },
+    {
+      "id": "EVD-5abf4e8715b1",
+      "doc_id": "KD-003",
+      "chunk_id": "KD-003-C006",
+      "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+      "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+      "anchor": "KD-003#2-分级管理与转诊-2",
+      "quote": "本系统遇到高风险信号时的统一动作是\"创建人工复核事项并提示就医\"，不代替转诊判断。",
+      "score": 28.303,
+      "citation": "国家基层糖尿病防治管理指南（2022）要点摘编·中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室·KD-003#2-分级管理与转诊-2"
+    },
+    {
+      "id": "EVD-a4f4542a89ec",
+      "doc_id": "KD-004",
+      "chunk_id": "KD-004-C003",
+      "title": "世界卫生组织糖尿病关键事实",
+      "publisher": "World Health Organization",
+      "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes",
+      "anchor": "KD-004#1-疾病负担-1",
+      "quote": "糖尿病是一种慢性代谢性疾病，长期血糖升高可导致心血管、肾脏、眼底与神经等多系统并发症。全球范围内患病人数持续增加，2 型糖尿病占绝大多数。",
+      "score": 28.278,
+      "citation": "世界卫生组织糖尿病关键事实·World Health Organization·KD-004#1-疾病负担-1"
+    },
+    {
+      "id": "EVD-29b802f77cc6",
+      "doc_id": "KD-003",
+      "chunk_id": "KD-003-C003",
+      "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+      "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+      "anchor": "KD-003#1-基层随访的内容-1",
+      "quote": "基层随访通常包括症状询问、生活方式评估、血糖与体重等指标记录、用药依从性核对，以及并发症相关检查的提醒。",
+      "score": 26.9333,
+      "citation": "国家基层糖尿病防治管理指南（2022）要点摘编·中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室·KD-003#1-基层随访的内容-1"
+    },
+    {
+      "id": "EVD-9876eed9a3cb",
+      "doc_id": "KD-002",
+      "chunk_id": "KD-002-C011",
+      "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+      "publisher": "American Diabetes Association",
+      "source_url": "https://doi.org/10.2337/dc24-SINT",
+      "anchor": "KD-002#5-依从性与随访-1",
+      "quote": "随访应关注用药执行、监测完成度与生活方式目标的达成情况；对反复未完成的事项，应分析障碍（时间、成本、理解偏差）而不是简单归因于\"不配合\"。",
+      "score": 25.2332,
+      "citation": "ADA《糖尿病诊疗标准（2024）》要点摘编·American Diabetes Association·KD-002#5-依从性与随访-1"
+    },
+    {
+      "id": "EVD-1f3b650e569b",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C009",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#4-身体活动建议-1",
+      "quote": "成人 2 型糖尿病患者每周应进行至少 150 分钟中等强度有氧活动（如快走），并每周进行 2～3 次抗阻训练，具体方案需结合年龄、并发症与运动能力调整。",
+      "score": 22.1826,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#4-身体活动建议-1"
+    },
+    {
+      "id": "EVD-a1b4417c548e",
+      "doc_id": "KD-002",
+      "chunk_id": "KD-002-C007",
+      "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+      "publisher": "American Diabetes Association",
+      "source_url": "https://doi.org/10.2337/dc24-SINT",
+      "anchor": "KD-002#3-生活方式与体重管理-1",
+      "quote": "营养治疗、规律活动与体重管理是 2 型糖尿病管理的基础组成。具体能量与营养配比需个体化制定。",
+      "score": 20.1045,
+      "citation": "ADA《糖尿病诊疗标准（2024）》要点摘编·American Diabetes Association·KD-002#3-生活方式与体重管理-1"
+    },
+    {
+      "id": "EVD-ed705d868d76",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C005",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#2-血糖控制目标需个体化-1",
+      "quote": "糖化血红蛋白（HbA1c）是评价长期血糖控制的重要指标。多数非妊娠成人 2 型糖尿病患者的 HbA1c 控制目标为 <7.0%，但目标必须个体化：年龄较大、病程长、有严重低血糖史或合并症者，目标可适当放宽。",
+      "score": 18.1414,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#2-血糖控制目标需个体化-1"
+    },
+    {
+      "id": "EVD-8c1734a0e4ee",
+      "doc_id": "KD-001",
+      "chunk_id": "KD-001-C013",
+      "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+      "publisher": "中华医学会糖尿病学分会",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095",
+      "anchor": "KD-001#6-记录与复诊-1",
+      "quote": "结构化记录（血糖、步数、体重、症状、用药执行情况）有助于在复诊时提供完整信息。建议在复诊前回顾近 1～2 周的记录，并列出需要向医生确认的问题。",
+      "score": 16.2736,
+      "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·KD-001#6-记录与复诊-1"
+    },
+    {
+      "id": "EVD-4777c791602c",
+      "doc_id": "KD-003",
+      "chunk_id": "KD-003-C005",
+      "title": "国家基层糖尿病防治管理指南（2022）要点摘编",
+      "publisher": "中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室",
+      "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443",
+      "anchor": "KD-003#2-分级管理与转诊-1",
+      "quote": "基层机构对血糖控制不佳、出现急性并发症或严重低血糖等情况，应及时转诊至上级医疗机构。",
+      "score": 14.8925,
+      "citation": "国家基层糖尿病防治管理指南（2022）要点摘编·中华医学会糖尿病学分会 / 国家基层糖尿病防治管理办公室·KD-003#2-分级管理与转诊-1"
+    },
+    {
+      "id": "EVD-0ac0ebce6bc8",
+      "doc_id": "KD-002",
+      "chunk_id": "KD-002-C009",
+      "title": "ADA《糖尿病诊疗标准（2024）》要点摘编",
+      "publisher": "American Diabetes Association",
+      "source_url": "https://doi.org/10.2337/dc24-SINT",
+      "anchor": "KD-002#4-低血糖风险-1",
+      "quote": "胰岛素或促泌剂治疗者存在低血糖风险，需教育患者识别症状并掌握基本应对方法，同时定期评估风险。",
+      "score": 13.8669,
+      "citation": "ADA《糖尿病诊疗标准（2024）》要点摘编·American Diabetes Association·KD-002#4-低血糖风险-1"
+    }
+  ],
+  "questions": [],
+  "reviews": [],
+  "tasks": []
+}

@@ -1,0 +1,48 @@
+{
+  "pid": "WB-case-mw4c39i5-0qds",
+  "first": {
+    "preference": {
+      "id": "PREF-546bf2dadf27",
+      "patient_id": "WB-case-mw4c39i5-0qds",
+      "kind": "preferred_time_window",
+      "value": "08:00",
+      "source": "patient_input",
+      "status": "active",
+      "valid_from": "2026-11-06T02:07:00Z",
+      "valid_until": null,
+      "superseded_by": null,
+      "created_at": "2026-11-06T02:07:00Z"
+    },
+    "applied_to_tasks": []
+  },
+  "preferences": {
+    "patient_id": "WB-case-mw4c39i5-0qds",
+    "count": 2,
+    "items": [
+      {
+        "id": "PREF-e08268fdb121",
+        "patient_id": "WB-case-mw4c39i5-0qds",
+        "kind": "preferred_time_window",
+        "value": "09:00",
+        "source": "patient_input",
+        "status": "cleared",
+        "valid_from": "2026-11-06T02:07:00Z",
+        "valid_until": "2026-11-06T02:07:01Z",
+        "superseded_by": null,
+        "created_at": "2026-11-06T02:07:00Z"
+      },
+      {
+        "id": "PREF-546bf2dadf27",
+        "patient_id": "WB-case-mw4c39i5-0qds",
+        "kind": "preferred_time_window",
+        "value": "08:00",
+        "source": "patient_input",
+        "status": "superseded",
+        "valid_from": "2026-11-06T02:07:00Z",
+        "valid_until": "2026-11-06T02:07:00Z",
+        "superseded_by": "PREF-e08268fdb121",
+        "created_at": "2026-11-06T02:07:00Z"
+      }
+    ]
+  }
+}

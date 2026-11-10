@@ -1,0 +1,53 @@
+{
+  "pid": "WB-case-mw4c3ir6-7l5x",
+  "review": {
+    "id": "REV-0387124ba6ff",
+    "patient_id": "WB-case-mw4c3ir6-7l5x",
+    "task_id": null,
+    "event_id": null,
+    "run_id": "RUN-dbee72bc6a31",
+    "branch": "HUMAN_REVIEW",
+    "status": "completed",
+    "reason": "人工复核结论: 演示人员已完成联系核实",
+    "detail": {
+      "escalated": true,
+      "human_decision": "演示人员已完成联系核实",
+      "human_note": "合成病例演示，不提供治疗处置",
+      "severity": "high"
+    },
+    "scheduled_for": "2026-11-06T02:07:12Z",
+    "created_at": "2026-11-06T02:07:12Z",
+    "resolved_at": "2026-11-06T02:07:15Z"
+  },
+  "safetyPid": "WB-case-mw4c3nks-hb5a",
+  "unsafe": {
+    "run_id": "RUN-0ec44b3351d8",
+    "patient_id": "WB-case-mw4c3nks-hb5a",
+    "status": "blocked",
+    "llm_mode": "mock",
+    "model": "deterministic-planner",
+    "intent": "unsafe_request",
+    "reasoning": [
+      "安全门优先于一切业务动作"
+    ],
+    "actions": [
+      {
+        "tool": "respond",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "text": "本系统不调整胰岛素剂量，请咨询内分泌科医生。",
+          "citations": [],
+          "uncertain": false
+        }
+      }
+    ],
+    "responses": [
+      "本系统不调整胰岛素剂量，请咨询内分泌科医生。"
+    ],
+    "evidence": [],
+    "rejections": [],
+    "waiting_user": false,
+    "priority_order": []
+  }
+}

@@ -1,0 +1,588 @@
+{
+  "backend_sha": "694be88c541eb9ee2f6d9c02152a65a09546fe2d",
+  "mode": "mock + contract-scripted-no-provider",
+  "fixtures": {
+    "warning": "CT021-warning",
+    "record": "CT021-record",
+    "preference": "CT021-preference",
+    "task": "CT021-task",
+    "expired": "CT021-expired",
+    "slow": "CT021-slow",
+    "answer": "CT021-answer",
+    "task_id": "TSK-ee7de5f7ea52",
+    "expired_question": "Q-4da58902a3ce",
+    "answer_question": "Q-8f8585651a50",
+    "warning_run": "RUN-580a140da5c6"
+  },
+  "outbox": [
+    {
+      "id": "OUTBOX-135d50eeec41",
+      "kind": "after_records",
+      "patient_id": "CT021-record",
+      "status": "done",
+      "attempts": 2,
+      "last_error": null
+    },
+    {
+      "id": "OUTBOX-44e16938c90f",
+      "kind": "after_preference",
+      "patient_id": "CT021-preference",
+      "status": "done",
+      "attempts": 2,
+      "last_error": null
+    },
+    {
+      "id": "OUTBOX-6a89d9f75897",
+      "kind": "after_task_completed",
+      "patient_id": "CT021-task",
+      "status": "done",
+      "attempts": 2,
+      "last_error": null
+    },
+    {
+      "id": "OUTBOX-0f71fb9e9057",
+      "kind": "after_records",
+      "patient_id": "CT021-slow",
+      "status": "done",
+      "attempts": 1,
+      "last_error": null
+    }
+  ],
+  "expired": {
+    "id": "Q-4da58902a3ce",
+    "status": "expired",
+    "answer": null,
+    "answer_text": null,
+    "answered_at": null
+  },
+  "uncertain_medication_records": 0,
+  "task_versions": 2,
+  "health": {
+    "status": "ok",
+    "service": "diabetes-agent",
+    "version": "0.2.1",
+    "time": "2026-11-08T01:02:31Z",
+    "database": {
+      "ok": true,
+      "path": "D:\\cqx-current\\frontend\\.runtime\\v021\\backend-final\\frontend\\.runtime\\workbench-test.db",
+      "error": null
+    },
+    "llm_mode": "mock",
+    "disclaimer": "演示作品，不提供诊断或用药建议；患者均为合成虚构数据。"
+  },
+  "version": {
+    "name": "diabetes-agent",
+    "version": "0.2.1"
+  },
+  "audit": {
+    "items": [
+      {
+        "id": 4,
+        "ts": "2026-11-08T01:02:05Z",
+        "patient_id": "WB-case-mw74nj8n-2fg5",
+        "run_id": null,
+        "actor": "system",
+        "action": "event_detected",
+        "decision": "info",
+        "code": "GLUCOSE_RISING",
+        "detail": "{\"event_id\": \"EVT-dbe59cd855e8\", \"severity\": \"medium\"}"
+      },
+      {
+        "id": 3,
+        "ts": "2026-11-08T01:01:49Z",
+        "patient_id": "WB-case-mw74n7hb-7e1u",
+        "run_id": null,
+        "actor": "system",
+        "action": "event_detected",
+        "decision": "info",
+        "code": "GLUCOSE_RISING",
+        "detail": "{\"event_id\": \"EVT-d44321253739\", \"severity\": \"medium\"}"
+      },
+      {
+        "id": 2,
+        "ts": "2026-11-08T01:01:45Z",
+        "patient_id": "WB-case-mw74n4hw-z02o",
+        "run_id": "RUN-3455f813c99b",
+        "actor": "agent",
+        "action": "block_forbidden_intent",
+        "decision": "reject",
+        "code": "INSULIN_DOSE",
+        "detail": "{\"matched\": \"多打两单位\", \"message\": \"请把胰岛素改成早上多打两单位\"}"
+      },
+      {
+        "id": 1,
+        "ts": "2026-11-08T01:00:38Z",
+        "patient_id": "WB-timeout-response-mw74lnre-265e",
+        "run_id": null,
+        "actor": "system",
+        "action": "event_detected",
+        "decision": "info",
+        "code": "GLUCOSE_RISING",
+        "detail": "{\"event_id\": \"EVT-ce4cdb9f4ed2\", \"severity\": \"medium\"}"
+      }
+    ],
+    "forbidden_executed": 0,
+    "blocked_total": 1,
+    "checked_tool_results": 14,
+    "rejection_codes": [
+      "NO_EVIDENCE",
+      "FORBIDDEN_ACTION",
+      "TOOL_NOT_ALLOWED",
+      "TOO_MANY_ACTIONS",
+      "INVALID_DUE",
+      "DUPLICATE_TASK",
+      "MISSING_REQUIRED_DATA",
+      "TASK_NOT_FOUND",
+      "TOOL_EXECUTION_FAILED",
+      "POSTCHECK_MISMATCH",
+      "UNSAFE_CLAIM",
+      "UNKNOWN_TOOL"
+    ]
+  },
+  "warning_trace": {
+    "run": {
+      "id": "RUN-580a140da5c6",
+      "patient_id": "CT021-warning",
+      "trigger_type": "user_request",
+      "trigger_ref": null,
+      "llm_mode": "real",
+      "model_name": "contract-scripted-no-provider",
+      "status": "completed",
+      "intent": "patient_request",
+      "input": {
+        "event_ids": [],
+        "message": "安排复评",
+        "trigger_type": "user_request"
+      },
+      "plan": {
+        "actions": [
+          {
+            "tool": "schedule_review"
+          },
+          {
+            "tool": "schedule_review"
+          }
+        ],
+        "intent": "patient_request",
+        "priority_order": [],
+        "reasoning_summary": [
+          "真实模型通过原生工具调用决策，执行结果已核验"
+        ],
+        "tool_rounds": [
+          {
+            "round": 0,
+            "tools": [
+              {
+                "code": "TOOL_EXECUTION_FAILED",
+                "ok": false,
+                "tool": "schedule_review"
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "tools": [
+              {
+                "code": null,
+                "ok": true,
+                "tool": "schedule_review"
+              }
+            ]
+          }
+        ]
+      },
+      "output": {
+        "actions": [
+          {
+            "args": {
+              "delay_hours": 24,
+              "patient_id": "CT021-warning"
+            },
+            "ok": false,
+            "post_check": {
+              "code": "TOOL_EXECUTION_FAILED",
+              "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+              "ok": false
+            },
+            "result": {
+              "code": "TOOL_EXECUTION_FAILED",
+              "error": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+              "ok": false
+            },
+            "tool": "schedule_review"
+          },
+          {
+            "args": {
+              "delay_hours": 24,
+              "patient_id": "CT021-warning",
+              "task_id": "TSK-4d88498aa8b4"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {
+                "review_id": "REV-84c091c7c686",
+                "scheduled_for": "2026-11-09T00:59:44Z"
+              },
+              "ok": true
+            },
+            "result": {
+              "branch": "PENDING",
+              "ok": true,
+              "review_id": "REV-84c091c7c686",
+              "scheduled_for": "2026-11-09T00:59:44Z"
+            },
+            "tool": "schedule_review"
+          }
+        ],
+        "rejections": [
+          {
+            "code": "TOOL_EXECUTION_FAILED",
+            "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "tool": "schedule_review"
+          }
+        ],
+        "responses": [
+          "已安排复评。"
+        ],
+        "warnings": [
+          {
+            "code": "TOOL_EXECUTION_FAILED",
+            "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "resolved": true,
+            "tool": "schedule_review"
+          }
+        ]
+      },
+      "error": null,
+      "started_at": "2026-11-08T00:59:44Z",
+      "finished_at": "2026-11-08T00:59:44Z"
+    },
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "perceive",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "llm_mode": "real",
+          "missing_fields": [
+            "duration_years",
+            "goals",
+            "fasting_glucose",
+            "steps",
+            "medication_taken"
+          ],
+          "open_events": [],
+          "patient_id": "CT021-warning"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 2,
+        "phase": "plan",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "intent": "patient_request"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 3,
+        "phase": "plan",
+        "kind": "llm_request",
+        "tool_name": null,
+        "payload": {
+          "model": "contract-scripted-no-provider",
+          "round": 0
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 4,
+        "phase": "plan",
+        "kind": "llm_response",
+        "tool_name": null,
+        "payload": {
+          "model": null,
+          "response_id": null,
+          "round": 0,
+          "tool_calls": [
+            {
+              "arguments": {
+                "delay_hours": 24,
+                "patient_id": "CT021-warning"
+              },
+              "id": "c1",
+              "name": "schedule_review"
+            }
+          ],
+          "usage": null
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 5,
+        "phase": "validate",
+        "kind": "validation",
+        "tool_name": "schedule_review",
+        "payload": {
+          "ok": true
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 6,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "schedule_review",
+        "payload": {
+          "args": {
+            "delay_hours": 24,
+            "patient_id": "CT021-warning"
+          },
+          "reason": "模型决策"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 7,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "schedule_review",
+        "payload": {
+          "post_check": {
+            "code": "TOOL_EXECUTION_FAILED",
+            "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "ok": false
+          },
+          "result": {
+            "code": "TOOL_EXECUTION_FAILED",
+            "error": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "ok": false
+          }
+        },
+        "status": "failed",
+        "code": "TOOL_EXECUTION_FAILED",
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 8,
+        "phase": "plan",
+        "kind": "llm_request",
+        "tool_name": null,
+        "payload": {
+          "model": "contract-scripted-no-provider",
+          "round": 1
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 9,
+        "phase": "plan",
+        "kind": "llm_response",
+        "tool_name": null,
+        "payload": {
+          "model": null,
+          "response_id": null,
+          "round": 1,
+          "tool_calls": [
+            {
+              "arguments": {
+                "delay_hours": 24,
+                "patient_id": "CT021-warning",
+                "task_id": "TSK-4d88498aa8b4"
+              },
+              "id": "c2",
+              "name": "schedule_review"
+            }
+          ],
+          "usage": null
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 10,
+        "phase": "validate",
+        "kind": "validation",
+        "tool_name": "schedule_review",
+        "payload": {
+          "ok": true
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 11,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "schedule_review",
+        "payload": {
+          "args": {
+            "delay_hours": 24,
+            "patient_id": "CT021-warning",
+            "task_id": "TSK-4d88498aa8b4"
+          },
+          "reason": "模型决策"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 12,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "schedule_review",
+        "payload": {
+          "post_check": {
+            "detail": {
+              "review_id": "REV-84c091c7c686",
+              "scheduled_for": "2026-11-09T00:59:44Z"
+            },
+            "ok": true
+          },
+          "result": {
+            "branch": "PENDING",
+            "ok": true,
+            "review_id": "REV-84c091c7c686",
+            "scheduled_for": "2026-11-09T00:59:44Z"
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 13,
+        "phase": "plan",
+        "kind": "llm_request",
+        "tool_name": null,
+        "payload": {
+          "model": "contract-scripted-no-provider",
+          "round": 2
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      },
+      {
+        "step_no": 14,
+        "phase": "plan",
+        "kind": "llm_response",
+        "tool_name": null,
+        "payload": {
+          "model": null,
+          "response_id": null,
+          "round": 2,
+          "tool_calls": [],
+          "usage": null
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-08T00:59:44Z"
+      }
+    ],
+    "evidence": [],
+    "questions": [],
+    "reviews": [
+      {
+        "id": "REV-84c091c7c686",
+        "patient_id": "CT021-warning",
+        "task_id": "TSK-4d88498aa8b4",
+        "event_id": null,
+        "run_id": "RUN-580a140da5c6",
+        "branch": "PENDING",
+        "status": "scheduled",
+        "reason": "按计划安排复评",
+        "detail": {
+          "scheduled_by": "RUN-580a140da5c6"
+        },
+        "scheduled_for": "2026-11-09T00:59:44Z",
+        "created_at": "2026-11-08T00:59:44Z",
+        "resolved_at": null
+      }
+    ],
+    "tasks": []
+  },
+  "answer_runs": {
+    "patient_id": "CT021-answer",
+    "count": 1,
+    "items": [
+      {
+        "id": "RUN-a51a489cc09e",
+        "patient_id": "CT021-answer",
+        "trigger_type": "answer_received",
+        "trigger_ref": "Q-8f8585651a50",
+        "llm_mode": "mock",
+        "model_name": "deterministic-planner",
+        "status": "waiting_user",
+        "intent": "check_in",
+        "input": "{\"event_ids\": [], \"message\": \"患者回答：记不清\", \"trigger_type\": \"answer_received\"}",
+        "plan": "{\"actions\": [{\"args\": {\"options\": [\"已按时完成\", \"记不清\", \"未完成\"], \"patient_id\": \"CT021-answer\", \"question\": \"请补充 duration_years 相关信息。\", \"resume\": {\"intent\": \"check_in\"}, \"target_field\": \"duration_years\"}, \"reason\": \"档案/记录缺 duration_years\", \"requires_evidence\": false, \"tool\": \"ask_user\"}], \"events\": [], \"intent\": \"check_in\", \"priority_order\": [], \"reasoning_summary\": [\"常规巡检：无新事件\"]}",
+        "output": {
+          "actions": [
+            {
+              "args": {
+                "options": [
+                  "已按时完成",
+                  "记不清",
+                  "未完成"
+                ],
+                "patient_id": "CT021-answer",
+                "question": "请补充 duration_years 相关信息。",
+                "resume": {
+                  "intent": "check_in"
+                },
+                "target_field": "duration_years"
+              },
+              "ok": true,
+              "post_check": {
+                "detail": {
+                  "question_id": "Q-681a098f248d"
+                },
+                "ok": true
+              },
+              "result": {
+                "created": true,
+                "ok": true,
+                "question": "请补充 duration_years 相关信息。",
+                "question_id": "Q-681a098f248d",
+                "status": "waiting"
+              },
+              "tool": "ask_user"
+            }
+          ],
+          "evidence": [],
+          "rejections": [],
+          "responses": []
+        },
+        "error": null,
+        "started_at": "2026-11-08T01:00:13Z",
+        "finished_at": "2026-11-08T01:00:13Z"
+      }
+    ]
+  },
+  "expired_runs": {
+    "patient_id": "CT021-expired",
+    "count": 0,
+    "items": []
+  }
+}

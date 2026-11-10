@@ -1,0 +1,34 @@
+{
+  "mode": "mock",
+  "pid": "WB-case-mw4c2q29-lou9",
+  "run": {
+    "run_id": "RUN-356104949e54",
+    "patient_id": "WB-case-mw4c2q29-lou9",
+    "status": "completed",
+    "llm_mode": "mock",
+    "model": "deterministic-planner",
+    "intent": "check_in",
+    "reasoning": [
+      "常规巡检：无新事件"
+    ],
+    "actions": [
+      {
+        "tool": "respond",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "text": "目前没有需要处理的事件，已核对最近的记录与任务。",
+          "citations": [],
+          "uncertain": false
+        }
+      }
+    ],
+    "responses": [
+      "目前没有需要处理的事件，已核对最近的记录与任务。"
+    ],
+    "evidence": [],
+    "rejections": [],
+    "waiting_user": false,
+    "priority_order": []
+  }
+}

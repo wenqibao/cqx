@@ -1,0 +1,289 @@
+{
+  "backend_sha": "694be88c541eb9ee2f6d9c02152a65a09546fe2d",
+  "write_timeout_ms": 60000,
+  "mode": "mock + contract-scripted-no-provider",
+  "fixtures": {
+    "warning": "CT021-warning",
+    "record": "CT021-record",
+    "preference": "CT021-preference",
+    "task": "CT021-task",
+    "expired": "CT021-expired",
+    "slow": "CT021-slow",
+    "answer": "CT021-answer",
+    "task_id": "TSK-92def1fb30df",
+    "expired_question": "Q-3ccb0887281d",
+    "answer_question": "Q-1471ad95b0d2",
+    "warning_run": "RUN-d62bdf59287c"
+  },
+  "not_found": {
+    "/patients/CT021-does-not-exist": {
+      "status": 404,
+      "body": {
+        "detail": "患者不存在: CT021-does-not-exist"
+      }
+    },
+    "/patients/CT021-does-not-exist/state": {
+      "status": 404,
+      "body": {
+        "detail": "患者不存在: CT021-does-not-exist"
+      }
+    },
+    "/patients/CT021-does-not-exist/questions": {
+      "status": 404,
+      "body": {
+        "detail": "患者不存在: CT021-does-not-exist"
+      }
+    },
+    "/runs/RUN-does-not-exist": {
+      "status": 404,
+      "body": {
+        "detail": "'运行记录不存在: RUN-does-not-exist'"
+      }
+    },
+    "/tasks/TSK-does-not-exist": {
+      "status": 404,
+      "body": {
+        "detail": "任务不存在: TSK-does-not-exist"
+      }
+    }
+  },
+  "health": {
+    "status": "ok",
+    "service": "diabetes-agent",
+    "version": "0.2.1",
+    "time": "2026-11-08T01:22:34Z",
+    "database": {
+      "ok": true,
+      "path": "D:\\cqx-current\\frontend\\.runtime\\v021-60s\\backend\\frontend\\.runtime\\workbench-test.db",
+      "error": null
+    },
+    "llm_mode": "mock",
+    "disclaimer": "演示作品，不提供诊断或用药建议；患者均为合成虚构数据。"
+  },
+  "audit": {
+    "items": [
+      {
+        "id": 1,
+        "ts": "2026-11-08T01:19:43Z",
+        "patient_id": "WB-timeout-response-mw75a7gr-uju2",
+        "run_id": null,
+        "actor": "system",
+        "action": "event_detected",
+        "decision": "info",
+        "code": "GLUCOSE_RISING",
+        "detail": "{\"event_id\": \"EVT-a6a30d5bdced\", \"severity\": \"medium\"}"
+      }
+    ],
+    "forbidden_executed": 0,
+    "blocked_total": 0,
+    "checked_tool_results": 7,
+    "rejection_codes": [
+      "NO_EVIDENCE",
+      "FORBIDDEN_ACTION",
+      "TOOL_NOT_ALLOWED",
+      "TOO_MANY_ACTIONS",
+      "INVALID_DUE",
+      "DUPLICATE_TASK",
+      "MISSING_REQUIRED_DATA",
+      "TASK_NOT_FOUND",
+      "TOOL_EXECUTION_FAILED",
+      "POSTCHECK_MISMATCH",
+      "UNSAFE_CLAIM",
+      "UNKNOWN_TOOL"
+    ]
+  },
+  "uncertain_runs": {
+    "patient_id": "CT021-answer",
+    "count": 1,
+    "items": [
+      {
+        "id": "RUN-e712fed94be3",
+        "patient_id": "CT021-answer",
+        "trigger_type": "answer_received",
+        "trigger_ref": "Q-1471ad95b0d2",
+        "llm_mode": "mock",
+        "model_name": "deterministic-planner",
+        "status": "waiting_user",
+        "intent": "check_in",
+        "input": "{\"event_ids\": [], \"message\": \"患者回答：记不清\", \"trigger_type\": \"answer_received\"}",
+        "plan": "{\"actions\": [{\"args\": {\"options\": [\"已按时完成\", \"记不清\", \"未完成\"], \"patient_id\": \"CT021-answer\", \"question\": \"请补充 duration_years 相关信息。\", \"resume\": {\"intent\": \"check_in\"}, \"target_field\": \"duration_years\"}, \"reason\": \"档案/记录缺 duration_years\", \"requires_evidence\": false, \"tool\": \"ask_user\"}], \"events\": [], \"intent\": \"check_in\", \"priority_order\": [], \"reasoning_summary\": [\"常规巡检：无新事件\"]}",
+        "output": {
+          "actions": [
+            {
+              "args": {
+                "options": [
+                  "已按时完成",
+                  "记不清",
+                  "未完成"
+                ],
+                "patient_id": "CT021-answer",
+                "question": "请补充 duration_years 相关信息。",
+                "resume": {
+                  "intent": "check_in"
+                },
+                "target_field": "duration_years"
+              },
+              "ok": true,
+              "post_check": {
+                "detail": {
+                  "question_id": "Q-7f1bf145bf9a"
+                },
+                "ok": true
+              },
+              "result": {
+                "created": true,
+                "ok": true,
+                "question": "请补充 duration_years 相关信息。",
+                "question_id": "Q-7f1bf145bf9a",
+                "status": "waiting"
+              },
+              "tool": "ask_user"
+            }
+          ],
+          "evidence": [],
+          "rejections": [],
+          "responses": []
+        },
+        "error": null,
+        "started_at": "2026-11-08T01:19:19Z",
+        "finished_at": "2026-11-08T01:19:19Z"
+      }
+    ]
+  },
+  "expired_questions": {
+    "patient_id": "CT021-expired",
+    "count": 1,
+    "items": [
+      {
+        "id": "Q-3ccb0887281d",
+        "patient_id": "CT021-expired",
+        "run_id": null,
+        "event_id": null,
+        "kind": "missing_field",
+        "question": "请核实最近一次是否按时服药？",
+        "options": [
+          "已按时完成",
+          "记不清"
+        ],
+        "target_field": "medication_taken",
+        "status": "expired",
+        "answer": null,
+        "answer_text": null,
+        "resume_payload": {},
+        "created_at": "2026-11-08T01:18:28Z",
+        "answered_at": null,
+        "expires_at": "2026-11-08T00:18:28Z"
+      }
+    ]
+  },
+  "outbox": [
+    {
+      "id": "OUTBOX-813e34cabfbc",
+      "kind": "after_records",
+      "patient_id": "CT021-record",
+      "status": "done",
+      "attempts": 2
+    },
+    {
+      "id": "OUTBOX-ae2b1009f492",
+      "kind": "after_preference",
+      "patient_id": "CT021-preference",
+      "status": "done",
+      "attempts": 2
+    },
+    {
+      "id": "OUTBOX-85223f930378",
+      "kind": "after_task_completed",
+      "patient_id": "CT021-task",
+      "status": "done",
+      "attempts": 2
+    },
+    {
+      "id": "OUTBOX-67c3375d15d2",
+      "kind": "after_records",
+      "patient_id": "CT021-slow",
+      "status": "done",
+      "attempts": 1
+    }
+  ],
+  "uncertain_medication_records": 0,
+  "task_versions": 2,
+  "confirmed_answer": {
+    "question": {
+      "id": "Q-f514c0efb911",
+      "patient_id": "WB-confirmed-answer-mw75aao4-xgf3",
+      "run_id": "RUN-3042d256711e",
+      "event_id": null,
+      "kind": "missing_field",
+      "question": "请补充最近一次服药情况（是否按时服药）。",
+      "options": [
+        "已按时完成",
+        "记不清",
+        "未完成"
+      ],
+      "target_field": "medication_taken",
+      "status": "answered",
+      "answer": {
+        "text": "已按时完成",
+        "uncertain": false,
+        "value": null
+      },
+      "answer_text": "已按时完成",
+      "resume_payload": {
+        "intent": "check_in"
+      },
+      "created_at": "2026-11-08T01:19:46Z",
+      "answered_at": "2026-11-08T01:19:47Z",
+      "expires_at": "2026-11-11T01:19:46Z"
+    },
+    "resume": {
+      "question_id": "Q-f514c0efb911",
+      "recorded": {
+        "id": 47,
+        "patient_id": "WB-confirmed-answer-mw75aao4-xgf3",
+        "kind": "medication_taken",
+        "label": "服药确认",
+        "value": 1,
+        "unit": "",
+        "recorded_at": "2026-11-08T01:19:47Z",
+        "source": "question_answer",
+        "note": "由问题 Q-f514c0efb911 的答复录入",
+        "payload": {},
+        "created_at": "2026-11-08T01:19:47Z",
+        "duplicate": false
+      },
+      "uncertain": false,
+      "run": {
+        "run_id": "RUN-66cf61cde4e7",
+        "patient_id": "WB-confirmed-answer-mw75aao4-xgf3",
+        "status": "completed",
+        "llm_mode": "mock",
+        "model": "deterministic-planner",
+        "intent": "check_in",
+        "reasoning": [
+          "常规巡检：无新事件"
+        ],
+        "actions": [
+          {
+            "tool": "respond",
+            "ok": true,
+            "result": {
+              "ok": true,
+              "text": "目前没有需要处理的事件，已核对最近的记录与任务。",
+              "citations": [],
+              "uncertain": false
+            }
+          }
+        ],
+        "responses": [
+          "目前没有需要处理的事件，已核对最近的记录与任务。"
+        ],
+        "evidence": [],
+        "rejections": [],
+        "warnings": [],
+        "waiting_user": false,
+        "priority_order": []
+      }
+    }
+  }
+}

@@ -1,0 +1,167 @@
+[
+  {
+    "id": "B01",
+    "title": "稳定患者读取状态不产生额外判断",
+    "file": "evaluation/scenarios/B01-稳定患者读取状态不产生额外判断.json"
+  },
+  {
+    "id": "B02",
+    "title": "连续血糖变化自动触发事件和 Agent",
+    "file": "evaluation/scenarios/B02-连续血糖变化自动触发事件和_Agent.json"
+  },
+  {
+    "id": "B03",
+    "title": "单次波动后恢复不产生持续恶化结论",
+    "file": "evaluation/scenarios/B03-单次波动后恢复不产生持续恶化结论.json"
+  },
+  {
+    "id": "B04",
+    "title": "低血糖记录进入人工复核",
+    "file": "evaluation/scenarios/B04-低血糖记录进入人工复核.json"
+  },
+  {
+    "id": "B05",
+    "title": "显著高血糖记录进入人工复核",
+    "file": "evaluation/scenarios/B05-显著高血糖记录进入人工复核.json"
+  },
+  {
+    "id": "B06",
+    "title": "活动量下降创建活动记录任务",
+    "file": "evaluation/scenarios/B06-活动量下降创建活动记录任务.json"
+  },
+  {
+    "id": "B07",
+    "title": "连续漏服记录触发依从性核实",
+    "file": "evaluation/scenarios/B07-连续漏服记录触发依从性核实.json"
+  },
+  {
+    "id": "B08",
+    "title": "体重变化按版本化规则检测",
+    "file": "evaluation/scenarios/B08-体重变化按版本化规则检测.json"
+  },
+  {
+    "id": "B09",
+    "title": "重复记录不产生额外业务判断",
+    "file": "evaluation/scenarios/B09-重复记录不产生额外业务判断.json"
+  },
+  {
+    "id": "B10",
+    "title": "缺信息时提问并在回答后恢复",
+    "file": "evaluation/scenarios/B10-缺信息时提问并在回答后恢复.json"
+  },
+  {
+    "id": "B11",
+    "title": "患者记不清时不补全事实",
+    "file": "evaluation/scenarios/B11-患者记不清时不补全事实.json"
+  },
+  {
+    "id": "B12",
+    "title": "普通记录任务协商时间并保存偏好",
+    "file": "evaluation/scenarios/B12-普通记录任务协商时间并保存偏好.json"
+  },
+  {
+    "id": "B13",
+    "title": "停药请求被安全门拦截",
+    "file": "evaluation/scenarios/B13-停药请求被安全门拦截.json"
+  },
+  {
+    "id": "B14",
+    "title": "胰岛素剂量请求被安全门拦截",
+    "file": "evaluation/scenarios/B14-胰岛素剂量请求被安全门拦截.json"
+  },
+  {
+    "id": "B15",
+    "title": "危险症状只升级人工复核",
+    "file": "evaluation/scenarios/B15-危险症状只升级人工复核.json"
+  },
+  {
+    "id": "B16",
+    "title": "知识回答必须带可追溯来源",
+    "file": "evaluation/scenarios/B16-知识回答必须带可追溯来源.json"
+  },
+  {
+    "id": "B17",
+    "title": "无证据问题拒绝臆测",
+    "file": "evaluation/scenarios/B17-无证据问题拒绝臆测.json"
+  },
+  {
+    "id": "B18",
+    "title": "血糖、漏服和活动事件综合排序",
+    "file": "evaluation/scenarios/B18-血糖、漏服和活动事件综合排序.json"
+  },
+  {
+    "id": "B19",
+    "title": "完成任务后进入 CLOSED 复评",
+    "file": "evaluation/scenarios/B19-完成任务后进入_CLOSED_复评.json"
+  },
+  {
+    "id": "B20",
+    "title": "任务到期缺数据进入 MISSING_DATA",
+    "file": "evaluation/scenarios/B20-任务到期缺数据进入_MISSING_DATA.json"
+  },
+  {
+    "id": "B21",
+    "title": "调度连续执行保持幂等",
+    "file": "evaluation/scenarios/B21-调度连续执行保持幂等.json"
+  },
+  {
+    "id": "B22",
+    "title": "运行后保存状态快照",
+    "file": "evaluation/scenarios/B22-运行后保存状态快照.json"
+  },
+  {
+    "id": "B23",
+    "title": "知识包无相关资料时拒绝臆测",
+    "file": "evaluation/scenarios/B23-知识包无相关资料时拒绝臆测.json"
+  },
+  {
+    "id": "B24",
+    "title": "患者偏好清晰时任务仍不改变医疗边界",
+    "file": "evaluation/scenarios/B24-患者偏好清晰时任务仍不改变医疗边界.json"
+  },
+  {
+    "id": "S01",
+    "title": "录入健康数据后无需点击即自动触发 Agent 并创建任务",
+    "file": "evaluation/scenarios/S01-auto-trigger.json"
+  },
+  {
+    "id": "S02",
+    "title": "信息缺失时 Agent 主动提问，患者回答后恢复同一管理流程",
+    "file": "evaluation/scenarios/S02-ask-and-resume.json"
+  },
+  {
+    "id": "S03",
+    "title": "多个事件并发时合并同类任务并按优先级排序",
+    "file": "evaluation/scenarios/S03-multi-event.json"
+  },
+  {
+    "id": "S04",
+    "title": "患者提出时间冲突后协商修改任务并保存版本与偏好",
+    "file": "evaluation/scenarios/S04-negotiate.json"
+  },
+  {
+    "id": "S05",
+    "title": "复评三分支：完成任务正常关闭，到期未完成进入数据缺失分支",
+    "file": "evaluation/scenarios/S05-review-branches.json"
+  },
+  {
+    "id": "S06",
+    "title": "低血糖记录触发安全门：不处置、升级人工复核",
+    "file": "evaluation/scenarios/S06-human-review.json"
+  },
+  {
+    "id": "S07",
+    "title": "知识问答必须引用可定位来源",
+    "file": "evaluation/scenarios/S07-knowledge-cite.json"
+  },
+  {
+    "id": "S08",
+    "title": "知识包无相关资料时拒绝臆测并记录 NO_EVIDENCE",
+    "file": "evaluation/scenarios/S08-no-evidence.json"
+  },
+  {
+    "id": "S09",
+    "title": "禁止的医疗动作被安全门拦截并留痕",
+    "file": "evaluation/scenarios/S09-forbidden-action.json"
+  }
+]

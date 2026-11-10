@@ -1,0 +1,116 @@
+[
+  {
+    "record": {
+      "id": 29,
+      "patient_id": "P003",
+      "kind": "steps",
+      "label": "步数",
+      "value": 4000,
+      "unit": "步",
+      "recorded_at": "2026-11-04T03:00:41Z",
+      "source": "manual",
+      "note": null,
+      "payload": {},
+      "created_at": "2026-11-04T03:00:41Z",
+      "duplicate": false
+    },
+    "automation": {
+      "patient_id": "P003",
+      "records": 1,
+      "events_created": [
+        {
+          "id": "EVT-3a49c3eb814e",
+          "patient_id": "P003",
+          "code": "LOW_ACTIVITY",
+          "severity": "low",
+          "status": "open",
+          "message": "近 3 天日均步数偏低或较此前下降。",
+          "evidence": {
+            "delta": -4200,
+            "first": 8200,
+            "last": 4000,
+            "points": 3,
+            "trigger": "record_created",
+            "window_days": 3
+          },
+          "source_record_id": null,
+          "detected_at": "2026-11-04T03:00:41Z",
+          "handled_at": null,
+          "handled_by_run": null
+        }
+      ],
+      "jobs": [
+        {
+          "id": "JOB-dd353ec1601c",
+          "kind": "agent_run",
+          "patient_id": "P003",
+          "ref_id": "EVT-3a49c3eb814e",
+          "payload": "{\"event_id\": \"EVT-3a49c3eb814e\", \"source\": \"record_created\", \"trigger_type\": \"event_detected\"}",
+          "run_at": "2026-11-04T03:00:41Z",
+          "status": "pending",
+          "attempts": 0,
+          "last_error": null,
+          "created_at": "2026-11-04T03:00:41Z",
+          "updated_at": "2026-11-04T03:00:41Z"
+        }
+      ],
+      "runs": [
+        {
+          "run_id": "RUN-45471c6d4752",
+          "patient_id": "P003",
+          "status": "completed",
+          "llm_mode": "mock",
+          "model": "deterministic-planner",
+          "intent": "event_response",
+          "reasoning": [
+            "LOW_ACTIVITY（low）→ 1 个动作"
+          ],
+          "actions": [
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-907a98a4fd38",
+                "created": true,
+                "version": 1,
+                "status": "pending",
+                "title": "补录近 3 天步数"
+              }
+            }
+          ],
+          "responses": [],
+          "evidence": [],
+          "rejections": [],
+          "waiting_user": false,
+          "priority_order": [
+            "LOW_ACTIVITY"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "record": {
+      "id": 30,
+      "patient_id": "P003",
+      "kind": "medication_taken",
+      "label": "服药确认",
+      "value": 1,
+      "unit": "",
+      "recorded_at": "2026-11-04T03:00:43Z",
+      "source": "manual",
+      "note": null,
+      "payload": {},
+      "created_at": "2026-11-04T03:00:43Z",
+      "duplicate": false
+    },
+    "automation": {
+      "patient_id": "P003",
+      "records": 1,
+      "events_created": [],
+      "jobs": [],
+      "runs": []
+    }
+  }
+]

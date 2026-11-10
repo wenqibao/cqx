@@ -1,0 +1,246 @@
+{
+  "backend_sha": "694be88c541eb9ee2f6d9c02152a65a09546fe2d",
+  "fixtures": {
+    "warning": "CT021-warning",
+    "record": "CT021-record",
+    "preference": "CT021-preference",
+    "task": "CT021-task",
+    "expired": "CT021-expired",
+    "expiry_race": "CT021-expiry_race",
+    "slow": "CT021-slow",
+    "answer": "CT021-answer",
+    "task_id": "TSK-d1eb4be9a04c",
+    "expired_question": "Q-9bd00e79a922",
+    "answer_question": "Q-0c67407a8835",
+    "expiry_race_question": "Q-16a68b51ac10",
+    "warning_run": "RUN-88f9278958d4"
+  },
+  "health": {
+    "status": "ok",
+    "service": "diabetes-agent",
+    "version": "0.2.1",
+    "time": "2026-11-08T02:20:17Z",
+    "database": {
+      "ok": true,
+      "path": "D:\\cqx-current\\frontend\\.runtime\\v021-b-retest\\backend\\frontend\\.runtime\\workbench-test.db",
+      "error": null
+    },
+    "llm_mode": "mock",
+    "disclaimer": "演示作品，不提供诊断或用药建议；患者均为合成虚构数据。"
+  },
+  "audit": {
+    "items": [
+      {
+        "id": 1,
+        "ts": "2026-11-08T02:18:23Z",
+        "patient_id": "WB-timeout-response-mw77dno1-43ed",
+        "run_id": null,
+        "actor": "system",
+        "action": "event_detected",
+        "decision": "info",
+        "code": "GLUCOSE_RISING",
+        "detail": "{\"event_id\": \"EVT-16f517186cf1\", \"severity\": \"medium\"}"
+      }
+    ],
+    "forbidden_executed": 0,
+    "blocked_total": 0,
+    "checked_tool_results": 7,
+    "rejection_codes": [
+      "NO_EVIDENCE",
+      "FORBIDDEN_ACTION",
+      "TOOL_NOT_ALLOWED",
+      "TOO_MANY_ACTIONS",
+      "INVALID_DUE",
+      "DUPLICATE_TASK",
+      "MISSING_REQUIRED_DATA",
+      "TASK_NOT_FOUND",
+      "TOOL_EXECUTION_FAILED",
+      "POSTCHECK_MISMATCH",
+      "UNSAFE_CLAIM",
+      "UNKNOWN_TOOL"
+    ]
+  },
+  "expired": {
+    "questions": {
+      "patient_id": "CT021-expired",
+      "count": 1,
+      "items": [
+        {
+          "id": "Q-9bd00e79a922",
+          "patient_id": "CT021-expired",
+          "run_id": null,
+          "event_id": null,
+          "kind": "missing_field",
+          "question": "请核实最近一次是否按时服药？",
+          "options": [
+            "已按时完成",
+            "记不清"
+          ],
+          "target_field": "medication_taken",
+          "status": "expired",
+          "answer": null,
+          "answer_text": null,
+          "resume_payload": {},
+          "created_at": "2026-11-08T02:17:19Z",
+          "answered_at": null,
+          "expires_at": "2026-11-08T01:17:19Z"
+        }
+      ]
+    },
+    "runs": {
+      "patient_id": "CT021-expired",
+      "count": 0,
+      "items": []
+    },
+    "records": {
+      "patient_id": "CT021-expired",
+      "count": 0,
+      "items": []
+    }
+  },
+  "expiry_race": {
+    "questions": {
+      "patient_id": "CT021-expiry_race",
+      "count": 1,
+      "items": [
+        {
+          "id": "Q-16a68b51ac10",
+          "patient_id": "CT021-expiry_race",
+          "run_id": null,
+          "event_id": null,
+          "kind": "missing_field",
+          "question": "请核实最近一次是否按时服药？",
+          "options": [
+            "已按时完成",
+            "记不清"
+          ],
+          "target_field": "medication_taken",
+          "status": "expired",
+          "answer": null,
+          "answer_text": null,
+          "resume_payload": {},
+          "created_at": "2026-11-08T02:17:19Z",
+          "answered_at": null,
+          "expires_at": "2026-11-08T03:17:19Z"
+        }
+      ]
+    },
+    "runs": {
+      "patient_id": "CT021-expiry_race",
+      "count": 0,
+      "items": []
+    },
+    "records": {
+      "patient_id": "CT021-expiry_race",
+      "count": 0,
+      "items": []
+    }
+  },
+  "race_browser_evidence": {
+    "question": {
+      "id": "Q-16a68b51ac10",
+      "patient_id": "CT021-expiry_race",
+      "run_id": null,
+      "event_id": null,
+      "kind": "missing_field",
+      "question": "请核实最近一次是否按时服药？",
+      "options": [
+        "已按时完成",
+        "记不清"
+      ],
+      "target_field": "medication_taken",
+      "status": "expired",
+      "answer": null,
+      "answer_text": null,
+      "resume_payload": {},
+      "created_at": "2026-11-08T02:17:19Z",
+      "answered_at": null,
+      "expires_at": "2026-11-08T03:17:19Z"
+    },
+    "status": 422,
+    "resumed_runs": 0,
+    "saved_records": 0
+  },
+  "confirmed_answer": {
+    "question": {
+      "id": "Q-1373d7ccd3e3",
+      "patient_id": "WB-confirmed-answer-mw77dqwa-6h4s",
+      "run_id": "RUN-cb2cca0a931a",
+      "event_id": null,
+      "kind": "missing_field",
+      "question": "请补充最近一次服药情况（是否按时服药）。",
+      "options": [
+        "已按时完成",
+        "记不清",
+        "未完成"
+      ],
+      "target_field": "medication_taken",
+      "status": "answered",
+      "answer": {
+        "text": "已按时完成",
+        "uncertain": false,
+        "value": null
+      },
+      "answer_text": "已按时完成",
+      "resume_payload": {
+        "intent": "check_in"
+      },
+      "created_at": "2026-11-08T02:18:26Z",
+      "answered_at": "2026-11-08T02:18:28Z",
+      "expires_at": "2026-11-11T02:18:26Z"
+    },
+    "resume": {
+      "question_id": "Q-1373d7ccd3e3",
+      "recorded": {
+        "id": 47,
+        "patient_id": "WB-confirmed-answer-mw77dqwa-6h4s",
+        "kind": "medication_taken",
+        "label": "服药确认",
+        "value": 1,
+        "unit": "",
+        "recorded_at": "2026-11-08T02:18:28Z",
+        "source": "question_answer",
+        "note": "由问题 Q-1373d7ccd3e3 的答复录入",
+        "payload": {},
+        "created_at": "2026-11-08T02:18:28Z",
+        "duplicate": false
+      },
+      "uncertain": false,
+      "run": {
+        "run_id": "RUN-de71050456d9",
+        "patient_id": "WB-confirmed-answer-mw77dqwa-6h4s",
+        "status": "completed",
+        "llm_mode": "mock",
+        "model": "deterministic-planner",
+        "intent": "check_in",
+        "reasoning": [
+          "常规巡检：无新事件"
+        ],
+        "actions": [
+          {
+            "tool": "respond",
+            "ok": true,
+            "result": {
+              "ok": true,
+              "text": "目前没有需要处理的事件，已核对最近的记录与任务。",
+              "citations": [],
+              "uncertain": false
+            }
+          }
+        ],
+        "responses": [
+          "目前没有需要处理的事件，已核对最近的记录与任务。"
+        ],
+        "evidence": [],
+        "rejections": [],
+        "warnings": [],
+        "waiting_user": false,
+        "priority_order": []
+      }
+    }
+  },
+  "clock": {
+    "clock_offset_seconds": 0,
+    "now": "2026-11-08T02:20:17Z"
+  }
+}

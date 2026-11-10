@@ -1,0 +1,317 @@
+{
+  "saved": {
+    "record": {
+      "id": 28,
+      "patient_id": "P001",
+      "kind": "fasting_glucose",
+      "label": "空腹血糖",
+      "value": 9.61,
+      "unit": "mmol/L",
+      "recorded_at": "2026-11-03T23:51:00Z",
+      "source": "manual",
+      "note": null,
+      "payload": {},
+      "created_at": "2026-11-04T07:50:42Z",
+      "duplicate": false
+    },
+    "automation": {
+      "patient_id": "P001",
+      "records": 1,
+      "events_created": [
+        {
+          "id": "EVT-a3f33ce8930c",
+          "patient_id": "P001",
+          "code": "GLUCOSE_RISING",
+          "severity": "medium",
+          "status": "open",
+          "message": "近 7 天空腹血糖较此前上升，需要核实记录与用药执行情况。",
+          "evidence": {
+            "delta": 2.41,
+            "first": 7.2,
+            "last": 9.61,
+            "points": 7,
+            "trigger": "record_created",
+            "window_days": 7
+          },
+          "source_record_id": null,
+          "detected_at": "2026-11-04T07:50:42Z",
+          "handled_at": null,
+          "handled_by_run": null
+        },
+        {
+          "id": "EVT-f0fe4bd4e3a5",
+          "patient_id": "P001",
+          "code": "MEDICATION_NONADHERENCE",
+          "severity": "medium",
+          "status": "open",
+          "message": "近 3 天出现多次未确认服药。",
+          "evidence": {
+            "missed_count": 2,
+            "missed_record_ids": [
+              10,
+              11
+            ],
+            "trigger": "record_created",
+            "window_days": 3
+          },
+          "source_record_id": null,
+          "detected_at": "2026-11-04T07:50:42Z",
+          "handled_at": null,
+          "handled_by_run": null
+        },
+        {
+          "id": "EVT-f6180caa5aba",
+          "patient_id": "P001",
+          "code": "LOW_ACTIVITY",
+          "severity": "low",
+          "status": "open",
+          "message": "近 3 天日均步数偏低或较此前下降。",
+          "evidence": {
+            "delta": -900,
+            "first": 2800,
+            "last": 1900,
+            "points": 3,
+            "trigger": "record_created",
+            "window_days": 3
+          },
+          "source_record_id": null,
+          "detected_at": "2026-11-04T07:50:42Z",
+          "handled_at": null,
+          "handled_by_run": null
+        }
+      ],
+      "jobs": [
+        {
+          "id": "JOB-882bdcf5aed9",
+          "kind": "agent_run",
+          "patient_id": "P001",
+          "ref_id": "EVT-a3f33ce8930c",
+          "payload": "{\"event_id\": \"EVT-a3f33ce8930c\", \"source\": \"record_created\", \"trigger_type\": \"event_detected\"}",
+          "run_at": "2026-11-04T07:50:42Z",
+          "status": "pending",
+          "attempts": 0,
+          "last_error": null,
+          "created_at": "2026-11-04T07:50:42Z",
+          "updated_at": "2026-11-04T07:50:42Z"
+        },
+        {
+          "id": "JOB-4b0b54c33d86",
+          "kind": "agent_run",
+          "patient_id": "P001",
+          "ref_id": "EVT-f0fe4bd4e3a5",
+          "payload": "{\"event_id\": \"EVT-f0fe4bd4e3a5\", \"source\": \"record_created\", \"trigger_type\": \"event_detected\"}",
+          "run_at": "2026-11-04T07:50:42Z",
+          "status": "pending",
+          "attempts": 0,
+          "last_error": null,
+          "created_at": "2026-11-04T07:50:42Z",
+          "updated_at": "2026-11-04T07:50:42Z"
+        },
+        {
+          "id": "JOB-ede537c6b009",
+          "kind": "agent_run",
+          "patient_id": "P001",
+          "ref_id": "EVT-f6180caa5aba",
+          "payload": "{\"event_id\": \"EVT-f6180caa5aba\", \"source\": \"record_created\", \"trigger_type\": \"event_detected\"}",
+          "run_at": "2026-11-04T07:50:42Z",
+          "status": "pending",
+          "attempts": 0,
+          "last_error": null,
+          "created_at": "2026-11-04T07:50:42Z",
+          "updated_at": "2026-11-04T07:50:42Z"
+        }
+      ],
+      "runs": [
+        {
+          "run_id": "RUN-c0421acc9b93",
+          "patient_id": "P001",
+          "status": "completed",
+          "llm_mode": "mock",
+          "model": "deterministic-planner",
+          "intent": "event_response",
+          "reasoning": [
+            "GLUCOSE_RISING（medium）→ 2 个动作"
+          ],
+          "actions": [
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-41b996f7e0db",
+                "created": true,
+                "version": 1,
+                "status": "pending",
+                "title": "核实近 3 天服药执行情况"
+              }
+            },
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-f2d81dfe75ca",
+                "created": true,
+                "version": 1,
+                "status": "pending",
+                "title": "补录 2 次空腹血糖"
+              }
+            }
+          ],
+          "responses": [],
+          "evidence": [
+            {
+              "id": "EVD-baa9b1ace802",
+              "doc_id": "KD-001",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "publisher": "中华医学会糖尿病学分会",
+              "anchor": "#1-自我血糖监测的意义-2",
+              "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·#1-自我血糖监测的意义-2",
+              "quote": "连续、可对比的记录比单次测量更有意义。记录时间点应尽量固定（例如每日早餐前），以便判断变化是真实趋势还是测量误差。",
+              "score": 27.7414
+            },
+            {
+              "id": "EVD-8522fb9964ae",
+              "doc_id": "KD-001",
+              "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+              "publisher": "中华医学会糖尿病学分会",
+              "anchor": "#1-自我血糖监测的意义-1",
+              "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·#1-自我血糖监测的意义-1",
+              "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+              "score": 18.3014
+            }
+          ],
+          "rejections": [],
+          "waiting_user": false,
+          "priority_order": [
+            "GLUCOSE_RISING"
+          ]
+        },
+        {
+          "run_id": "RUN-ca45d8b400ca",
+          "patient_id": "P001",
+          "status": "completed",
+          "llm_mode": "mock",
+          "model": "deterministic-planner",
+          "intent": "event_response",
+          "reasoning": [
+            "MEDICATION_NONADHERENCE（medium）→ 1 个动作"
+          ],
+          "actions": [
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-41b996f7e0db",
+                "created": false,
+                "version": 1,
+                "status": "pending",
+                "title": "核实近 3 天服药执行情况"
+              }
+            }
+          ],
+          "responses": [],
+          "evidence": [],
+          "rejections": [],
+          "waiting_user": false,
+          "priority_order": [
+            "MEDICATION_NONADHERENCE"
+          ]
+        },
+        {
+          "run_id": "RUN-6d50e7f8ee5f",
+          "patient_id": "P001",
+          "status": "completed",
+          "llm_mode": "mock",
+          "model": "deterministic-planner",
+          "intent": "event_response",
+          "reasoning": [
+            "LOW_ACTIVITY（low）→ 1 个动作"
+          ],
+          "actions": [
+            {
+              "tool": "create_task",
+              "ok": true,
+              "result": {
+                "ok": true,
+                "task_id": "TSK-268fd6564bbe",
+                "created": true,
+                "version": 1,
+                "status": "pending",
+                "title": "补录近 3 天步数"
+              }
+            }
+          ],
+          "responses": [],
+          "evidence": [],
+          "rejections": [],
+          "waiting_user": false,
+          "priority_order": [
+            "LOW_ACTIVITY"
+          ]
+        }
+      ]
+    }
+  },
+  "runId": "RUN-c0421acc9b93",
+  "complete": {
+    "task_id": "TSK-41b996f7e0db",
+    "reviews": [
+      {
+        "id": "REV-0c76a63a68e0",
+        "patient_id": "P001",
+        "task_id": "TSK-41b996f7e0db",
+        "event_id": "EVT-a3f33ce8930c",
+        "run_id": "RUN-c0421acc9b93",
+        "branch": "CLOSED",
+        "status": "completed",
+        "reason": "任务已完成且所需数据齐备",
+        "detail": {
+          "closer": "patient",
+          "event_code": "GLUCOSE_RISING",
+          "event_severity": "medium",
+          "glucose_points_7d": 7,
+          "missing_required_fields": [],
+          "steps_points_3d": 3,
+          "task_status": "done",
+          "task_type": "confirm_medication"
+        },
+        "scheduled_for": "2026-11-06T07:50:42Z",
+        "created_at": "2026-11-04T07:50:42Z",
+        "resolved_at": "2026-11-04T07:50:45Z"
+      }
+    ],
+    "task": {
+      "id": "TSK-41b996f7e0db",
+      "patient_id": "P001",
+      "task_type": "confirm_medication",
+      "title": "核实近 3 天服药执行情况",
+      "description": "请核对是否按时服药，并记录一次服药确认。",
+      "status": "done",
+      "priority": 76,
+      "due_at": "2026-11-05T07:50:42Z",
+      "event_id": "EVT-a3f33ce8930c",
+      "source_run_id": "RUN-c0421acc9b93",
+      "version": 2,
+      "required_fields": [
+        "medication_taken"
+      ],
+      "meta": {
+        "event_code": "GLUCOSE_RISING",
+        "event_ids": [
+          "EVT-a3f33ce8930c",
+          "EVT-f0fe4bd4e3a5"
+        ],
+        "knowledge_query": "连续血糖记录 意义",
+        "merged": true,
+        "severity": "medium"
+      },
+      "created_at": "2026-11-04T07:50:42Z",
+      "updated_at": "2026-11-04T07:50:45Z",
+      "completed_at": "2026-11-04T07:50:45Z"
+    }
+  },
+  "agentPosts": [],
+  "patientIsolation": true
+}

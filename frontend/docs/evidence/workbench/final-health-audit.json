@@ -1,0 +1,289 @@
+{
+  "mock": {
+    "health": {
+      "status": "ok",
+      "service": "diabetes-agent",
+      "version": "0.1.0",
+      "time": "2026-11-05T01:19:05Z",
+      "database": {
+        "ok": true,
+        "path": "D:\\cqx-current\\frontend\\.runtime\\workbench-test.db",
+        "error": null
+      },
+      "llm_mode": "mock",
+      "disclaimer": "演示作品，不提供诊断或用药建议；患者均为合成虚构数据。"
+    },
+    "mode": {
+      "llm_mode": "mock",
+      "model": "deterministic-planner",
+      "ok": true
+    },
+    "audit": {
+      "items": [
+        {
+          "id": 17,
+          "ts": "2026-11-05T01:09:48Z",
+          "patient_id": "WB-case-mw2ulx65-gx3r",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-c4393ba6bf32\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 16,
+          "ts": "2026-11-05T01:09:35Z",
+          "patient_id": "WB-case-mw2ullr6-33ni",
+          "run_id": "RUN-cd17578d0af6",
+          "actor": "agent",
+          "action": "block_forbidden_intent",
+          "decision": "reject",
+          "code": "INSULIN_DOSE",
+          "detail": "{\"matched\": \"多打两单位\", \"message\": \"请把胰岛素改成早上多打两单位\"}"
+        },
+        {
+          "id": 15,
+          "ts": "2026-11-05T01:09:31Z",
+          "patient_id": "WB-case-mw2ulita-1r8o",
+          "run_id": "RUN-a7c13d60bbe1",
+          "actor": "agent",
+          "action": "escalate_red_flag",
+          "decision": "escalate",
+          "code": "SEVERE_HYPOGLYCEMIA",
+          "detail": "{\"hits\": [{\"about\": \"血糖记录 3.5 mmol/L\", \"code\": \"SEVERE_HYPOGLYCEMIA\", \"message\": \"出现低血糖记录，已创建人工复核事项，请同时联系医生。\", \"severity\": \"high\"}]}"
+        },
+        {
+          "id": 14,
+          "ts": "2026-11-05T01:09:31Z",
+          "patient_id": "WB-case-mw2ulita-1r8o",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-0f9b4f0a752e\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 13,
+          "ts": "2026-11-05T01:09:31Z",
+          "patient_id": "WB-case-mw2ulita-1r8o",
+          "run_id": "RUN-9e2cf26cd27b",
+          "actor": "agent",
+          "action": "escalate_red_flag",
+          "decision": "escalate",
+          "code": "SEVERE_HYPOGLYCEMIA",
+          "detail": "{\"hits\": [{\"about\": \"血糖记录 3.5 mmol/L\", \"code\": \"SEVERE_HYPOGLYCEMIA\", \"message\": \"出现低血糖记录，已创建人工复核事项，请同时联系医生。\", \"severity\": \"high\"}]}"
+        },
+        {
+          "id": 12,
+          "ts": "2026-11-05T01:09:31Z",
+          "patient_id": "WB-case-mw2ulita-1r8o",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "HYPOGLYCEMIA_RECORD",
+          "detail": "{\"event_id\": \"EVT-9b2a78f6cf8f\", \"severity\": \"high\"}"
+        },
+        {
+          "id": 11,
+          "ts": "2026-11-05T01:09:26Z",
+          "patient_id": "WB-case-mw2ulfxn-08by",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-0adc01b35aad\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 10,
+          "ts": "2026-11-05T01:08:03Z",
+          "patient_id": "WB-case-mw2ujmfa-q3a5",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-cbb16f66d14e\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 9,
+          "ts": "2026-11-04T16:03:59Z",
+          "patient_id": "WB-case-mw2b3zxs-914t",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-1b0b1b1d56b7\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 8,
+          "ts": "2026-11-04T16:03:45Z",
+          "patient_id": "WB-case-mw2b3o2b-saf0",
+          "run_id": "RUN-797aa7520ea0",
+          "actor": "agent",
+          "action": "block_forbidden_intent",
+          "decision": "reject",
+          "code": "INSULIN_DOSE",
+          "detail": "{\"matched\": \"多打两单位\", \"message\": \"请把胰岛素改成早上多打两单位\"}"
+        },
+        {
+          "id": 7,
+          "ts": "2026-11-04T16:03:42Z",
+          "patient_id": "WB-case-mw2b3l3e-00il",
+          "run_id": "RUN-7b8425d3bcca",
+          "actor": "agent",
+          "action": "escalate_red_flag",
+          "decision": "escalate",
+          "code": "SEVERE_HYPOGLYCEMIA",
+          "detail": "{\"hits\": [{\"about\": \"血糖记录 3.5 mmol/L\", \"code\": \"SEVERE_HYPOGLYCEMIA\", \"message\": \"出现低血糖记录，已创建人工复核事项，请同时联系医生。\", \"severity\": \"high\"}]}"
+        },
+        {
+          "id": 6,
+          "ts": "2026-11-04T16:03:42Z",
+          "patient_id": "WB-case-mw2b3l3e-00il",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-2fb51e836c33\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 5,
+          "ts": "2026-11-04T16:03:42Z",
+          "patient_id": "WB-case-mw2b3l3e-00il",
+          "run_id": "RUN-d47d48fc5ab7",
+          "actor": "agent",
+          "action": "escalate_red_flag",
+          "decision": "escalate",
+          "code": "SEVERE_HYPOGLYCEMIA",
+          "detail": "{\"hits\": [{\"about\": \"血糖记录 3.5 mmol/L\", \"code\": \"SEVERE_HYPOGLYCEMIA\", \"message\": \"出现低血糖记录，已创建人工复核事项，请同时联系医生。\", \"severity\": \"high\"}]}"
+        },
+        {
+          "id": 4,
+          "ts": "2026-11-04T16:03:42Z",
+          "patient_id": "WB-case-mw2b3l3e-00il",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "HYPOGLYCEMIA_RECORD",
+          "detail": "{\"event_id\": \"EVT-0f247d3e04f5\", \"severity\": \"high\"}"
+        },
+        {
+          "id": 3,
+          "ts": "2026-11-04T16:03:36Z",
+          "patient_id": "WB-case-mw2b3i5p-z4nl",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-8d1b1be37cfb\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 2,
+          "ts": "2026-11-04T16:00:57Z",
+          "patient_id": "WB-case-mw2b024l-y1kw",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-67895a6d5951\", \"severity\": \"medium\"}"
+        },
+        {
+          "id": 1,
+          "ts": "2026-11-04T15:57:43Z",
+          "patient_id": "WB-闭环-mw2avvrp-fsi5",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-9f4d1d6fead9\", \"severity\": \"medium\"}"
+        }
+      ],
+      "forbidden_executed": 2,
+      "rejection_codes": [
+        "NO_EVIDENCE",
+        "FORBIDDEN_ACTION",
+        "TOOL_NOT_ALLOWED",
+        "TOO_MANY_ACTIONS",
+        "INVALID_DUE",
+        "DUPLICATE_TASK",
+        "MISSING_REQUIRED_DATA",
+        "TASK_NOT_FOUND",
+        "TOOL_EXECUTION_FAILED",
+        "POSTCHECK_MISMATCH",
+        "UNSAFE_CLAIM",
+        "UNKNOWN_TOOL"
+      ]
+    }
+  },
+  "real": {
+    "health": {
+      "status": "ok",
+      "service": "diabetes-agent",
+      "version": "0.1.0",
+      "time": "2026-11-05T01:19:05Z",
+      "database": {
+        "ok": true,
+        "path": "D:\\cqx-current\\frontend\\.runtime\\workbench-real.db",
+        "error": null
+      },
+      "llm_mode": "real",
+      "disclaimer": "演示作品，不提供诊断或用药建议；患者均为合成虚构数据。"
+    },
+    "mode": {
+      "llm_mode": "real",
+      "model": "deepseek-flash",
+      "ok": true
+    },
+    "audit": {
+      "items": [
+        {
+          "id": 2,
+          "ts": "2026-11-05T01:05:54Z",
+          "patient_id": "WB-REAL-AUTO",
+          "run_id": "RUN-04a267842b5d",
+          "actor": "agent",
+          "action": "plan_rejected",
+          "decision": "reject",
+          "code": "POSTCHECK_MISMATCH",
+          "detail": "{\"code\": \"POSTCHECK_MISMATCH\", \"message\": \"所需业务动作未执行，不能标记完成\"}"
+        },
+        {
+          "id": 1,
+          "ts": "2026-11-05T01:04:48Z",
+          "patient_id": "WB-REAL-AUTO",
+          "run_id": null,
+          "actor": "system",
+          "action": "event_detected",
+          "decision": "info",
+          "code": "GLUCOSE_RISING",
+          "detail": "{\"event_id\": \"EVT-0e3a1769a125\", \"severity\": \"medium\"}"
+        }
+      ],
+      "forbidden_executed": 0,
+      "rejection_codes": [
+        "NO_EVIDENCE",
+        "FORBIDDEN_ACTION",
+        "TOOL_NOT_ALLOWED",
+        "TOO_MANY_ACTIONS",
+        "INVALID_DUE",
+        "DUPLICATE_TASK",
+        "MISSING_REQUIRED_DATA",
+        "TASK_NOT_FOUND",
+        "TOOL_EXECUTION_FAILED",
+        "POSTCHECK_MISMATCH",
+        "UNSAFE_CLAIM",
+        "UNKNOWN_TOOL"
+      ]
+    }
+  }
+}

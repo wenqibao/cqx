@@ -1,0 +1,8 @@
+{
+  "product": "Microsoft Edge",
+  "ui_base": "http://127.0.0.1:5187",
+  "version": "143.0.3650.66",
+  "channel": "msedge",
+  "api_base": "http://127.0.0.1:8040/api",
+  "write_timeout_ms": 60000
+}

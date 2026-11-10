@@ -1,0 +1,118 @@
+{
+  "pid": "WB-case-mw2ul9zn-8ad7",
+  "run": {
+    "run_id": "RUN-1f2c1ecc14df",
+    "patient_id": "WB-case-mw2ul9zn-8ad7",
+    "status": "waiting_user",
+    "llm_mode": "mock",
+    "model": "deterministic-planner",
+    "intent": "check_in",
+    "reasoning": [
+      "常规巡检：无新事件"
+    ],
+    "actions": [
+      {
+        "tool": "ask_user",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "question_id": "Q-fdeb5c5f3cc5",
+          "created": true,
+          "status": "waiting",
+          "question": "请补充最近一次服药情况（是否按时服药）。"
+        }
+      }
+    ],
+    "responses": [],
+    "evidence": [],
+    "rejections": [],
+    "waiting_user": true,
+    "priority_order": []
+  },
+  "question": {
+    "id": "Q-fdeb5c5f3cc5",
+    "patient_id": "WB-case-mw2ul9zn-8ad7",
+    "run_id": "RUN-1f2c1ecc14df",
+    "event_id": null,
+    "kind": "missing_field",
+    "question": "请补充最近一次服药情况（是否按时服药）。",
+    "options": [
+      "已按时完成",
+      "记不清",
+      "未完成"
+    ],
+    "target_field": "medication_taken",
+    "status": "waiting",
+    "answer": null,
+    "answer_text": null,
+    "resume_payload": {
+      "intent": "check_in"
+    },
+    "created_at": "2026-11-05T01:09:20Z",
+    "answered_at": null,
+    "expires_at": "2026-11-08T01:09:20Z"
+  },
+  "answer": {
+    "question": {
+      "id": "Q-fdeb5c5f3cc5",
+      "patient_id": "WB-case-mw2ul9zn-8ad7",
+      "run_id": "RUN-1f2c1ecc14df",
+      "event_id": null,
+      "kind": "missing_field",
+      "question": "请补充最近一次服药情况（是否按时服药）。",
+      "options": [
+        "已按时完成",
+        "记不清",
+        "未完成"
+      ],
+      "target_field": "medication_taken",
+      "status": "answered",
+      "answer": {
+        "text": "记不清",
+        "uncertain": true,
+        "value": null
+      },
+      "answer_text": "记不清",
+      "resume_payload": {
+        "intent": "check_in"
+      },
+      "created_at": "2026-11-05T01:09:20Z",
+      "answered_at": "2026-11-05T01:09:22Z",
+      "expires_at": "2026-11-08T01:09:20Z"
+    },
+    "resume": {
+      "question_id": "Q-fdeb5c5f3cc5",
+      "recorded": null,
+      "uncertain": true,
+      "run": {
+        "run_id": "RUN-f7bac5a486aa",
+        "patient_id": "WB-case-mw2ul9zn-8ad7",
+        "status": "waiting_user",
+        "llm_mode": "mock",
+        "model": "deterministic-planner",
+        "intent": "check_in",
+        "reasoning": [
+          "常规巡检：无新事件"
+        ],
+        "actions": [
+          {
+            "tool": "ask_user",
+            "ok": true,
+            "result": {
+              "ok": true,
+              "question_id": "Q-f904955b056b",
+              "created": true,
+              "status": "waiting",
+              "question": "请补充最近一次服药情况（是否按时服药）。"
+            }
+          }
+        ],
+        "responses": [],
+        "evidence": [],
+        "rejections": [],
+        "waiting_user": true,
+        "priority_order": []
+      }
+    }
+  }
+}

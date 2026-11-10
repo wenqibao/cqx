@@ -1,0 +1,505 @@
+{
+  "at": "2026-11-05T01:03:33.206Z",
+  "provider": "deepseek",
+  "llm_mode": "real",
+  "model": "deepseek-flash",
+  "backend": "PR #3 existing checkout; no backend changes",
+  "web": "http://127.0.0.1:5192",
+  "api": "http://127.0.0.1:8021/api",
+  "scenarios": [
+    {
+      "scenario_id": "C-REAL-01",
+      "llm_mode": "real",
+      "result": "PASS",
+      "run_ids": [
+        "RUN-cd46a5d69a18"
+      ],
+      "explanation": "浏览器知识请求→原生工具→实际检索证据→回应；以真实轨迹判定",
+      "http_status": 200,
+      "execution_origin": "native_model_tools",
+      "run_status": "completed",
+      "rejections": [],
+      "tool_results": [
+        {
+          "step": 7,
+          "name": "search_knowledge",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 10,
+          "name": "search_knowledge",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 15,
+          "name": "respond",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        }
+      ],
+      "evidence_refs": [
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C003",
+          "anchor": "KD-001#1-自我血糖监测的意义-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-002",
+          "chunk_id": "KD-002-C003",
+          "anchor": "KD-002#1-以患者为中心的共同决策-1",
+          "source_url": "https://doi.org/10.2337/dc24-SINT"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C004",
+          "anchor": "KD-001#1-自我血糖监测的意义-2",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C003",
+          "anchor": "KD-001#1-自我血糖监测的意义-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-002",
+          "chunk_id": "KD-002-C007",
+          "anchor": "KD-002#3-生活方式与体重管理-1",
+          "source_url": "https://doi.org/10.2337/dc24-SINT"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C004",
+          "anchor": "KD-001#1-自我血糖监测的意义-2",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-002",
+          "chunk_id": "KD-002-C006",
+          "anchor": "KD-002#2-血糖监测与数据回顾-2",
+          "source_url": "https://doi.org/10.2337/dc24-SINT"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C013",
+          "anchor": "KD-001#6-记录与复诊-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        }
+      ],
+      "database_changes": {
+        "tasks": [],
+        "questions": [],
+        "reviews": []
+      },
+      "local_raw_evidence": "frontend/.runtime/real-smoke-raw.json (ignored, original responses and traces)",
+      "error": null
+    },
+    {
+      "scenario_id": "C-REAL-02",
+      "llm_mode": "real",
+      "result": "FAIL",
+      "run_ids": [
+        "RUN-04a267842b5d"
+      ],
+      "explanation": "浏览器记录POST自动触发原生模型；没有额外agent/runs调用",
+      "http_status": 201,
+      "extra_agent_posts": [],
+      "execution_origin": "native_model_tools",
+      "run_status": "failed",
+      "rejections": [
+        {
+          "code": "POSTCHECK_MISMATCH",
+          "message": "所需业务动作未执行，不能标记完成"
+        }
+      ],
+      "tool_results": [
+        {
+          "step": 7,
+          "name": "search_knowledge",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 10,
+          "name": "search_knowledge",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 15,
+          "name": "search_knowledge",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 18,
+          "name": "search_knowledge",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 23,
+          "name": "query_history",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        },
+        {
+          "step": 26,
+          "name": "get_preferences",
+          "status": "ok",
+          "post_check": {
+            "detail": {},
+            "ok": true
+          }
+        }
+      ],
+      "evidence_refs": [
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C003",
+          "anchor": "KD-001#1-自我血糖监测的意义-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C003",
+          "anchor": "KD-001#1-自我血糖监测的意义-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C003",
+          "anchor": "KD-001#1-自我血糖监测的意义-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C005",
+          "anchor": "KD-001#2-血糖控制目标需个体化-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-004",
+          "chunk_id": "KD-004-C003",
+          "anchor": "KD-004#1-疾病负担-1",
+          "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes"
+        },
+        {
+          "doc_id": "KD-003",
+          "chunk_id": "KD-003-C007",
+          "anchor": "KD-003#3-健康教育要点-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443"
+        },
+        {
+          "doc_id": "KD-003",
+          "chunk_id": "KD-003-C006",
+          "anchor": "KD-003#2-分级管理与转诊-2",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443"
+        },
+        {
+          "doc_id": "KD-004",
+          "chunk_id": "KD-004-C003",
+          "anchor": "KD-004#1-疾病负担-1",
+          "source_url": "https://www.who.int/news-room/fact-sheets/detail/diabetes"
+        },
+        {
+          "doc_id": "KD-003",
+          "chunk_id": "KD-003-C003",
+          "anchor": "KD-003#1-基层随访的内容-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443"
+        },
+        {
+          "doc_id": "KD-002",
+          "chunk_id": "KD-002-C011",
+          "anchor": "KD-002#5-依从性与随访-1",
+          "source_url": "https://doi.org/10.2337/dc24-SINT"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C009",
+          "anchor": "KD-001#4-身体活动建议-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-002",
+          "chunk_id": "KD-002-C007",
+          "anchor": "KD-002#3-生活方式与体重管理-1",
+          "source_url": "https://doi.org/10.2337/dc24-SINT"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C005",
+          "anchor": "KD-001#2-血糖控制目标需个体化-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-001",
+          "chunk_id": "KD-001-C013",
+          "anchor": "KD-001#6-记录与复诊-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20210221-00095"
+        },
+        {
+          "doc_id": "KD-003",
+          "chunk_id": "KD-003-C005",
+          "anchor": "KD-003#2-分级管理与转诊-1",
+          "source_url": "https://doi.org/10.3760/cma.j.cn115791-20220905-00443"
+        },
+        {
+          "doc_id": "KD-002",
+          "chunk_id": "KD-002-C009",
+          "anchor": "KD-002#4-低血糖风险-1",
+          "source_url": "https://doi.org/10.2337/dc24-SINT"
+        }
+      ],
+      "database_changes": {
+        "tasks": [],
+        "questions": [],
+        "reviews": []
+      },
+      "record": {
+        "id": 38,
+        "patient_id": "WB-REAL-AUTO",
+        "kind": "fasting_glucose",
+        "label": "空腹血糖",
+        "value": 9.6,
+        "unit": "mmol/L",
+        "recorded_at": "2026-11-05T01:04:48Z",
+        "source": "manual",
+        "note": null,
+        "payload": {},
+        "created_at": "2026-11-05T01:04:48Z",
+        "duplicate": false
+      },
+      "events_created": [
+        {
+          "id": "EVT-0e3a1769a125",
+          "patient_id": "WB-REAL-AUTO",
+          "code": "GLUCOSE_RISING",
+          "severity": "medium",
+          "status": "open",
+          "message": "近 7 天空腹血糖较此前上升，需要核实记录与用药执行情况。",
+          "evidence": {
+            "delta": 2.6,
+            "first": 7,
+            "last": 9.6,
+            "points": 5,
+            "trigger": "record_created",
+            "window_days": 7
+          },
+          "source_record_id": null,
+          "detected_at": "2026-11-05T01:04:48Z",
+          "handled_at": null,
+          "handled_by_run": null
+        }
+      ],
+      "local_raw_evidence": "frontend/.runtime/real-smoke-raw.json (ignored, original responses and traces)",
+      "error": {
+        "rejections": [
+          {
+            "code": "POSTCHECK_MISMATCH",
+            "message": "所需业务动作未执行，不能标记完成"
+          }
+        ],
+        "reason": "三轮仅完成检索和读取，未执行所需管理行动"
+      }
+    }
+  ],
+  "error": null,
+  "ledger": {
+    "triggers": [
+      {
+        "number": 1,
+        "patient_id": "WB-REAL-KNOW",
+        "backend_sha": "da83c0e6ac7c14a8aef4e145651c97c4336e019d",
+        "trigger_type": "user_request",
+        "started_at": 1793840615.4149132,
+        "run_id": "RUN-cd46a5d69a18",
+        "status": "completed",
+        "finished_at": 1793840685.46117
+      },
+      {
+        "number": 2,
+        "patient_id": "WB-REAL-AUTO",
+        "backend_sha": "da83c0e6ac7c14a8aef4e145651c97c4336e019d",
+        "trigger_type": "event_detected",
+        "started_at": 1793840688.127079,
+        "run_id": "RUN-04a267842b5d",
+        "status": "failed",
+        "finished_at": 1793840754.9630525
+      }
+    ],
+    "requests": [
+      {
+        "number": 1,
+        "trigger": 1,
+        "status": "success",
+        "response_id": "f645ee91-cfb6-43e6-b4cc-dd690cd38704",
+        "returned_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 1970,
+          "completion_tokens": 102,
+          "total_tokens": 2072,
+          "prompt_tokens_details": {
+            "cached_tokens": 896
+          },
+          "prompt_cache_hit_tokens": 896,
+          "prompt_cache_miss_tokens": 1074
+        },
+        "tools": [
+          "search_knowledge",
+          "search_knowledge"
+        ],
+        "latency_ms": 22266
+      },
+      {
+        "number": 2,
+        "trigger": 1,
+        "status": "success",
+        "response_id": "60c852e1-c45d-4151-b9bd-9d1cb81fcc75",
+        "returned_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 3561,
+          "completion_tokens": 437,
+          "total_tokens": 3998,
+          "prompt_tokens_details": {
+            "cached_tokens": 2048
+          },
+          "prompt_cache_hit_tokens": 2048,
+          "prompt_cache_miss_tokens": 1513
+        },
+        "tools": [
+          "respond"
+        ],
+        "latency_ms": 24804
+      },
+      {
+        "number": 3,
+        "trigger": 1,
+        "status": "success",
+        "response_id": "0b8145bf-caae-47b5-b5b9-9ef67b521fba",
+        "returned_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 4431,
+          "completion_tokens": 227,
+          "total_tokens": 4658,
+          "prompt_tokens_details": {
+            "cached_tokens": 3968
+          },
+          "prompt_cache_hit_tokens": 3968,
+          "prompt_cache_miss_tokens": 463
+        },
+        "tools": [],
+        "latency_ms": 22923
+      },
+      {
+        "number": 4,
+        "trigger": 2,
+        "status": "success",
+        "response_id": "253386e8-58cd-44a4-8aee-18e6e56a6a3d",
+        "returned_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 1988,
+          "completion_tokens": 103,
+          "total_tokens": 2091,
+          "prompt_tokens_details": {
+            "cached_tokens": 1280
+          },
+          "prompt_cache_hit_tokens": 1280,
+          "prompt_cache_miss_tokens": 708
+        },
+        "tools": [
+          "search_knowledge",
+          "search_knowledge"
+        ],
+        "latency_ms": 22411
+      },
+      {
+        "number": 5,
+        "trigger": 2,
+        "status": "success",
+        "response_id": "fef52a6b-fbf3-4bd0-8c21-9c14bdd9a0c5",
+        "returned_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 3653,
+          "completion_tokens": 100,
+          "total_tokens": 3753,
+          "prompt_tokens_details": {
+            "cached_tokens": 2048
+          },
+          "prompt_cache_hit_tokens": 2048,
+          "prompt_cache_miss_tokens": 1605
+        },
+        "tools": [
+          "search_knowledge",
+          "search_knowledge"
+        ],
+        "latency_ms": 22454
+      },
+      {
+        "number": 6,
+        "trigger": 2,
+        "status": "success",
+        "response_id": "650361e7-e188-4de7-a8d9-0a4ca8205340",
+        "returned_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 5238,
+          "completion_tokens": 114,
+          "total_tokens": 5352,
+          "prompt_tokens_details": {
+            "cached_tokens": 3712
+          },
+          "prompt_cache_hit_tokens": 3712,
+          "prompt_cache_miss_tokens": 1526
+        },
+        "tools": [
+          "query_history",
+          "get_preferences"
+        ],
+        "latency_ms": 21918
+      }
+    ]
+  },
+  "backend_git_sha": "da83c0e6ac7c14a8aef4e145651c97c4336e019d",
+  "git_sha": "da83c0e6ac7c14a8aef4e145651c97c4336e019d",
+  "limits": {
+    "business_triggers": 2,
+    "http_requests": 6
+  },
+  "summary": {
+    "business_triggers": 2,
+    "http_requests": 6,
+    "token_usage": {
+      "prompt_tokens": 20841,
+      "completion_tokens": 1083,
+      "total_tokens": 21924
+    }
+  },
+  "note": "This is current C browser smoke evidence, not the earlier R01-R06 acceptance. No headers or credentials. Full synthetic responses remain local."
+}

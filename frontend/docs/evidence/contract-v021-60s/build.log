@@ -1,0 +1,36 @@
+npm notice run diabetes-agent-frontend@0.3.0 build
+npm notice run tsc --noEmit && vite build
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 3806 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                             0.53 kB │ gzip:   0.35 kB
+dist/assets/index-C3WKFiAO.css             10.38 kB │ gzip:   3.08 kB
+dist/assets/rolldown-runtime-XKyaHtl9.js    0.72 kB │ gzip:   0.42 kB
+dist/assets/Notifications-BSkq9vCZ.js       1.57 kB │ gzip:   0.86 kB
+dist/assets/Knowledge-gr8aflMH.js           2.18 kB │ gzip:   1.11 kB
+dist/assets/Audit-Nfcu_Ahm.js               2.36 kB │ gzip:   1.26 kB
+dist/assets/row-BguVtDJq.js                 2.43 kB │ gzip:   1.26 kB
+dist/assets/Dashboard-DgQPj-du.js           5.42 kB │ gzip:   2.26 kB
+dist/assets/Followups-B5y-YQMQ.js           6.33 kB │ gzip:   2.79 kB
+dist/assets/Monitoring-BVKYqYzP.js          6.73 kB │ gzip:   3.10 kB
+dist/assets/descriptions-Cnv2RR4t.js        7.89 kB │ gzip:   2.82 kB
+dist/assets/Agent-DeJClrrr.js               8.50 kB │ gzip:   3.76 kB
+dist/assets/list-CHkamiU_.js                9.63 kB │ gzip:   3.59 kB
+dist/assets/System-CCfmbDda.js             18.08 kB │ gzip:   7.26 kB
+dist/assets/input-number-Bd48LR1X.js       20.59 kB │ gzip:   7.49 kB
+dist/assets/form-CVmnCzYC.js               22.01 kB │ gzip:   8.52 kB
+dist/assets/pagination-DBCC7Qcg.js         26.21 kB │ gzip:   8.03 kB
+dist/assets/Tasks-vSAI8wiv.js              43.72 kB │ gzip:  13.36 kB
+dist/assets/index-Djsu_xoM.js              77.98 kB │ gzip:  27.52 kB
+dist/assets/table-DlR7mHIE.js             198.19 kB │ gzip:  61.14 kB
+dist/assets/Patients-DUxTY8om.js          503.50 kB │ gzip: 170.91 kB
+dist/assets/common-DdkXTAXt.js            890.59 kB │ gzip: 285.87 kB
+
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.08s

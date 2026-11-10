@@ -1,0 +1,235 @@
+{
+  "pid": "WB-case-mw379ls0-6m74",
+  "scan": {
+    "created": [
+      {
+        "id": "EVT-adf344c379fb",
+        "patient_id": "WB-case-mw379ls0-6m74",
+        "code": "GLUCOSE_RISING",
+        "severity": "medium",
+        "status": "open",
+        "message": "近 7 天空腹血糖较此前上升，需要核实记录与用药执行情况。",
+        "evidence": {
+          "delta": 1.9,
+          "first": 7,
+          "last": 8.9,
+          "points": 4,
+          "trigger": "manual_scan",
+          "window_days": 7
+        },
+        "source_record_id": null,
+        "detected_at": "2026-11-05T07:04:11Z",
+        "handled_at": null,
+        "handled_by_run": null
+      },
+      {
+        "id": "EVT-48657a95555a",
+        "patient_id": "WB-case-mw379ls0-6m74",
+        "code": "MEDICATION_NONADHERENCE",
+        "severity": "medium",
+        "status": "open",
+        "message": "近 3 天出现多次未确认服药。",
+        "evidence": {
+          "missed_count": 2,
+          "missed_record_ids": [
+            212,
+            213
+          ],
+          "trigger": "manual_scan",
+          "window_days": 3
+        },
+        "source_record_id": null,
+        "detected_at": "2026-11-05T07:04:11Z",
+        "handled_at": null,
+        "handled_by_run": null
+      },
+      {
+        "id": "EVT-3e063a6955da",
+        "patient_id": "WB-case-mw379ls0-6m74",
+        "code": "LOW_ACTIVITY",
+        "severity": "low",
+        "status": "open",
+        "message": "近 3 天日均步数偏低或较此前下降。",
+        "evidence": {
+          "delta": -200,
+          "first": 1000,
+          "last": 800,
+          "points": 2,
+          "trigger": "manual_scan",
+          "window_days": 3
+        },
+        "source_record_id": null,
+        "detected_at": "2026-11-05T07:04:11Z",
+        "handled_at": null,
+        "handled_by_run": null
+      }
+    ],
+    "existing": []
+  },
+  "result": {
+    "run_id": "RUN-59559de7d286",
+    "patient_id": "WB-case-mw379ls0-6m74",
+    "status": "completed",
+    "llm_mode": "mock",
+    "model": "deterministic-planner",
+    "intent": "event_response",
+    "reasoning": [
+      "GLUCOSE_RISING（medium）→ 2 个动作",
+      "MEDICATION_NONADHERENCE（medium）→ 0 个动作",
+      "LOW_ACTIVITY（low）→ 1 个动作"
+    ],
+    "actions": [
+      {
+        "tool": "create_task",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "task_id": "TSK-6525257f57dd",
+          "created": true,
+          "version": 1,
+          "status": "pending",
+          "title": "核实近 3 天服药执行情况"
+        }
+      },
+      {
+        "tool": "create_task",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "task_id": "TSK-79e29dbc3436",
+          "created": true,
+          "version": 1,
+          "status": "pending",
+          "title": "补录 2 次空腹血糖"
+        }
+      },
+      {
+        "tool": "create_task",
+        "ok": true,
+        "result": {
+          "ok": true,
+          "task_id": "TSK-bffbfa9588e0",
+          "created": true,
+          "version": 1,
+          "status": "pending",
+          "title": "补录近 3 天步数"
+        }
+      }
+    ],
+    "responses": [],
+    "evidence": [
+      {
+        "id": "EVD-217b0c422f2a",
+        "doc_id": "KD-001",
+        "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+        "publisher": "中华医学会糖尿病学分会",
+        "anchor": "#1-自我血糖监测的意义-2",
+        "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·#1-自我血糖监测的意义-2",
+        "quote": "连续、可对比的记录比单次测量更有意义。记录时间点应尽量固定（例如每日早餐前），以便判断变化是真实趋势还是测量误差。",
+        "score": 27.7414
+      },
+      {
+        "id": "EVD-f7095e9e3fb5",
+        "doc_id": "KD-001",
+        "title": "中国2型糖尿病防治指南（2020年版）核心要点摘编",
+        "publisher": "中华医学会糖尿病学分会",
+        "anchor": "#1-自我血糖监测的意义-1",
+        "citation": "中国2型糖尿病防治指南（2020年版）核心要点摘编·中华医学会糖尿病学分会·#1-自我血糖监测的意义-1",
+        "quote": "自我血糖监测（SMBG）用于了解饮食、运动与用药对血糖的影响，帮助患者和医生发现血糖波动的规律。 监测频率应结合治疗方案与个体情况，由专业人员制定；对多数成人 2 型糖尿病患者，规律记录空腹血糖能提供有价值的趋势信息。",
+        "score": 18.3014
+      }
+    ],
+    "rejections": [],
+    "waiting_user": false,
+    "priority_order": [
+      "GLUCOSE_RISING",
+      "MEDICATION_NONADHERENCE",
+      "LOW_ACTIVITY"
+    ]
+  },
+  "tasks": {
+    "patient_id": "WB-case-mw379ls0-6m74",
+    "count": 3,
+    "items": [
+      {
+        "id": "TSK-6525257f57dd",
+        "patient_id": "WB-case-mw379ls0-6m74",
+        "task_type": "confirm_medication",
+        "title": "核实近 3 天服药执行情况",
+        "description": "请核对是否按时服药，并记录一次服药确认。",
+        "status": "pending",
+        "priority": 76,
+        "due_at": "2026-11-06T07:04:12Z",
+        "event_id": "EVT-adf344c379fb",
+        "source_run_id": "RUN-59559de7d286",
+        "version": 1,
+        "required_fields": [
+          "medication_taken"
+        ],
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-adf344c379fb"
+          ],
+          "knowledge_query": "连续血糖记录 意义",
+          "severity": "medium"
+        },
+        "created_at": "2026-11-05T07:04:12Z",
+        "updated_at": "2026-11-05T07:04:12Z",
+        "completed_at": null
+      },
+      {
+        "id": "TSK-79e29dbc3436",
+        "patient_id": "WB-case-mw379ls0-6m74",
+        "task_type": "record_glucose",
+        "title": "补录 2 次空腹血糖",
+        "description": "在明天早餐前补录空腹血糖，用于判断趋势是否持续。",
+        "status": "pending",
+        "priority": 61,
+        "due_at": "2026-11-06T19:04:12Z",
+        "event_id": "EVT-adf344c379fb",
+        "source_run_id": "RUN-59559de7d286",
+        "version": 1,
+        "required_fields": [],
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-adf344c379fb"
+          ],
+          "knowledge_query": null,
+          "severity": "medium"
+        },
+        "created_at": "2026-11-05T07:04:12Z",
+        "updated_at": "2026-11-05T07:04:12Z",
+        "completed_at": null
+      },
+      {
+        "id": "TSK-bffbfa9588e0",
+        "patient_id": "WB-case-mw379ls0-6m74",
+        "task_type": "record_activity",
+        "title": "补录近 3 天步数",
+        "description": "补录步数后重新评估活动量变化。",
+        "status": "pending",
+        "priority": 43,
+        "due_at": "2026-11-07T07:04:12Z",
+        "event_id": "EVT-3e063a6955da",
+        "source_run_id": "RUN-59559de7d286",
+        "version": 1,
+        "required_fields": [
+          "steps"
+        ],
+        "meta": {
+          "event_code": "LOW_ACTIVITY",
+          "event_ids": [
+            "EVT-3e063a6955da"
+          ],
+          "knowledge_query": null,
+          "severity": "low"
+        },
+        "created_at": "2026-11-05T07:04:12Z",
+        "updated_at": "2026-11-05T07:04:12Z",
+        "completed_at": null
+      }
+    ]
+  }
+}

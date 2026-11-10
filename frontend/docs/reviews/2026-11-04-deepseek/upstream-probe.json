@@ -1,0 +1,26 @@
+{
+  "at": "2026-11-04T16:10:01.070195+08:00",
+  "base_host": "api.deepseek.com",
+  "configured_model": "deepseek-flash",
+  "thinking": "disabled",
+  "probe": "single minimal upstream call, no tools or database writes",
+  "provider_called": true,
+  "http_status": 200,
+  "elapsed_seconds": 0.911,
+  "request_id": null,
+  "passed": true,
+  "provider_response_id": "b9ab0d2d-68dd-438f-84a6-060ec1081fd1",
+  "returned_model": "deepseek-flash",
+  "usage": {
+    "prompt_tokens": 8,
+    "completion_tokens": 1,
+    "total_tokens": 9,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 8
+  },
+  "finish_reason": "stop",
+  "content": "OK"
+}

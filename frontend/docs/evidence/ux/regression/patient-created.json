@@ -1,0 +1,17 @@
+{
+  "patient": {
+    "id": "P-4175a7b1a390",
+    "name": "UI新建1793862333887（虚构）",
+    "age": 52,
+    "sex": null,
+    "diabetes_type": "T2DM",
+    "duration_years": 5,
+    "complications": [],
+    "goals": [],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true,
+    "created_at": "2026-11-05T07:05:34Z",
+    "updated_at": "2026-11-05T07:05:34Z"
+  }
+}

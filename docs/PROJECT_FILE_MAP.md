@@ -253,3 +253,10 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - `backend/app/db/migrations.py`：SCHEMA_VERSION=3 旧类型归一
 - `tests/integration/test_real_a01_a02_a03.py`（12 项）
 - docs/real_acceptance_batch_v032.md：v0.3.2 批次授权、预算与场景预期
+
+## A-035 修复候选
+
+- `backend/app/safety/gate.py`：病史核实、说明和转介例外按实际命中范围判定，历史工具结果使用同一规则重新审计。
+- `backend/app/agent/orchestrator.py`：逐条核对复评声明，验证持久化复评的患者、事件、任务和时间，未核实回复在技术轨迹标为失败。
+- `tests/integration/test_real_a01_a02_a03.py`：混合指令、越权零写入、复评声明作用域及 B11 回归。
+- `docs/A_FINAL_BACKEND_REPAIR_REPORT.md`：修复范围、验证命令及 B 复验交接。

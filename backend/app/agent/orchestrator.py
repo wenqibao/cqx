@@ -11,13 +11,15 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+from collections.abc import Iterator
+from datetime import datetime, timedelta
 from typing import Any
 
 from backend.app.agent import llm as llm_module
 from backend.app.agent import tools
 from backend.app.audit import trace
 from backend.app.config import safety_rules
-from backend.app.db.connection import dumps, iso, now
+from backend.app.db.connection import dumps, iso, now, parse_ts
 from backend.app.events.detector import get_event, mark_handled
 from backend.app.knowledge import search as knowledge_search
 from backend.app.memory import preferences
@@ -40,6 +42,7 @@ SYSTEM_PROMPT = """你是"糖衡智管"健康管理 Agent，只服务于稳定�
   需要随访→schedule_review；信息足够且安全→create_task；无法继续→respond。
 - 缺少会影响决策的信息时用 ask_user 提一个具体问题，不要猜测；
 - 需要正式复评时用 schedule_review；用户只要求安排复评时，只调用 schedule_review，不要额外建任务；
+- 沿用已有复评时明确说明沿用，并核对原计划的复评编号和时间；只有本轮成功调用工具后才说新建或改期。
 - 高风险或需专业判断时用 request_human_review；
 - 每个动作都要能用工具结果与数据库状态核验；无法继续时用 respond 说明原因。
 - 意图为知识问答（knowledge_question）时，只允许 search_knowledge 与 respond：
@@ -418,7 +421,7 @@ def _execute_action(
     code = None if ok else (check.get("code") or result.get("code"))
     if not ok:
         rejections.append({"code": code, "message": check.get("message") or result.get("error"), "tool": tool})
-    trace.add_step(
+    step_no = trace.add_step(
         conn,
         run_id,
         phase="observe",
@@ -428,7 +431,7 @@ def _execute_action(
         status="ok" if ok else "failed",
         code=code,
     )
-    entry = {"tool": tool, "args": args, "result": result, "ok": ok, "post_check": check}
+    entry = {"tool": tool, "args": args, "result": result, "ok": ok, "post_check": check, "step_no": step_no}
     executed.append(entry)
     return result
 
@@ -795,49 +798,166 @@ def _check_real_reply(text, *, conn, patient_id, intent, evidence, executed, cla
         claims_out.append(text)
     else:
         checked["rejections"].extend(_unsupported_claims(
-        text, executed, conn=conn, patient_id=patient_id,
-        event_ids=[e["id"] for e in (events or [])], run_id=run_id))
+            text, executed, conn=conn, patient_id=patient_id,
+            event_ids=[e["id"] for e in (events or [])], run_id=run_id,
+        ))
     return checked["rejections"]
 
 
-EXISTING_REVIEW_CUES = ("沿用", "已有", "既有", "原有", "原计划", "之前", "此前", "保留", "已在")
+_EXISTING_REVIEW = re.compile(
+    r"(?:沿用|保留|继续执行)(?:既有|现有|原有|原先|原计划|之前|此前)?(?:已)?"
+    r"(?:安排(?:好)?的?)?(?:的)?(?:到期|后续)?复评"
+    r"|(?:之前|此前|原先|原计划)(?:已)?安排(?:好)?的?(?:到期|后续)?复评"
+    r"|(?:已有|既有|现有|原有)的?(?:到期|计划)?复评|复评(?:仍)?(?:按|沿用)原计划"
+)
+_COLLECTIVE_REVIEW = re.compile(r"([两二三四五六七八九2-9])项(?:任务|待办)?(?:都|均)已安排(?:了)?(?:到期)?复评")
+_REVIEW_CHANGE = re.compile(
+    r"(?:已|已经)(?:为您|又)?(?:新建|新增|追加|重新安排|改期|改到|推迟|提前)[^，,]{0,10}复评"
+    r"|(?:本轮|本次|这次)(?:的)?(?:[两二三四五六七八九2-9]项(?:任务|待办)?(?:都|均))?"
+    r"(?:又)?(?:已经|已)(?:为您)?安排[^，,]{0,8}复评"
+    r"|(?:刚刚|已|已经)安排[^，,]{0,4}(?:新(?:的)?|另一条|另外一条)复评"
+    r"|复评(?:安排)?(?:已|已经)(?:调整|改期|改到|推迟|提前|新建|新增|重新安排)"
+)
+_REVIEW_SCHEDULED = re.compile(r"复评(?:安排|时间)?(?:已|已经)(?:安排|设定|排定|定于)")
+_REVIEW_DATE = re.compile(r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?)?")
+_REVIEW_CLOCK = re.compile(r"(?<!\d)(\d{1,2})(?::(\d{2})|点(?:(\d{1,2})分)?)")
+_REVIEW_OFFSET = re.compile(r"(\d+|[一二两三四五六七八九十])(天|小时)(?:后|之后|以后)")
+_REVIEW_IDS = re.compile(r"(?<![A-Za-z0-9_-])(?:REV|EVT|TSK)-[A-Za-z0-9_-]+")
+_REVIEW_PATIENT = re.compile(r"患者(?:编号|ID)?[：:\s]*([A-Za-z0-9][A-Za-z0-9_-]*)"
+                             r"|(?<![A-Za-z0-9_-])(P\d+)(?![A-Za-z0-9_-])")
+_REVIEW_TIME_CHANGE = re.compile(r"^(?:时间)?(?:已|已经)(?:改期到|改到|改为|推迟到|提前到)")
+_REVIEW_QUALIFIER = re.compile(
+    r"^(?:复评)?(?:时间(?:为|是|在)|定于|日期(?:为|是)|(?:REV|EVT|TSK)-)"
+    r"|^(?:今天|明天|大?后天)(?:上午|下午|晚上)?(?:进行|触发|执行|开始|复评|$)"
+)
+_DIGITS = {digit: value for value, digit in enumerate("零一二三四五六七八九十")} | {"两": 2}
 
 
-def _referenced_review(conn: sqlite3.Connection, patient_id: str, event_ids: list[str]) -> str | None:
-    """本轮没有 schedule_review 时，确认是否存在可引用的既有 scheduled 复评。"""
-    if event_ids:
-        placeholders = ",".join("?" for _ in event_ids)
-        row = conn.execute(
-            f"SELECT id FROM reviews WHERE patient_id=? AND status='scheduled' "
-            f"AND event_id IN ({placeholders}) AND scheduled_for > ? ORDER BY scheduled_for LIMIT 1",
-            (patient_id, *event_ids, iso(now(conn))),
-        ).fetchone()
-        return row["id"] if row else None
-    row = conn.execute(
-        "SELECT id FROM reviews WHERE patient_id=? AND status='scheduled' AND scheduled_for > ? "
-        "ORDER BY scheduled_for LIMIT 1",
-        (patient_id, iso(now(conn))),
-    ).fetchone()
-    return row["id"] if row else None
+def _review_claims(text: str) -> Iterator[tuple[str, bool, int]]:
+    for sentence in re.split(r"[。；;！!？?\n]", text):
+        segments = [part.strip() for part in re.split(r"[，,]|(?:并且|同时|并|又)(?=(?:本轮|本次|刚刚|已))", sentence)]
+        for index, part in enumerate(segments):
+            if "复评" not in part:
+                continue
+            collective = _COLLECTIVE_REVIEW.search(part)
+            existing = collective or _EXISTING_REVIEW.search(part)
+            change = _REVIEW_CHANGE.search(part)
+            if not (existing or change or _REVIEW_SCHEDULED.search(part)
+                    or "schedule_review" in _claimed_state_changes(part)):
+                continue
+            end = index + 1
+            while end < len(segments) and (_REVIEW_QUALIFIER.match(segments[end])
+                                            or _REVIEW_TIME_CHANGE.match(segments[end])):
+                change = change or _REVIEW_TIME_CHANGE.match(segments[end])
+                end += 1
+            count = collective[1] if collective else "1"
+            yield "，".join(segments[index:end]), bool(existing and not change), int(count) if count.isdigit() else _DIGITS[count]
+
+
+def _review_time_matches(statement: str, scheduled: datetime, current: datetime) -> bool:
+    """按服务业务时钟核对日期、时分与显式相对时间。"""
+    for value in _REVIEW_DATE.findall(statement):
+        try:
+            stated = parse_ts(value)
+        except ValueError:
+            return False
+        if len(value) == 10:
+            if scheduled.date() != stated.date():
+                return False
+        elif scheduled.replace(second=0, microsecond=0) != stated.replace(
+                tzinfo=stated.tzinfo or scheduled.tzinfo, second=0, microsecond=0):
+            return False
+    remaining = _REVIEW_DATE.sub("", statement)
+    for word, days in (("大后天", 3), ("后天", 2), ("明天", 1), ("明日", 1), ("次日", 1), ("今天", 0), ("今日", 0)):
+        if word in remaining and scheduled.date() != (current + timedelta(days=days)).date():
+            return False
+        remaining = remaining.replace(word, "")
+    for value, unit in _REVIEW_OFFSET.findall(remaining):
+        amount = int(value) if value.isdigit() else _DIGITS[value]
+        if unit == "天" and scheduled.date() != (current + timedelta(days=amount)).date():
+            return False
+        if unit == "小时" and abs((scheduled - current).total_seconds() - amount * 3600) >= 60:
+            return False
+    for hour, minute, chinese_minute in _REVIEW_CLOCK.findall(remaining):
+        hour_value = int(hour)
+        if any(word in remaining for word in ("下午", "晚上")) and hour_value < 12:
+            hour_value += 12
+        if scheduled.hour != hour_value or scheduled.minute != int(minute or chinese_minute or 0):
+            return False
+    if any(word in remaining for word in ("上午", "早上", "早晨")) and scheduled.hour >= 12:
+        return False
+    if any(word in remaining for word in ("下午", "晚上")) and scheduled.hour < 12:
+        return False
+    return not re.search(r"(?:下周|下星期|本周|这周|周[一二三四五六日天]|\d+月\d+日|今早|今晚|明早|明晚)", remaining)
+
+
+def _verified_review_ids(conn: sqlite3.Connection, patient_id: str, event_ids: list[str],
+                         statement: str, count: int, tool_ids: set[str] | None) -> list[str]:
+    if any((labelled or shorthand) != patient_id for labelled, shorthand in _REVIEW_PATIENT.findall(statement)):
+        return []
+    current = now(conn)
+    rows = conn.execute(
+        "SELECT id, event_id, task_id, scheduled_for FROM reviews "
+        "WHERE patient_id=? AND status='scheduled' AND scheduled_for > ?",
+        (patient_id, iso(current)),
+    ).fetchall()
+    ids = set(_REVIEW_IDS.findall(statement))
+    id_filters = {
+        column: {value for value in ids if value.startswith(prefix)}
+        for prefix, column in (("REV-", "id"), ("EVT-", "event_id"), ("TSK-", "task_id"))
+    }
+    matches = []
+    for row in rows:
+        if event_ids and row["event_id"] not in event_ids:
+            continue
+        if tool_ids is not None and row["id"] not in tool_ids:
+            continue
+        if any(values and row[column] not in values for column, values in id_filters.items()):
+            continue
+        if _review_time_matches(statement, parse_ts(row["scheduled_for"]), current):
+            matches.append(row)
+    if ids - {row[key] for row in matches for key in ("id", "event_id", "task_id")}:
+        return []
+    if count > 1:
+        by_task = {row["task_id"]: row["id"] for row in matches if row["task_id"]}
+        return list(by_task.values()) if len(by_task) == count else []
+    return [matches[0]["id"]] if len(matches) == 1 else []
 
 
 def _unsupported_claims(text: str, executed: list[dict[str, Any]], *,
                         conn: sqlite3.Connection | None = None, patient_id: str | None = None,
                         event_ids: list[str] | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
     claimed = _claimed_state_changes(text)
-    if (conn is not None and patient_id is not None
-            and not any(e.get("ok") and e.get("tool") == "schedule_review" for e in executed)
-            and any(cue in text for cue in EXISTING_REVIEW_CUES)):
-        review_id = _referenced_review(conn, patient_id, event_ids or [])
-        if review_id:
-            trace.add_step(conn, run_id or "unknown", phase="observe", kind="review_reference",
-                           tool_name="respond",
-                           payload={"review_id": review_id, "reason": "引用既有复评"}, status="ok")
-            claimed.discard("schedule_review")
+    succeeded = {e["tool"] for e in executed if e.get("ok")}
+    review_mismatch = False
+    if conn is not None and patient_id is not None:
+        review_claims = list(_review_claims(text))
+        tool_ids = {e["result"]["review_id"] for e in executed
+                    if e.get("ok") and e.get("tool") == "schedule_review" and e.get("result", {}).get("review_id")}
+        references: set[str] = set()
+        for statement, existing, count in review_claims:
+            review_ids = _verified_review_ids(conn, patient_id, event_ids or [], statement, count,
+                                              None if existing else tool_ids)
+            if not review_ids:
+                review_mismatch = True
+                break
+            if existing:
+                references.update(review_ids)
+        else:
+            if review_claims:
+                claimed.discard("schedule_review")
+                if run_id:
+                    for review_id in sorted(references):
+                        trace.add_step(conn, run_id, phase="observe", kind="review_reference", tool_name="respond",
+                                       payload={"review_id": review_id, "reason": "引用既有复评"}, status="ok")
+    unsupported = claimed - succeeded
+    if review_mismatch:
+        unsupported.add("schedule_review")
     return [
-        {"code": validators.POSTCHECK_MISMATCH, "message": "回答声称的业务变更没有成功工具支持", "tool": tool}
-        for tool in claimed
-        if not any(e.get("ok") and e.get("tool") == tool for e in executed)
+        {"code": validators.POSTCHECK_MISMATCH,
+         "message": "复评声明与实际安排不一致" if tool == "schedule_review" and review_mismatch
+         else "回答声称的业务变更没有成功工具支持", "tool": tool}
+        for tool in sorted(unsupported)
     ]
 
 
@@ -1120,9 +1240,24 @@ def _run_real_llm(
         if done:
             responses.append("本轮已完成：" + "、".join(dict.fromkeys(done)) + "。如需调整，请告诉我。")
     # B16：整次运行结束后再核对"声称已执行"，避免 respond 排在同轮 create_task 之前被误判
-    for text in claim_texts:
-        for item in _unsupported_claims(text, executed, conn=conn, patient_id=patient_id,
-                                            event_ids=[e["id"] for e in events], run_id=run_id):
+    for text in dict.fromkeys(claim_texts):
+        errors = _unsupported_claims(text, executed, conn=conn, patient_id=patient_id,
+                                     event_ids=[e["id"] for e in events], run_id=run_id)
+        review_error = next((item for item in errors if item["tool"] == "schedule_review"), None)
+        if review_error:
+            responses = [reply for reply in responses if reply != text]
+            # respond 的最终核验发生在本轮工具都结束后，保留原文并标记结果未通过。
+            check = {"ok": False, "code": review_error["code"], "message": review_error["message"]}
+            for entry in executed:
+                if entry["tool"] == "respond" and entry["ok"] and entry["result"].get("text") == text:
+                    entry.update(ok=False, post_check=check)
+                    conn.execute(
+                        "UPDATE agent_steps SET status='failed', code=?, payload=? WHERE run_id=? AND step_no=? "
+                        "AND run_id IN (SELECT id FROM agent_runs WHERE patient_id=? AND status='running')",
+                        (check["code"], dumps({"result": entry["result"], "post_check": check}),
+                         run_id, entry["step_no"], patient_id),
+                    )
+        for item in errors:
             reject([item])
     # B17：知识问答没有检索到任何可引用证据时，必须明确判 NO_EVIDENCE，
     # 不能用 ask_user 追问或空回复把问题带过去。

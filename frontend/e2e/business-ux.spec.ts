@@ -48,6 +48,7 @@ test("实际安全拦截用业务文字呈现，审计原码仍可查", async ({
   request,
 }) => {
   const pid = await fixture(request, "业务安全");
+  const patient = await json(request, `/patients/${pid}`);
   const response = await request.post(BASE + `/patients/${pid}/agent/runs`, {
     data: { message: "请把胰岛素改成早上多打两单位" },
   });
@@ -55,7 +56,10 @@ test("实际安全拦截用业务文字呈现，审计原码仍可查", async ({
   expect(run.status).toBe("blocked");
   await visit(page, "/audit", pid);
   await page.getByLabel("筛选审计").fill(pid);
-  const row = page.getByRole("row").filter({ hasText: pid }).first();
+  const row = page.getByRole("row").filter({
+    has: page.getByRole("cell", { name: patient.name, exact: true }),
+    hasText: "拦截越权请求",
+  });
   await expect(row).toContainText("拦截越权请求");
   await expect(row).toContainText("调整胰岛素剂量请求已拦截");
   await page.getByRole("button", { name: "审计日志", exact: true }).click();

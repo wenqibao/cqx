@@ -343,7 +343,7 @@ test("报告导入不混淆模式、CLI复制不执行、无报告不造成绩 [
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.getByRole("button", { name: "复制命令" }).first().click();
   await expect(page.locator("main")).toContainText(
-    "尚未执行：python -m cli.main health",
+    "已复制：python -m cli.main health",
   );
   await page
     .getByLabel("导入CLI日志")

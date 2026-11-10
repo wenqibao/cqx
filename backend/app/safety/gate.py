@@ -113,6 +113,18 @@ def _is_question_inquiry(text: str, start: int, end: int) -> bool:
     return not any(word in text[start:end] for word in INQUIRY_PROTECTED)
 
 
+CONTAINER_SUFFIX = ("盒", "箱", "瓶", "袋", "板", "包装", "说明")
+
+
+def _is_container_reference(text: str, start: int, end: int) -> bool:
+    """药盒/药箱/药瓶等实物核对不是改药对象（A-035 复验）。"""
+    matched = text[start:end]
+    if matched.endswith("药") and text[end:end + 2].startswith(CONTAINER_SUFFIX):
+        return True
+    window = text[start:end + 2]
+    return bool(re.search(r"药(盒|箱|瓶|袋|板|包装|说明)", window))
+
+
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
@@ -131,6 +143,8 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
             if _is_question_inquiry(text, m.start(), m.end()):
                 continue
             if _is_directly_negated(text, m.start()):
+                continue
+            if _is_container_reference(text, m.start(), m.end()):
                 continue
             return m.start(), m.group(0)
     return None

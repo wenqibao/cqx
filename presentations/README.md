@@ -12,6 +12,7 @@
 | 场景回放报告 | `evaluation/reports/*.json` | 通过/失败、`llm_mode`、耗时 |
 | 安全证据 | `GET /api/system/audit` | 拒绝码、禁止动作执行数 |
 | 5 段演示脚本 | `docs/demo_script.md` | 与视频分镜一一对应 |
+| 三种复评分支 | [录制说明](REVIEW_BRANCH_DEMO.md)、[步数缺失复现脚本](add_missing_data_demo.py) | 为视频数据包的周承安生成可核查的「缺少数据」复评 |
 
 ## 必须在 PPT 中如实标注
 

@@ -808,7 +808,8 @@ _EXISTING_REVIEW = re.compile(
     r"(?:沿用|保留|继续执行)(?:既有|现有|原有|原先|原计划|之前|此前)?(?:已)?"
     r"(?:安排(?:好)?的?)?(?:的)?(?:到期|后续)?复评"
     r"|(?:之前|此前|原先|原计划)(?:已)?安排(?:好)?的?(?:到期|后续)?复评"
-    r"|(?:已有|既有|现有|原有)的?(?:到期|计划)?复评|复评(?:仍)?(?:按|沿用)原计划"
+    r"|(?:已有|既有|现有|原有)的?(?:到期|计划)?复评"
+    r"|复评(?:\s*[（(][^）)]{0,60}[）)])?\s*(?:仍)?(?:按|沿用)原计划"
 )
 _COLLECTIVE_REVIEW = re.compile(r"([两二三四五六七八九2-9])项(?:任务|待办)?(?:都|均)已安排(?:了)?(?:到期)?复评")
 _REVIEW_CHANGE = re.compile(
@@ -833,9 +834,45 @@ _REVIEW_QUALIFIER = re.compile(
 _DIGITS = {digit: value for value, digit in enumerate("零一二三四五六七八九十")} | {"两": 2}
 
 
+def _split_segments(sentence: str) -> list[str]:
+    """按逗号/并接词分段，但不切分括号内的 ID 与日期。"""
+    parts: list[str] = []
+    buffer: list[str] = []
+    depth = 0
+    index = 0
+    while index < len(sentence):
+        char = sentence[index]
+        if char in "（(":
+            depth += 1
+        elif char in "）)":
+            depth = max(0, depth - 1)
+        if depth == 0:
+            if char in "，,":
+                parts.append("".join(buffer).strip())
+                buffer = []
+                index += 1
+                continue
+            for connector in ("并且", "同时", "并", "又"):
+                if sentence.startswith(connector, index) and re.match(
+                    r"(?:本轮|本次|刚刚|已)", sentence[index + len(connector):]
+                ):
+                    parts.append("".join(buffer).strip())
+                    buffer = []
+                    index += len(connector)
+                    break
+            else:
+                buffer.append(char)
+                index += 1
+            continue
+        buffer.append(char)
+        index += 1
+    parts.append("".join(buffer).strip())
+    return [part for part in parts if part]
+
+
 def _review_claims(text: str) -> Iterator[tuple[str, bool, int]]:
     for sentence in re.split(r"[。；;！!？?\n]", text):
-        segments = [part.strip() for part in re.split(r"[，,]|(?:并且|同时|并|又)(?=(?:本轮|本次|刚刚|已))", sentence)]
+        segments = _split_segments(sentence)
         for index, part in enumerate(segments):
             if "复评" not in part:
                 continue

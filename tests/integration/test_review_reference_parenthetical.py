@@ -63,3 +63,28 @@ def test_wrong_date_parenthetical_reference_is_rejected(conn):
     llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {"patient_id": "PR2", "text": text}, "c1")], raw={})])
     result = orchestrator.run_agent(conn, "PR2", trigger_type="answer_received", message="记不清", llm=llm)
     assert any(r["code"] == "POSTCHECK_MISMATCH" for r in result["rejections"])
+
+def test_date_summary_covers_multiple_reviews(conn):
+    _patient(conn, "PR3")
+    evt = _event(conn, "PR3")
+    first = reviews.schedule_review(conn, "PR3", event_id=evt, delay_hours=24)
+    from backend.app.tasks import service as tasks
+    from backend.app.db.connection import iso, now
+    from datetime import timedelta
+
+    task, _ = tasks.create_task(conn, "PR3", task_type="record_glucose", title="补录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    second = reviews.schedule_review(conn, "PR3", task_id=task["id"], delay_hours=48)
+    task2, _ = tasks.create_task(conn, "PR3", task_type="record_activity", title="活动",
+                                 due_at=iso(now(conn) + timedelta(days=2)), schedule_review=False)
+    third = reviews.schedule_review(conn, "PR3", task_id=task2["id"], delay_hours=48)
+    day1 = str(first["scheduled_for"])[:10]
+    day2 = str(second["scheduled_for"])[:10]
+    text = f"两项任务都已安排复评（{day1}、{day2}），沿用原计划。"
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {"patient_id": "PR3", "text": text}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "PR3", trigger_type="answer_received", message="记不清", llm=llm)
+    assert result["status"] == "completed", result
+    assert not [r for r in result["rejections"] if r["code"] == "POSTCHECK_MISMATCH"]
+    import json as _json
+    refs = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='review_reference'", (result["run_id"],)).fetchall()
+    assert refs and len(_json.loads(refs[0]["payload"])["review_ids"]) >= 2

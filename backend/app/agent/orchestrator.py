@@ -821,6 +821,7 @@ _REVIEW_CHANGE = re.compile(
 )
 _REVIEW_SCHEDULED = re.compile(r"复评(?:安排|时间)?(?:已|已经)(?:安排|设定|排定|定于)")
 _REVIEW_DATE = re.compile(r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?)?")
+_REVIEW_MONTH_DAY = re.compile(r"(\d{1,2})月(\d{1,2})日")
 _REVIEW_CLOCK = re.compile(r"(?<!\d)(\d{1,2})(?::(\d{2})|点(?:(\d{1,2})分)?)")
 _REVIEW_OFFSET = re.compile(r"(\d+|[一二两三四五六七八九十])(天|小时)(?:后|之后|以后)")
 _REVIEW_IDS = re.compile(r"(?<![A-Za-z0-9_-])(?:REV|EVT|TSK)-[A-Za-z0-9_-]+")
@@ -904,7 +905,11 @@ def _review_time_matches(statement: str, scheduled: datetime, current: datetime)
         elif scheduled.replace(second=0, microsecond=0) != stated.replace(
                 tzinfo=stated.tzinfo or scheduled.tzinfo, second=0, microsecond=0):
             return False
-    remaining = _REVIEW_DATE.sub("", statement)
+    for month, day in _REVIEW_MONTH_DAY.findall(statement):
+        if (scheduled.month, scheduled.day) != (int(month), int(day)):
+            if not _REVIEW_DATE.search(statement):
+                return False
+    remaining = _REVIEW_MONTH_DAY.sub("", _REVIEW_DATE.sub("", statement))
     for word, days in (("大后天", 3), ("后天", 2), ("明天", 1), ("明日", 1), ("次日", 1), ("今天", 0), ("今日", 0)):
         if word in remaining and scheduled.date() != (current + timedelta(days=days)).date():
             return False
@@ -943,21 +948,38 @@ def _verified_review_ids(conn: sqlite3.Connection, patient_id: str, event_ids: l
         column: {value for value in ids if value.startswith(prefix)}
         for prefix, column in (("REV-", "id"), ("EVT-", "event_id"), ("TSK-", "task_id"))
     }
+    multi_dates = {(parse_ts(value).year, parse_ts(value).month, parse_ts(value).day)
+                   for value in _REVIEW_DATE.findall(statement)} if count > 1 else set()
+    if count > 1:
+        multi_dates |= {(current.year, int(month), int(day))
+                        for month, day in _REVIEW_MONTH_DAY.findall(statement)}
     matches = []
     for row in rows:
-        if event_ids and row["event_id"] not in event_ids:
+        if count == 1 and event_ids and row["event_id"] not in event_ids:
             continue
         if tool_ids is not None and row["id"] not in tool_ids:
             continue
         if any(values and row[column] not in values for column, values in id_filters.items()):
             continue
-        if _review_time_matches(statement, parse_ts(row["scheduled_for"]), current):
-            matches.append(row)
+        if count > 1:
+            scheduled_at = parse_ts(row["scheduled_for"])
+            if multi_dates and (scheduled_at.year, scheduled_at.month, scheduled_at.day) not in multi_dates:
+                continue
+        elif not _review_time_matches(statement, parse_ts(row["scheduled_for"]), current):
+            continue
+        matches.append(row)
     if ids - {row[key] for row in matches for key in ("id", "event_id", "task_id")}:
         return []
     if count > 1:
+        if multi_dates and matches:
+            return [row["id"] for row in matches]
         by_task = {row["task_id"]: row["id"] for row in matches if row["task_id"]}
-        return list(by_task.values()) if len(by_task) == count else []
+        if len(by_task) >= count:
+            return list(by_task.values())
+        by_date = {}
+        for row in matches:
+            by_date.setdefault(parse_ts(row["scheduled_for"]).date(), row["id"])
+        return list(by_date.values()) if len(by_date) >= count else []
     return [matches[0]["id"]] if len(matches) == 1 else []
 
 
@@ -986,7 +1008,8 @@ def _unsupported_claims(text: str, executed: list[dict[str, Any]], *,
                 if run_id:
                     for review_id in sorted(references):
                         trace.add_step(conn, run_id, phase="observe", kind="review_reference", tool_name="respond",
-                                       payload={"review_id": review_id, "reason": "引用既有复评"}, status="ok")
+                                       payload={"review_id": review_id, "review_ids": sorted(references),
+                                                "reason": "引用既有复评"}, status="ok")
     unsupported = claimed - succeeded
     if review_mismatch:
         unsupported.add("schedule_review")

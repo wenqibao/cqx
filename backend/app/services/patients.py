@@ -51,7 +51,7 @@ def create_patient(conn: sqlite3.Connection, data: dict[str, Any]) -> dict[str, 
             dumps(data.get("goals", [])),
             dumps(data.get("constraints", [])),
             dumps(data.get("baseline", {})),
-            1 if data.get("is_synthetic", True) else 0,
+            1,  # DATA-SYN-01：演示系统只允许合成患者，忽略调用方传入的 false
             ts,
             ts,
         ),

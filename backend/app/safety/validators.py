@@ -21,6 +21,7 @@ TOOL_EXECUTION_FAILED = "TOOL_EXECUTION_FAILED"
 POSTCHECK_MISMATCH = "POSTCHECK_MISMATCH"
 UNSAFE_CLAIM = "UNSAFE_CLAIM"
 UNKNOWN_TOOL = "UNKNOWN_TOOL"
+INVALID_TASK_TYPE = "INVALID_TASK_TYPE"
 
 ALL_CODES = [
     NO_EVIDENCE,
@@ -35,14 +36,18 @@ ALL_CODES = [
     POSTCHECK_MISMATCH,
     UNSAFE_CLAIM,
     UNKNOWN_TOOL,
+    INVALID_TASK_TYPE,
 ]
 
 
 def _due_ok(conn: sqlite3.Connection, due_at: str | None) -> tuple[bool, str]:
     if not due_at:
         return True, ""
-    dt = parse_ts(due_at)
-    if dt is None:
+    try:
+        dt = parse_ts(due_at)
+    except (ValueError, TypeError, AttributeError):
+        dt = None
+    if dt is None or dt.tzinfo is None:
         return False, f"due_at 不是合法时间: {due_at}"
     limits = safety_rules().get("limits", {})
     delta_hours = (dt - now(conn)).total_seconds() / 3600
@@ -51,6 +56,11 @@ def _due_ok(conn: sqlite3.Connection, due_at: str | None) -> tuple[bool, str]:
     if delta_hours < -0.01 or delta_hours > hi:
         return False, f"任务截止时间超出允许范围（{delta_hours:.1f}h，允许 0~{hi:.0f}h）"
     return True, ""
+
+
+def max_actions_per_run() -> int:
+    limits = safety_rules().get("limits", {})
+    return int(limits.get("max_tasks_per_run", 5)) + 3
 
 
 def validate_plan(
@@ -63,23 +73,74 @@ def validate_plan(
 ) -> dict[str, Any]:
     """执行前校验：越权动作、无证据结论、时间越界、重复任务、超量动作。"""
     limits = safety_rules().get("limits", {})
-    max_actions = int(limits.get("max_tasks_per_run", 5)) + 3
+    max_actions = max_actions_per_run()
     actions = plan.get("actions", []) or []
+    # respond 只做收口说明，不消耗动作额度（A-033-03）
+    counted = [a for a in actions if a.get("tool") != "respond"]
     rejections: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
-    if len(actions) > max_actions:
+    if len(counted) > max_actions:
         rejections.append(
-            {"code": TOO_MANY_ACTIONS, "message": f"单次计划动作过多（{len(actions)} > {max_actions}）", "index": None}
+            {"code": TOO_MANY_ACTIONS,
+             "message": f"单次运行动作额度已满（{len(counted)} > {max_actions}）；请停止新增动作，"
+                        "总结已完成结果与未完成事项，并建议人工下一步",
+             "index": None, "detail": {"count": len(counted), "cap": max_actions}}
         )
+    for tool, maximum in (("create_task", int(limits.get("max_tasks_per_run", 5))),
+                          ("ask_user", int(limits.get("max_questions_per_run", 2)))):
+        if sum(a.get("tool") == tool for a in actions) > maximum:
+            rejections.append({"code": TOO_MANY_ACTIONS, "message": f"单次运行 {tool} 超出 {maximum} 次", "index": None})
     evidence = evidence or []
     for idx, action in enumerate(actions):
         tool = action.get("tool") or ""
-        args = action.get("args", {}) or {}
+        args = action.get("args", {})
         if not gate.check_tool(tool):
             rejections.append(
                 {"code": TOOL_NOT_ALLOWED, "message": f"工具 {tool} 不在白名单内", "index": idx, "tool": tool}
             )
             continue
+        if not isinstance(args, dict):
+            rejections.append({"code": MISSING_REQUIRED_DATA, "message": "工具参数必须为对象", "index": idx, "tool": tool})
+            continue
+        from backend.app.agent.tools import TOOL_SPECS
+        from backend.app.tasks.types import normalize_task_type, task_type_candidates
+
+        if tool == "create_task" and normalize_task_type(args.get("task_type")) is None:
+            rejections.append({"code": INVALID_TASK_TYPE,
+                               "message": f"不支持的任务类型: {args.get('task_type')}；"
+                                          f"可用类型: {task_type_candidates()}",
+                               "index": idx, "tool": tool,
+                               "candidates": task_type_candidates()})
+            continue
+        invalid = []
+        for name, spec in TOOL_SPECS.get(tool, {}).get("parameters", {}).items():
+            value = args.get(name)
+            if (value is None or value == "") and spec.endswith("?"):
+                continue
+            base = spec.rstrip("?")
+            valid = ((isinstance(value, str) and bool(value.strip())) if base in ("string", "iso8601") else
+                     (isinstance(value, int) and not isinstance(value, bool)) if base == "int" else
+                     isinstance(value, list) and all(isinstance(v, str) for v in value) if base == "array" else
+                     isinstance(value, dict) if base == "object" else isinstance(value, bool))
+            if not valid:
+                invalid.append(name)
+        if invalid:
+            rejections.append({"code": MISSING_REQUIRED_DATA, "message": f"工具参数缺失或类型错误: {', '.join(invalid)}", "index": idx, "tool": tool})
+            continue
+        if tool == "save_preference":
+            from backend.app.memory.preferences import ALLOWED_KINDS, ALLOWED_SOURCES
+
+            if args.get("kind") not in ALLOWED_KINDS or args.get("source") not in ALLOWED_SOURCES:
+                rejections.append({"code": MISSING_REQUIRED_DATA, "message": "偏好类型或来源不在已支持枚举内", "index": idx, "tool": tool})
+        if args.get("patient_id") is not None and args["patient_id"] != patient_id:
+            rejections.append({"code": FORBIDDEN_ACTION, "message": "禁止访问其他患者", "index": idx, "tool": tool})
+            continue
+        for ref, table in (("task_id", "tasks"), ("event_id", "events")):
+            if args.get(ref):
+                row = conn.execute(f"SELECT patient_id FROM {table} WHERE id=?", (args[ref],)).fetchone()
+                if not row or row['patient_id'] != patient_id:
+                    rejections.append({"code": TASK_NOT_FOUND if not row else FORBIDDEN_ACTION,
+                                       "message": f"{ref}不存在或不属于当前患者", "index": idx, "tool": tool})
         claim = action.get("claim") or args.get("claim") or ""
         if claim:
             verdict = gate.check_text(claim)
@@ -93,10 +154,10 @@ def validate_plan(
                         "detail": {"intent": verdict["code"], "matched": verdict["matched"]},
                     }
                 )
-        for text_field in ("title", "description", "answer_summary"):
+        for text_field in ("title", "description", "answer_summary", "text", "question", "body", "reason"):
             text = args.get(text_field) or ""
             if text:
-                verdict = gate.check_text(text)
+                verdict = gate.check_text(text, generated=True)
                 if not verdict["allowed"]:
                     rejections.append(
                         {
@@ -104,6 +165,7 @@ def validate_plan(
                             "message": f"动作文本包含被禁止的医疗动作: {verdict['name']}",
                             "index": idx,
                             "tool": tool,
+                            "detail": {"intent": verdict["code"], "matched": verdict.get("matched"), "field": text_field},
                         }
                     )
         if action.get("requires_evidence") and not evidence:
@@ -124,6 +186,12 @@ def validate_plan(
                 rejections.append(
                     {"code": TASK_NOT_FOUND, "message": f"要修改的任务不存在: {args['task_id']}", "index": idx, "tool": tool}
                 )
+        citations = args.get("citations") or []
+        if citations:
+            valid_refs = {str(e.get(k)) for e in evidence for k in ("id", "doc_id", "chunk_id", "citation", "anchor") if e.get(k)}
+            valid_refs.update(str(e.get("doc_id", "")) + str(e.get("anchor", "")) for e in evidence)
+            if any(c not in valid_refs for c in citations):
+                rejections.append({"code": NO_EVIDENCE, "message": "引用不属于本次检索证据", "index": idx, "tool": tool})
     return {"ok": not rejections, "rejections": rejections, "warnings": warnings, "checked_at": None}
 
 
@@ -142,12 +210,30 @@ def post_execution_check(
         row = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"数据库中没有任务 {task_id}"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务患者归属不一致"}
+        if row["task_type"] != args.get("task_type"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务类型与调用参数不一致"}
+        if row["status"] not in ("pending", "missed"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"任务状态异常: {row['status']}"}
+        if args.get("event_id") and row["event_id"] != args.get("event_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务未关联到指定事件"}
         return {"ok": True, "detail": {"task_id": task_id, "status": row["status"]}}
     if tool == "update_task":
         task_id = args.get("task_id")
-        row = conn.execute("SELECT version FROM tasks WHERE id=?", (task_id,)).fetchone()
+        row = conn.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"任务 {task_id} 不存在"}
+        if args.get("patient_id") and row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "任务不属于当前患者"}
+        if args.get("due_at") and row["due_at"]:
+            try:
+                same = abs((parse_ts(row["due_at"]) - parse_ts(args["due_at"])).total_seconds()) <= 1
+            except Exception:
+                same = str(row["due_at"]) == str(args["due_at"])
+            if not same:
+                return {"ok": False, "code": POSTCHECK_MISMATCH,
+                        "message": f"任务截止时间与调用不一致: DB={row['due_at']} 调用={args['due_at']}"}
         expected = result.get("version")
         if expected is not None and int(row["version"]) != int(expected):
             return {
@@ -167,12 +253,36 @@ def post_execution_check(
         row = conn.execute("SELECT * FROM reviews WHERE id=?", (review_id,)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未入库"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评患者归属不一致"}
+        if args.get("task_id") and row["task_id"] != args.get("task_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未关联指定任务"}
+        if args.get("event_id") and row["event_id"] != args.get("event_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复评未关联指定事件"}
+        if row["status"] != "scheduled":
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"复评状态异常: {row['status']}"}
         return {"ok": True, "detail": {"review_id": review_id, "scheduled_for": row["scheduled_for"]}}
+    if tool == "request_human_review":
+        review_id = result.get("review_id")
+        row = conn.execute("SELECT * FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if not row or row["branch"] != "HUMAN_REVIEW":
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核未真实创建"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核患者归属不一致"}
+        if row["status"] != "pending_human":
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": f"人工复核状态异常: {row['status']}"}
+        if args.get("event_id") and row["event_id"] != args.get("event_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "人工复核未关联指定事件"}
+        return {"ok": True, "detail": {"review_id": review_id, "status": row["status"]}}
     if tool == "ask_user":
         qid = result.get("question_id")
-        row = conn.execute("SELECT status FROM questions WHERE id=?", (qid,)).fetchone()
+        row = conn.execute("SELECT * FROM questions WHERE id=?", (qid,)).fetchone()
         if not row or row["status"] != "waiting":
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题未进入等待答复状态"}
+        if row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题患者归属不一致"}
+        if args.get("target_field") and row["target_field"] != args.get("target_field"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题字段与调用参数不一致"}
         return {"ok": True, "detail": {"question_id": qid}}
     if tool == "save_preference":
         kind = args.get("kind")
@@ -182,11 +292,23 @@ def post_execution_check(
         ).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "偏好未写入"}
+        if args.get("value") is not None and str(row["value"]) != str(args["value"]):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "偏好值与调用参数不一致"}
+        if args.get("source") and row["source"] and row["source"] != args["source"]:
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "偏好来源与调用参数不一致"}
         return {"ok": True, "detail": {"preference_id": row["id"]}}
     if tool == "create_notification":
         row = conn.execute("SELECT * FROM notifications WHERE id=?", (result.get("notification_id"),)).fetchone()
         if not row:
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知未写入"}
+        if args.get("patient_id") and row["patient_id"] != args.get("patient_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知患者归属不一致"}
+        if args.get("kind") and row["kind"] != args.get("kind"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知类型与调用参数不一致"}
+        if args.get("ref_type") and row["ref_type"] != args.get("ref_type"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知引用类型不一致"}
+        if args.get("ref_id") and row["ref_id"] != args.get("ref_id"):
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "通知引用对象不一致"}
         return {"ok": True, "detail": {"notification_id": row["id"]}}
     return {"ok": True, "detail": {}}
 

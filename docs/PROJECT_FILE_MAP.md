@@ -172,7 +172,7 @@ POST /patients/{id}/records
 ## 8. 测试命令
 
 ```powershell
-python -m pytest -q                 # 149 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发回归）
+python -m pytest -q                 # 529 项：单元 + 集成 + API + 场景回放（33 个场景参数化 + 7 项并发 + 36 项 P1/安全收口）
 python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生成 evaluation/reports/*.json
 ```
 
@@ -207,3 +207,56 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 4. SQLite 单写锁：已用 `busy_timeout=30000` + 真实并发用例（读 9/9、写 6/6）覆盖 C-API-001，但未做高并发压力测试；写入仍是单写者模型。
 5. 前端（`frontend/`）尚未实现，仅提供契约与 Mock 约定。
 6. 未做鉴权：仅允许 `127.0.0.1` 本机演示。
+
+## 11. DeepSeek独立验收补充（2026-11-04）
+
+- `tests/integration/test_real_acceptance_regressions.py`：本地Stub复现与回归，覆盖证据/轨迹、空输出、虚假成功、文本安全、所有权、参数/时间及累计限制；不代表厂商模型通过。
+- `tests/unit/test_acceptance_budget.py`：6次业务触发预算跨重启持久化、失败请求计数与连续失败停止。
+- `scripts/deepseek_acceptance_server.py`：仅本机8010隔离验收服务；统计真实请求与用量，不修改厂商响应，强制6次业务/18次HTTP上限。
+- `scripts/deepseek_acceptance.py`：分步准备合成夹具、执行/收集业务API与数据库证据；不自动重试。
+- 验收数据库与机器证据保存在忽略目录，禁止把.env、数据库或原始敏感日志提交。
+- `docs/deepseek_real_acceptance.md`：6次真实业务触发、14次厂商HTTP的逐项验收、版本与证据路径；如实保留失败及未复验状态。
+- `docs/deepseek_real_bugfixes.md`：真实路径缺陷、最小修复、受控回归和B待复验记录。
+- `docs/deepseek_next_actions.md`：A审查、B独立复验、C具体缺陷单与正式演示门槛。
+- `evaluation/reports/deepseek_real_acceptance.json`：本地机器验收报告（已生成但忽略，不随clone交付）；同目录保留ledger、API/DB快照及截图。
+
+## A-REAL-AUTONOMY-01（2026-11-08）
+
+- ackend/app/services/state.py：open_events 含证据与记录 ID，新增 open_reviews / recent_answers
+- ackend/app/agent/orchestrator.py：有界上下文、决策协议、decision_rationale 轨迹、ACTION_TOOLS 纳入 schedule_review
+- ackend/app/agent/tools.py：schedule_review Schema 补 reason
+- ackend/app/safety/validators.py：逐工具执行后核验（患者/类型/事件/复评/复核/通知）
+- 	ests/integration/test_real_autonomous_decision.py（5 项）
+- 	ests/integration/test_real_action_verification.py（8 项）
+- docs/real_autonomous_management_closure.md
+
+## A 最终后端修复（2026-11-08）
+
+- `backend/app/agent/orchestrator.py`：MANAGEMENT_TOOLS、_verify_task_coverage、事件按数据库关联关闭
+- `backend/app/safety/validators.py`：update_task/schedule_review/request_human_review/save_preference/create_notification 内容级核验
+- `scripts/deepseek_autonomy_acceptance.py`：R07-R11 独立真实验收
+- `tests/integration/test_real_autonomous_decision.py`：A5-01~A5-07
+- `tests/integration/test_real_action_verification.py`：6 项反向核验 + 正向全链路
+- `docs/A_FINAL_BACKEND_REPAIR_REPORT.md`
+- `tests/unit/test_autonomy_acceptance_offline.py`：验收脚本预算/预检/超时/重复采集离线测试（12 项）
+
+- `backend/app/agent/vendor_budget.py`：服务端厂商请求预算守卫（结构校验/原子写/发送前预占）
+- `tests/integration/test_vendor_budget.py`：适配器 + stub transport 的计数/阻断/失败测试（8 项）
+- `backend/app/api/routes_ops.py`：新增 GET /system/vendor-budget（只读）
+
+## v0.3.2（2026-11-09）
+
+- `backend/app/tasks/types.py`：任务类型规范/别名/校验
+- `backend/app/agent/tools.py`、`llm.py`：Schema 枚举与类型归一
+- `backend/app/safety/gate.py`、`config/safety_rules.yaml`：否定与条件转介、剂量增减表达
+- `backend/app/safety/validators.py`：INVALID_TASK_TYPE、动作额度 detail
+- `backend/app/db/migrations.py`：SCHEMA_VERSION=3 旧类型归一
+- `tests/integration/test_real_a01_a02_a03.py`（12 项）
+- docs/real_acceptance_batch_v032.md：v0.3.2 批次授权、预算与场景预期
+
+## A-035 修复候选
+
+- `backend/app/safety/gate.py`：病史核实、说明和转介例外按实际命中范围判定，历史工具结果使用同一规则重新审计。
+- `backend/app/agent/orchestrator.py`：逐条核对复评声明，验证持久化复评的患者、事件、任务和时间，未核实回复在技术轨迹标为失败。
+- `tests/integration/test_real_a01_a02_a03.py`：混合指令、越权零写入、复评声明作用域及 B11 回归。
+- `docs/A_FINAL_BACKEND_REPAIR_REPORT.md`：修复范围、验证命令及 B 复验交接。

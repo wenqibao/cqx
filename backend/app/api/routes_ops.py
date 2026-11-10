@@ -21,6 +21,9 @@ router = APIRouter()
 def list_preferences(
     patient_id: str, include_history: bool = False, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    from backend.app.services import patients as patient_service
+
+    patient_service.get_patient(conn, patient_id)
     items = preferences.list_preferences(conn, patient_id, include_history=include_history)
     return {"patient_id": patient_id, "count": len(items), "items": items}
 
@@ -29,13 +32,22 @@ def list_preferences(
 def create_preference(
     patient_id: str, payload: PreferenceCreate, conn: sqlite3.Connection = Depends(get_conn)
 ) -> dict[str, Any]:
+    from backend.app.automation import outbox
+    from backend.app.services import patients as patient_service
+
+    patient_service.get_patient(conn, patient_id)
     try:
         pref = preferences.set_preference(
             conn, patient_id, kind=payload.kind, value=payload.value, source=payload.source
         )
     except preferences.PreferenceError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    applied = triggers.after_preference_change(conn, patient_id)
+    outbox_id = outbox.enqueue(conn, "after_preference", patient_id, {})
+    try:
+        applied = outbox.process(conn, outbox_id)
+    except Exception as exc:
+        return {"preference": pref, "applied_to_tasks": [], "partial_success": True,
+                "outbox_id": outbox_id, "error": f"{type(exc).__name__}: {exc}"}
     return {"preference": pref, "applied_to_tasks": applied["updated"]}
 
 
@@ -79,11 +91,28 @@ def set_clock(payload: ClockRequest, conn: sqlite3.Connection = Depends(get_conn
 @router.get("/system/audit", tags=["system"], summary="F13/F14 安全与审计日志")
 def audit_log(limit: int = 100, conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
     rows = conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    blocked = conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE decision='reject'").fetchone()["c"]
+    checked = conn.execute("SELECT COUNT(*) AS c FROM agent_steps WHERE kind='tool_result'").fetchone()["c"]
     return {
         "items": [dict(r) for r in rows],
+        # 实际执行：成功工具调用中出现越权工具/动作文本的次数（不是拒绝条数）
         "forbidden_executed": gate.forbidden_action_count(conn),
+        # 被拦截次数：随拦截增加，不得当作"已执行"
+        "blocked_total": int(blocked),
+        # 计数覆盖的成功工具结果条数，便于交叉核查不是固定返回 0
+        "checked_tool_results": int(checked),
         "rejection_codes": validators.ALL_CODES,
     }
+
+
+@router.get("/system/vendor-budget", tags=["system"], summary="厂商请求预算状态（只读）")
+def vendor_budget_status() -> dict[str, Any]:
+    from backend.app.agent import vendor_budget
+
+    try:
+        return {"ok": True, **vendor_budget.snapshot()}
+    except vendor_budget.VendorBudgetError as exc:
+        return {"ok": False, "enabled": vendor_budget.ledger_path() is not None, "error": str(exc)}
 
 
 @router.get("/system/mode", tags=["system"], summary="当前运行模式（mock / real）")

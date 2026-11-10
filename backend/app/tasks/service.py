@@ -11,6 +11,7 @@ from backend.app.services.patients import get_patient
 from backend.app.util import new_id, short_hash
 
 STATUSES = ("pending", "done", "missed", "cancelled")
+MAX_DUE_HOURS = 720
 
 
 class TaskError(ValueError):
@@ -66,6 +67,15 @@ def list_tasks(
     return [_row(r) for r in conn.execute(sql, args).fetchall()]
 
 
+def _check_due(conn: sqlite3.Connection, dt: datetime) -> None:
+    """HTTP API、服务层与 Agent 工具共用同一 due 契约：未来 0~720 小时。"""
+    ts = now(conn)
+    if dt <= ts:
+        raise TaskError("due_at 必须晚于当前时间")
+    if dt - ts > timedelta(hours=MAX_DUE_HOURS):
+        raise TaskError("due_at 超出允许范围（最多 720 小时）")
+
+
 def _dedupe_key(patient_id: str, task_type: str, due_at: str | None) -> str:
     bucket = (due_at or "")[:10] or "nodue"
     return short_hash(f"{patient_id}|{task_type}|{bucket}", length=24)
@@ -84,14 +94,17 @@ def find_mergeable(
         (patient_id, key),
     ).fetchone()
     if row:
-        return _row(row)
+        # 旧版改期可能留下 stale key：日期不一致时不能复用
+        if not due_at or not row["due_at"] or row["due_at"][:10] == due_at[:10]:
+            return _row(row)
     if not mergeable:
         return None
     cutoff = iso(now(conn) - timedelta(hours=window_hours))
     row = conn.execute(
         """SELECT * FROM tasks WHERE patient_id=? AND task_type=? AND status='pending' AND created_at>=?
+           AND (? IS NULL OR due_at IS NULL OR ABS(julianday(due_at)-julianday(?))*24 <= ?)
            ORDER BY created_at LIMIT 1""",
-        (patient_id, task_type, cutoff),
+        (patient_id, task_type, cutoff, due_at, due_at, window_hours),
     ).fetchone()
     return _row(row) if row else None
 
@@ -114,6 +127,10 @@ def create_task(
 ) -> tuple[dict[str, Any], bool]:
     """返回 (task, created)；created=False 表示合并到已有任务（任务不会重复入库）。"""
     get_patient(conn, patient_id)
+    if event_id:
+        event_row = conn.execute("SELECT patient_id FROM events WHERE id=?", (event_id,)).fetchone()
+        if not event_row or event_row["patient_id"] != patient_id:
+            raise TaskError("event_id 不存在或不属于当前患者")
     if merge:
         existing = find_mergeable(conn, patient_id, task_type, due_at)
         if existing:
@@ -131,6 +148,10 @@ def create_task(
     ts = iso(now(conn))
     tid = new_id("task")
     key = _dedupe_key(patient_id, task_type, due_at)
+    # 旧版 stale key 可能仍占着目标键：先修复它的键，避免新任务插入冲突
+    holder = conn.execute("SELECT id, due_at FROM tasks WHERE dedupe_key=?", (key,)).fetchone()
+    if holder and (not holder["due_at"] or not due_at or holder["due_at"][:10] != due_at[:10]):
+        conn.execute("UPDATE tasks SET dedupe_key=? WHERE id=?", (f"{key}-{holder['id'][-6:]}", holder["id"]))
     meta = dict(meta or {})
     if event_id:
         meta.setdefault("event_ids", [event_id])
@@ -199,16 +220,22 @@ def complete_task(
     task = get_task(conn, task_id)
     if not task:
         raise TaskError(f"任务不存在: {task_id}")
-    if task["status"] == "done":
-        return task  # 幂等
     if task["status"] == "cancelled":
         raise TaskError("已取消的任务不能完成")
     ts = iso(now(conn))
-    conn.execute(
-        "UPDATE tasks SET status='done', version=version+1, completed_at=?, updated_at=? WHERE id=?",
+    # COMPLETE-CONCURRENT-01：状态转换必须原子，只有真正改到 done 的请求才算 changed
+    cur = conn.execute(
+        "UPDATE tasks SET status='done', version=version+1, completed_at=?, updated_at=? "
+        "WHERE id=? AND status IN ('pending','missed')",
         (ts, ts, task_id),
     )
     updated = get_task(conn, task_id)
+    if cur.rowcount == 0:
+        if updated:
+            updated["changed"] = False
+        return updated  # type: ignore[return-value]
+    if updated:
+        updated["changed"] = True
     _snapshot(conn, updated, "complete", note or "患者确认完成", changed_by, run_id)
     return updated  # type: ignore[return-value]
 
@@ -232,11 +259,19 @@ def reschedule_task(
     dt = parse_ts(due_at)
     if dt is None:
         raise TaskError("due_at 不是合法时间")
+    _check_due(conn, dt)
     old = task["due_at"]
+    new_key = _dedupe_key(task["patient_id"], task["task_type"], iso(dt))
+    conflict = conn.execute(
+        "SELECT id FROM tasks WHERE dedupe_key=? AND id<>? AND status IN ('pending','missed')",
+        (new_key, task_id),
+    ).fetchone()
+    if conflict:
+        raise TaskError("目标时间已存在同类任务，请合并或选择其他时间")
     conn.execute(
-        "UPDATE tasks SET due_at=?, title=COALESCE(?,title), description=COALESCE(?,description), "
+        "UPDATE tasks SET due_at=?, dedupe_key=?, title=COALESCE(?,title), description=COALESCE(?,description), "
         "version=version+1, updated_at=? WHERE id=?",
-        (iso(dt), title, description, iso(now(conn)), task_id),
+        (iso(dt), new_key, title, description, iso(now(conn)), task_id),
     )
     updated = get_task(conn, task_id)
     _snapshot(conn, updated, "reschedule", f"{reason}（原时间 {old}）", changed_by, run_id)

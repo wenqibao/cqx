@@ -9,8 +9,22 @@ from backend.app.config import safety_rules
 from backend.app.db.connection import dumps, iso, now
 
 # 免责声明上下文：命中的词如果落在这类短语之后，说明是在"我们不提供…"，属于引用而非请求
-DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不负责", "不得", "禁止", "无需", "不承诺")
+DISCLAIMER_MARKERS = ("不提供", "不做", "不给出", "不包含", "不含", "不包括", "不涉及", "不负责", "不得", "禁止", "无需", "无须", "不承诺", "不制定", "不设置", "不设", "不开具", "不开展", "不建议", "不需要", "不予", "未提供", "未给出", "未包含", "未做", "未进行", "未调整", "并未", "未曾",
+                   "不自行", "不要自行", "勿自行", "不可自行", "避免自行", "不要随意",
+                   "不要", "不用", "不必", "勿", "不可以", "不新增", "不减少", "不替换", "不更换", "不改变", "不变更")
 DISCLAIMER_WINDOW = 24
+# 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
+CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
+INSTRUCTION_LEADIN = re.compile(r"(?:建议|请|应|需要|可以|要|立即|马上|尽快|务必|宜)\s*$")
+INSTRUCTION_TRANSITION = re.compile(
+    r"然后|随后|接着|继而|(?:等待|观望|确认|核实|咨询)(?:后)?(?:直接|立即|马上|今天起)"
+)
+# 转介豁免（B-REAL-02）：疑问/条件/泛指语气 + 命中词后紧跟医生或"转由医生/转人工复核"等转介语
+LEFT_CUES = re.compile(r"(?:是否|能否|可否|需不需要|要不要|该不该|如需|如果需要|若需|如果|如若|倘若|若|任何|如有|需求|提出|考虑|想|一旦)[^，。；！？\n]{0,10}$")
+IMPERATIVE_TAIL = re.compile(r"(?:建议|请|应|需要|立即|马上|尽快|务必|可以|推荐)[^，。；！？\n]{0,2}$")
+REFERRAL_TARGETS = ("医生", "医师", "医疗机构", "医院", "专业人员", "内分泌科")
+REFERRAL_ACTIONS = ("沟通", "咨询", "讨论", "就诊", "就医", "决定", "确认", "评估")
+REFERRAL_PHRASES = ("转由医生", "转交医生", "转人工复核", "转诊", "请就医", "及时就医", "经医生评估", "由医生处理", "咨询医生", "与医生沟通", "人工复核")
 
 
 class SafetyViolation(Exception):
@@ -21,23 +35,165 @@ class SafetyViolation(Exception):
         self.detail = detail or {}
 
 
-def _is_disclaimer(text: str, position: int) -> bool:
+def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool:
     window = text[max(0, position - DISCLAIMER_WINDOW) : position]
-    return any(marker in window for marker in DISCLAIMER_MARKERS)
+    # 否定只作用于当前分句，不能用前一句免责声明掩盖后一句越权指令。
+    window = re.split(r"[，。；;！!？?\n]|但是|然而", window)[-1]
+    if generated:
+        # 输出中的否定边界说明/无具体剂量的转介，不等于患者提出执行医疗动作。
+        if '能不能' not in window and re.search(r"(?:不构成|不作为|不会|不能|不应|不可)[^，。；]{0,10}$", window):
+            return True
+        right = re.split(r"[，。；;！!？?\n]", text[position:])[0]
+        if re.fullmatch(r"(?:涉及|任何|关于|有关)?(?:用药|药物|胰岛素|诊断|处方)(?:方案|剂量|调整|问题|事项)*(?:请|应|需)(?:咨询|联系)(?:您?的)?(?:处方)?医生", window + right):
+            return True
+    covered = False
+    for marker in DISCLAIMER_MARKERS:
+        index = window.rfind(marker)
+        if index < 0:
+            continue
+        tail = window[index + len(marker) :]
+        # 免责后面紧跟"而是/只是…"或"建议/请…"→ 否定不覆盖本次命中，按真实指令处理
+        if (any(cue in tail for cue in CONTRAST_CUES) or INSTRUCTION_LEADIN.search(tail)
+                or INSTRUCTION_TRANSITION.search(tail)):
+            continue
+        covered = True
+    return covered or bool(re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window))
 
 
-def _match_pattern(text: str, patterns: list[str]) -> tuple[int, str] | None:
+def _is_referral(text: str, start: int, end: int) -> bool:
+    """B-REAL-02：'是否调整治疗方案请与医生沟通'、'改药需求转由医生处理' 都是转介，不是执行动作。
+
+    允许的转介：左侧为疑问/条件/泛指语气（是否、如需、任何、患者提出、想…），
+    且右侧出现医生/机构 + 沟通类动词，或"转由医生/转人工复核/请就医"等转介语。
+    左侧紧邻指令语气（建议/请/应/可以…）时不豁免，避免"建议停药，请与医生沟通"被放过。
+    """
+    left = text[max(0, start - 12) : start]
+    if IMPERATIVE_TAIL.search(left):
+        return False
+    _, sentence_end = _bounds(text, start, end, SENTENCE_DELIMS)
+    right = text[end : min(end + 24, sentence_end)]
+    if re.match(r"^\s*(?:并|同时|然后|再|随后|接着)", right):
+        return False
+    has_referral = any(phrase in right for phrase in REFERRAL_PHRASES) or (
+        any(target in right for target in REFERRAL_TARGETS)
+        and any(action in right for action in REFERRAL_ACTIONS)
+    )
+    if not has_referral:
+        return False
+    return bool(LEFT_CUES.search(left)) or any(cue in right for cue in ("需求", "不适", "想"))
+
+
+# 问诊式询问（B #10 残余）："您最近有没有更改用药方案？"是在采集病史，不是执行/建议改药。
+# 仅当整句是疑问、且命中词不涉及停药/加减量/剂量时豁免，避免"是否要停药？"被放过。
+INQUIRY_CUES = re.compile(r"(?:是否|有没有|有无|曾否|是否曾)")
+# "评估是否需要调整监测或治疗方案"属于请专业人员判断，不是系统执行改药
+INQUIRY_CONDITIONAL = re.compile(r"(?:是否|有无)(?:需要|应|应当|要|需|必要)[^，。；！？\n]{0,6}$")
+INQUIRY_PROTECTED = ("停", "加", "减", "多打", "少打", "剂量", "注射", "换药")
+# 动词前直接否定："不调整用药""未改变方案""别换药"——否定词与动词同在一个词里，
+# 左侧窗口取不到，需要看命中位置前 1-2 个字符。
+DIRECT_NEGATION = ("不", "未", "别", "勿")
+DIRECT_NEGATION_PAIRS = ("不再", "无需", "并未", "从没", "绝不", "均不")
+
+
+def _is_directly_negated(text: str, start: int) -> bool:
+    if start <= 0:
+        return False
+    if text[start - 1] in DIRECT_NEGATION:
+        return True
+    return text[max(0, start - 2) : start] in DIRECT_NEGATION_PAIRS
+
+
+def _is_question_inquiry(text: str, start: int, end: int) -> bool:
+    clause_start = max(text.rfind(mark, 0, start) for mark in "，。；！？\n") + 1
+    left = text[clause_start:start]
+    is_question = bool(re.match(r"^[？?]", text[end : end + 2])) and bool(INQUIRY_CUES.search(left))
+    is_conditional = bool(INQUIRY_CONDITIONAL.search(left))
+    if not (is_question or is_conditional):
+        return False
+    return not any(word in text[start:end] for word in INQUIRY_PROTECTED)
+
+
+CONTAINER_SUFFIX = ("盒", "箱", "瓶", "袋", "板", "包装", "说明")
+
+
+def _is_container_reference(text: str, start: int, end: int) -> bool:
+    """药盒/药箱/药瓶等实物核对不是改药对象（A-035 复验）。"""
+    matched = text[start:end]
+    if matched.endswith("药") and text[end:end + 2].startswith(CONTAINER_SUFFIX):
+        return True
+    window = text[start:end + 2]
+    return bool(re.search(r"药(盒|箱|瓶|袋|板|包装|说明)", window))
+
+
+def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
-            m = re.search(pattern, text)
+            matches = list(re.finditer(pattern, text))
         except re.error:  # 配置写错不应让安全门整体失效
             continue
-        if m and not _is_disclaimer(text, m.start()):
+        for m in matches:
+            if _is_disclaimer(text, m.start(), generated=generated):
+                continue
+            if _is_referral(text, m.start(), m.end()):
+                continue
+            if _is_scoped_referral(text, m.start(), m.end(), generated=generated):
+                continue
+            if _is_verification_or_explanation(text, m.start(), m.end()):
+                continue
+            if _is_question_inquiry(text, m.start(), m.end()):
+                continue
+            if _is_directly_negated(text, m.start()):
+                continue
+            if _is_container_reference(text, m.start(), m.end()):
+                continue
             return m.start(), m.group(0)
     return None
 
 
-def check_text(text: str) -> dict[str, Any]:
+SENTENCE_DELIMS = "。；;！!？?\n"
+SEGMENT_DELIMS = "，," + SENTENCE_DELIMS
+VERIFY_CUES = ("核实", "确认", "回顾", "过去", "近一周", "近7天", "近 7 天", "历史")
+VERIFY_OBJECT = re.compile(
+    r"(?:是否|有无|有没有|曾否)(?:曾经?|自行|擅自|出现|有过|发生过|"
+    r"(?P<adherence>漏服|漏打|停药|自行停药|自行调整(?:用药|剂量))\s*(?:、|或(?:者)?|和|以及|及|/))*\s*$"
+)
+EXPLANATION_PREDICATE = re.compile(r"^(?:会|可能|容易)?(?:直接)?(?:导致|影响|干扰|增加.{0,6}风险)")
+CONDITIONAL_REFERRAL = re.compile(r"(?:遇到|如(?:果)?|若|一旦|当)(?:出现|有|需要|需)?\s*$")
+REFERRAL_PREDICATE = re.compile(
+    r"^(?:需求|的情况)?(?:时)?\s*[，,]?\s*(?:请|应|建议)?(?:引导患者|引导|转由)?"
+    r"(?:及时就医|就医|就诊|复诊|(?:咨询|联系|转交)(?:您的|处方|内分泌科)?医生|由医生评估|人工复核)"
+)
+
+
+def _bounds(text: str, start: int, end: int, delimiters: str) -> tuple[int, int]:
+    left = max(text.rfind(ch, 0, start) for ch in delimiters) + 1
+    rights = [pos for ch in delimiters if (pos := text.find(ch, end)) != -1]
+    return left, min(rights, default=len(text))
+
+
+def _is_verification_or_explanation(text: str, start: int, end: int) -> bool:
+    """仅豁免核实问句的宾语或直接连接说明谓语的命中词。"""
+    left, right = _bounds(text, start, end, SEGMENT_DELIMS)
+    prefix = text[left:start]
+    question = VERIFY_OBJECT.search(prefix)
+    if question:
+        sentence_start, _ = _bounds(text, start, end, SENTENCE_DELIMS)
+        context = text[sentence_start:left + question.start()]
+        if question["adherence"] or any(cue in context for cue in VERIFY_CUES):
+            return True
+    return not IMPERATIVE_TAIL.search(prefix) and bool(EXPLANATION_PREDICATE.match(text[end:right]))
+
+
+def _is_scoped_referral(text: str, start: int, end: int, *, generated: bool = False) -> bool:
+    left, _ = _bounds(text, start, end, SEGMENT_DELIMS)
+    _, right = _bounds(text, start, end, SENTENCE_DELIMS)
+    prefix = text[left:start]
+    if not REFERRAL_PREDICATE.match(text[end:right]):
+        return False
+    return bool(CONDITIONAL_REFERRAL.search(prefix)) or (generated and prefix.strip() == "关于")
+
+
+def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
     """检查患者输入/模型输出中是否包含被禁止的医疗动作意图。
 
     两层识别：
@@ -46,11 +202,26 @@ def check_text(text: str) -> dict[str, Any]:
        （如"把胰岛素改成早上多打两单位"），避免只靠关键词漏拦。
     """
     cfg = safety_rules()
+    # 规则自身的固定拒绝话术是可信的否定说明，不能再次按关键词误拦。
+    refusal_texts = {r.get("message") for r in cfg.get("forbidden_intents", []) + cfg.get("intent_patterns", [])}
+    if text.strip() in refusal_texts:
+        return {"allowed": True, "code": None, "message": "", "matched": None}
     lowered = (text or "").lower()
     for rule in cfg.get("forbidden_intents", []):
         for kw in rule.get("keywords", []):
-            position = lowered.find(kw.lower())
-            if position >= 0 and not _is_disclaimer(lowered, position):
+            for match in re.finditer(re.escape(kw.lower()), lowered):
+                if _is_disclaimer(lowered, match.start(), generated=generated):
+                    continue
+                if _is_referral(lowered, match.start(), match.end()):
+                    continue
+                if _is_scoped_referral(lowered, match.start(), match.end(), generated=generated):
+                    continue
+                if _is_question_inquiry(lowered, match.start(), match.end()):
+                    continue
+                if _is_directly_negated(lowered, match.start()):
+                    continue
+                if _is_verification_or_explanation(lowered, match.start(), match.end()):
+                    continue
                 return {
                     "allowed": False,
                     "code": rule["code"],
@@ -62,7 +233,7 @@ def check_text(text: str) -> dict[str, Any]:
         terms = [str(t).lower() for t in (rule.get("terms") or [])]
         if terms and not any(term in lowered for term in terms):
             continue
-        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])])
+        hit = _match_pattern(lowered, [str(p) for p in (rule.get("patterns") or [])], generated=generated)
         if hit:
             return {
                 "allowed": False,
@@ -179,5 +350,17 @@ def audit(
 
 
 def forbidden_action_count(conn: sqlite3.Connection) -> int:
-    row = conn.execute("SELECT COUNT(*) AS c FROM audit_log WHERE decision='reject'").fetchone()
-    return int(row["c"]) if row else 0
+    # reject 表示已阻止，不能当成执行。按成功工具轨迹核对实际输出/动作文本。
+    rows = conn.execute("SELECT run_id,step_no,tool_name FROM agent_steps WHERE kind='tool_result' AND status='ok'").fetchall()
+    from backend.app.db.connection import loads
+
+    count = 0
+    for row in rows:
+        call = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='tool_call' AND tool_name=? AND step_no<? ORDER BY step_no DESC LIMIT 1",
+                            (row['run_id'], row['tool_name'], row['step_no'])).fetchone()
+        args = loads(call['payload'], {}).get('args', {}) if call else {}
+        unsafe_text = any(not check_text(str(args.get(k) or ''), generated=True)['allowed']
+                          for k in ('claim','title','description','text','question','body'))
+        if not check_tool(row['tool_name']) or unsafe_text:
+            count += 1
+    return count

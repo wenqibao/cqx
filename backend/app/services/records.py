@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 import io
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 from backend.app.db.connection import dumps, iso, loads, now, parse_ts
@@ -54,6 +54,53 @@ def _recorded_at(raw: Any, fallback: datetime) -> str:
     return iso(dt)
 
 
+# 参与"同一观察"判定的 payload 字段：血压、症状、药名、标签
+OBSERVATION_KEYS = ("text", "systolic", "diastolic", "medication_name", "tags")
+
+
+def _norm_number(value: Any) -> str:
+    """数值规范化：120 / 120.0 / "120.00" 视为同一值。"""
+    number = safe_float(value)
+    if number is None:
+        return ""
+    if abs(number - round(number)) < 1e-9:
+        return str(int(round(number)))
+    return f"{round(number, 3):.3f}".rstrip("0").rstrip(".")
+
+
+def _norm_text(value: Any) -> str:
+    return " ".join(str(value).split())
+
+
+def canonical_observation(kind: str, value: Any, payload: dict[str, Any] | None) -> str:
+    """把一条记录归一化成"这次到底观察到了什么"，用于去重键。
+
+    BUG A-WB-02：原先只把 value 与 payload.text 放入去重键，血压的 value 恒为 None，
+    同一分钟 120/80 与 130/85 会算出同一个键而被 INSERT OR IGNORE 吞掉。
+    """
+    payload = payload or {}
+    parts = [_norm_number(value)]
+    for key in OBSERVATION_KEYS:
+        raw = payload.get(key)
+        if raw in (None, "", []):
+            continue
+        if key in ("systolic", "diastolic"):
+            parts.append(f"{key}={_norm_number(raw)}")
+        elif key == "tags":
+            parts.append(f"tags={_norm_text(raw)}")
+        else:
+            parts.append(f"{key}={_norm_text(raw)}")
+    return "|".join(parts)
+
+
+def _dedupe_keys(patient_id: str, kind: str, ts: str, value: Any, payload: dict[str, Any]) -> tuple[str, str]:
+    """返回 (新键, 兼容旧键)。旧键用于升级前已有数据的幂等兼容。"""
+    canonical = canonical_observation(kind, value, payload)
+    new_key = short_hash(f"{patient_id}|{kind}|{ts[:16]}|{canonical}"[:400])
+    legacy_key = short_hash(f"{patient_id}|{kind}|{ts[:16]}|{value}|{payload.get('text', '')}"[:400])
+    return new_key, legacy_key
+
+
 def add_record(
     conn: sqlite3.Connection,
     patient_id: str,
@@ -61,7 +108,7 @@ def add_record(
     *,
     allow_duplicate: bool = False,
 ) -> dict[str, Any]:
-    """写入一条健康记录；同一 (kind, 时间, 数值) 重复写入会被幂等跳过。"""
+    """写入一条健康记录；同一患者、同一分钟、同一组观察值重复写入会被幂等跳过。"""
     get_patient(conn, patient_id)
     kind = normalize_kind(data.get("kind", ""))
     if kind not in KIND_SPEC:
@@ -73,11 +120,30 @@ def add_record(
     value = safe_float(data.get("value"))
     _validate(kind, value, payload)
     ts = _recorded_at(data.get("recorded_at"), now(conn))
+    if parse_ts(ts) and parse_ts(ts) > now(conn) + timedelta(minutes=5):
+        raise RecordValidationError("recorded_at 不能晚于当前时间（允许 5 分钟设备误差）")
     dedupe = None
+    legacy_key = None
     if not allow_duplicate:
-        dedupe = data.get("dedupe_key") or short_hash(
-            f"{patient_id}|{kind}|{ts[:16]}|{value}|{payload.get('text', '')}"[:400]
-        )
+        explicit = data.get("dedupe_key")
+        if explicit:
+            dedupe = explicit
+        else:
+            dedupe, legacy_key = _dedupe_keys(patient_id, kind, ts, value, payload)
+    if dedupe and not allow_duplicate:
+        # 升级兼容：旧版本写入的行只带旧键，若同一观察已存在，仍按重复处理。
+        candidates = [dedupe] + ([legacy_key] if legacy_key and legacy_key != dedupe else [])
+        placeholders = ",".join("?" for _ in candidates)
+        for row in conn.execute(
+            f"SELECT * FROM health_records WHERE patient_id=? AND dedupe_key IN ({placeholders})",
+            (patient_id, *candidates),
+        ).fetchall():
+            if canonical_observation(row["kind"], row["value"], loads(row["payload"], {})) == canonical_observation(
+                kind, value, payload
+            ):
+                record = row_to_record(row)
+                record["duplicate"] = True
+                return record
     cur = conn.execute(
         """INSERT OR IGNORE INTO health_records(patient_id,kind,value,unit,recorded_at,source,note,payload,dedupe_key,created_at)
            VALUES(?,?,?,?,?,?,?,?,?,?)""",
@@ -181,6 +247,11 @@ def import_records(
     for row in rows:
         raw_kind = row.get("kind") or row.get("type")
         try:
+            # 单条 API 用嵌套 payload；CSV/扁平 JSON 把字段放在行上；两种都支持，语义一致
+            payload: dict[str, Any] = dict(row.get("payload") or {})
+            for k in ("text", "systolic", "diastolic", "medication_name", "tags"):
+                if k in row and row[k] not in (None, "") and k not in payload:
+                    payload[k] = row[k]
             data = {
                 "kind": raw_kind,
                 "value": row.get("value"),
@@ -188,11 +259,7 @@ def import_records(
                 "recorded_at": row.get("recorded_at") or row.get("time"),
                 "note": row.get("note"),
                 "source": source,
-                "payload": {
-                    k: row[k]
-                    for k in ("text", "systolic", "diastolic", "medication_name")
-                    if k in row and row[k] not in (None, "")
-                },
+                "payload": payload,
             }
             record = add_record(conn, patient_id, data)
             if record.get("duplicate"):

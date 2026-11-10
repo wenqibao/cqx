@@ -140,8 +140,10 @@ def after_preference_change(conn: sqlite3.Connection, patient_id: str) -> dict[s
     updated = []
     if pref:
         for task in tasks.list_tasks(conn, patient_id, status="pending"):
-            if task["task_type"] in ("confirm_medication", "record_glucose", "review_"):
+            if task["task_type"] in ("confirm_medication", "record_glucose"):
                 continue
+            if str(task["task_type"]).startswith("review_"):
+                continue  # PREF-SCOPE-01：人工复核类任务不受普通时间偏好影响
             current = parse_ts(task["due_at"])
             if not current:
                 continue

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -102,6 +103,9 @@ class OpenAICompatLLM(LLMClient):
             "messages": messages,
             "temperature": 0,
         }
+        # DeepSeek 默认思考模式要求回传 reasoning_content；当前循环使用非思考协议。
+        if urlparse(self.base_url).hostname == "api.deepseek.com":
+            payload["thinking"] = {"type": "disabled"}
         if tools:
             payload["tools"] = [{"type": "function", "function": t} for t in tools]
             payload["tool_choice"] = "auto"
@@ -117,20 +121,31 @@ class OpenAICompatLLM(LLMClient):
     ) -> LLMResponse:
         url = f"{self.base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        # 厂商请求预算：在真正发出 HTTP 前预占，失败/超时同样计数
+        from backend.app.agent import vendor_budget
+
+        try:
+            vendor_budget.reserve()
+        except vendor_budget.VendorBudgetError as exc:
+            raise LLMRequestError(f"厂商预算守卫拒绝: {exc}") from exc
         try:
             with httpx.Client(timeout=self.timeout, transport=self.transport) as client:
                 resp = client.post(url, headers=headers, json=self._payload(system, user, tools, extra_messages))
         except httpx.HTTPError as exc:
-            raise LLMRequestError(f"模型请求失败: {exc}") from exc
+            raise LLMRequestError(f"模型请求失败: {str(exc).replace(self.api_key, '[REDACTED]')}") from exc
         if resp.status_code >= 400:
-            raise LLMRequestError(f"模型返回 {resp.status_code}: {resp.text[:300]}")
-        return self.parse_response(resp.json())
+            detail = resp.text.replace(self.api_key, "[REDACTED]")
+            raise LLMRequestError(f"模型返回 {resp.status_code}: {detail[:300]}")
+        try:
+            return self.parse_response(resp.json())
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise LLMRequestError("模型响应不是有效的工具调用结构") from exc
 
     @staticmethod
     def parse_response(data: dict[str, Any]) -> LLMResponse:
         try:
             message = data["choices"][0]["message"]
-        except (KeyError, IndexError) as exc:
+        except (KeyError, IndexError, TypeError) as exc:
             raise LLMRequestError(f"模型响应结构异常: {json.dumps(data)[:300]}") from exc
         calls: list[ToolCall] = []
         for item in message.get("tool_calls") or []:
@@ -138,7 +153,7 @@ class OpenAICompatLLM(LLMClient):
             raw_args = fn.get("arguments") or "{}"
             try:
                 args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
-            except ValueError:
+            except (ValueError, TypeError):
                 args = {"_raw": raw_args}
             calls.append(ToolCall(name=fn.get("name", ""), arguments=args, id=item.get("id", "")))
         return LLMResponse(content=message.get("content") or "", tool_calls=calls, raw=data)
@@ -159,11 +174,13 @@ def get_llm() -> LLMClient:
     raise LLMConfigError(f"未知的 AGENT_LLM_MODE: {cfg.llm_mode}（仅支持 mock / real）")
 
 
-def tool_schemas() -> list[dict[str, Any]]:
+def tool_schemas(only: set[str] | None = None) -> list[dict[str, Any]]:
     from backend.app.agent.tools import TOOL_SPECS
 
     schemas = []
     for name, spec in TOOL_SPECS.items():
+        if only is not None and name not in only:
+            continue
         props = {}
         required = []
         for param, ptype in spec["parameters"].items():
@@ -173,10 +190,23 @@ def tool_schemas() -> list[dict[str, Any]]:
                 base, "string"
             )
             props[param] = {"type": jtype}
+            if param == "task_type":
+                from backend.app.tasks.types import canonical_task_types
+
+                props[param]["enum"] = canonical_task_types()
+                props[param]["description"] = "规范任务类型（见枚举）"
             if jtype == "array":
                 props[param]["items"] = {"type": "string"}
             if not optional:
                 required.append(param)
+        if name == "save_preference":
+            from backend.app.memory.preferences import ALLOWED_KINDS, ALLOWED_SOURCES
+
+            props["kind"]["enum"] = sorted(ALLOWED_KINDS)
+            props["kind"]["description"] = "偏好类型；时间偏好必须用 preferred_time_window，不要用 note"
+            props["value"]["description"] = "preferred_time_window 用 24 小时制 HH:MM（例如 08:00）"
+            props["source"]["enum"] = sorted(ALLOWED_SOURCES)
+            props["source"]["description"] = "患者明确确认时用 patient_confirmed"
         schemas.append(
             {
                 "name": name,

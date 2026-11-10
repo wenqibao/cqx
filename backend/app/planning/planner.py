@@ -13,7 +13,8 @@ from backend.app.safety import gate as safety_gate
 SEVERITY_WEIGHT = {"high": 100, "medium": 60, "low": 30}
 KNOWN_HISTORY_BOOST = {"T2DM": 0}
 
-QUESTION_HINTS = ("为什么", "为何", "怎么", "如何", "是什么", "什么", "能不能", "可以吗", "?", "？")
+QUESTION_HINTS = ("为什么", "为何", "怎么", "如何", "是什么", "什么", "多少", "多久", "几个", "特异性",
+                  "是不是", "是否", "会不会", "算不算", "正常吗", "高吗", "能不能", "可以吗", "?", "？")
 NEGOTIATION_HINTS = ("没空", "没时间", "改到", "改成", "调整", "换到", "推迟", "提前", "上班", "改一下")
 TIME_RE = re.compile(r"(?P<h>[01]?\d|2[0-3])\s*[:：]\s*(?P<m>[0-5]\d)")
 
@@ -39,6 +40,7 @@ def _apply_preference(due: datetime, preference: str | None) -> datetime:
         return due
     pref = preference.lower()
     target_hour = None
+    target_minute = 0
     if "morning" in pref or "早" in pref:
         target_hour = 8
     elif "evening" in pref or "晚" in pref:
@@ -49,9 +51,10 @@ def _apply_preference(due: datetime, preference: str | None) -> datetime:
         m = TIME_RE.search(preference)
         if m:
             target_hour = int(m.group("h"))
+            target_minute = int(m.group("m"))
     if target_hour is None:
         return due
-    adjusted = due.replace(hour=target_hour, minute=0, second=0, microsecond=0)
+    adjusted = due.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
     if adjusted <= due:
         adjusted = adjusted + timedelta(days=1)
     return adjusted
@@ -197,6 +200,10 @@ def build_knowledge_plan(
     hits: list[dict[str, Any]],
     query: str,
 ) -> dict[str, Any]:
+    # 与 search_knowledge 工具共用实体相关性过滤（C-REG-KQ-01）
+    from backend.app.knowledge.search import filter_relevant_hits
+
+    hits = filter_relevant_hits(query, hits)
     actions: list[dict[str, Any]] = [
         {"tool": "search_knowledge", "args": {"query": query}, "requires_evidence": False, "reason": "检索已核对资料"}
     ]
@@ -253,15 +260,21 @@ def build_knowledge_plan(
 
 
 def parse_constraint(message: str) -> dict[str, Any]:
-    """F23 解析患者的时间约束，例如"19:00 上班，改成 08:00 记录步数"。"""
+    """F23 解析患者的时间约束，例如"19:00 上班，改成 08:00 记录步数"。
+
+    必须保留分钟：只取小时会把"20:30"错误解析成 20:00（A0-FULL-P1-03）。
+    """
     msg = message or ""
-    times = TIME_RE.findall(msg)
+    matches = list(TIME_RE.finditer(msg))
     target_hour = None
+    target_minute = 0
     m = re.search(r"(?:改成|改到|调整到|换到|提前到|推迟到)\s*([01]?\d|2[0-3])\s*[:：]\s*([0-5]\d)", msg)
     if m:
         target_hour = int(m.group(1))
-    elif times:
-        target_hour = int(times[-1][0])
+        target_minute = int(m.group(2))
+    elif matches:
+        target_hour = int(matches[-1].group("h"))
+        target_minute = int(matches[-1].group("m"))
     task_type = None
     mapping = {
         "步数": "record_activity",
@@ -278,7 +291,7 @@ def parse_constraint(message: str) -> dict[str, Any]:
             break
     return {
         "target_hour": target_hour,
-        "target_minute": int(m.group(2)) if m else 0,
+        "target_minute": target_minute,
         "task_type": task_type,
         "raw": msg,
         "confidence": 0.9 if target_hour is not None else 0.3,

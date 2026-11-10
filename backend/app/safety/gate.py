@@ -16,6 +16,9 @@ DISCLAIMER_WINDOW = 24
 # 免责声明后若出现转折或指令引导，说明否定只覆盖前半句，后半句是真实指令（A-REAL-02）
 CONTRAST_CUES = ("而是", "只是", "反而", "不过", "却", "仍然", "还是")
 INSTRUCTION_LEADIN = re.compile(r"(?:建议|请|应|需要|可以|要|立即|马上|尽快|务必|宜)\s*$")
+INSTRUCTION_TRANSITION = re.compile(
+    r"然后|随后|接着|继而|(?:等待|观望|确认|核实|咨询)(?:后)?(?:直接|立即|马上|今天起)"
+)
 # 转介豁免（B-REAL-02）：疑问/条件/泛指语气 + 命中词后紧跟医生或"转由医生/转人工复核"等转介语
 LEFT_CUES = re.compile(r"(?:是否|能否|可否|需不需要|要不要|该不该|如需|如果需要|若需|如果|如若|倘若|若|任何|如有|需求|提出|考虑|想|一旦)[^，。；！？\n]{0,10}$")
 IMPERATIVE_TAIL = re.compile(r"(?:建议|请|应|需要|立即|马上|尽快|务必|可以|推荐)[^，。；！？\n]{0,2}$")
@@ -50,7 +53,8 @@ def _is_disclaimer(text: str, position: int, *, generated: bool = False) -> bool
             continue
         tail = window[index + len(marker) :]
         # 免责后面紧跟"而是/只是…"或"建议/请…"→ 否定不覆盖本次命中，按真实指令处理
-        if any(cue in tail for cue in CONTRAST_CUES) or INSTRUCTION_LEADIN.search(tail):
+        if (any(cue in tail for cue in CONTRAST_CUES) or INSTRUCTION_LEADIN.search(tail)
+                or INSTRUCTION_TRANSITION.search(tail)):
             continue
         covered = True
     return covered or bool(re.search(r"(?:不作|不进行|请勿)[^，。；]{0,8}$", window))
@@ -66,7 +70,10 @@ def _is_referral(text: str, start: int, end: int) -> bool:
     left = text[max(0, start - 12) : start]
     if IMPERATIVE_TAIL.search(left):
         return False
-    right = text[end : end + 24]
+    _, sentence_end = _bounds(text, start, end, SENTENCE_DELIMS)
+    right = text[end : min(end + 24, sentence_end)]
+    if re.match(r"^\s*(?:并|同时|然后|再|随后|接着)", right):
+        return False
     has_referral = any(phrase in right for phrase in REFERRAL_PHRASES) or (
         any(target in right for target in REFERRAL_TARGETS)
         and any(action in right for action in REFERRAL_ACTIONS)
@@ -106,6 +113,18 @@ def _is_question_inquiry(text: str, start: int, end: int) -> bool:
     return not any(word in text[start:end] for word in INQUIRY_PROTECTED)
 
 
+CONTAINER_SUFFIX = ("盒", "箱", "瓶", "袋", "板", "包装", "说明")
+
+
+def _is_container_reference(text: str, start: int, end: int) -> bool:
+    """药盒/药箱/药瓶等实物核对不是改药对象（A-035 复验）。"""
+    matched = text[start:end]
+    if matched.endswith("药") and text[end:end + 2].startswith(CONTAINER_SUFFIX):
+        return True
+    window = text[start:end + 2]
+    return bool(re.search(r"药(盒|箱|瓶|袋|板|包装|说明)", window))
+
+
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
@@ -117,101 +136,61 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
                 continue
             if _is_referral(text, m.start(), m.end()):
                 continue
-            if _is_conditional_referral(text, m.start(), m.end()):
+            if _is_scoped_referral(text, m.start(), m.end(), generated=generated):
                 continue
-            if _is_verification_or_explanation(text, m.start(), m.end(), generated=generated):
+            if _is_verification_or_explanation(text, m.start(), m.end()):
                 continue
             if _is_question_inquiry(text, m.start(), m.end()):
                 continue
             if _is_directly_negated(text, m.start()):
                 continue
+            if _is_container_reference(text, m.start(), m.end()):
+                continue
             return m.start(), m.group(0)
     return None
 
 
-REFERRAL_CUES = ("就医", "就诊", "咨询医生", "联系医生", "复诊", "专业复核", "人工复核", "医生评估")
-CONDITIONAL_CUES = ("遇到", "如", "若", "一旦", "当", "需要时", "必要时", "如果")
-CHANGE_CUES = ("调整用药", "用药调整", "调整药物", "调整剂量", "更改用药", "更换药物", "停用药物")
-
-
 SENTENCE_DELIMS = "。；;！!？?\n"
-# 同一分句里出现"把/请/建议…+停/改/换/加减药"时，不再按转介豁免
-INLINE_INSTRUCTION = __import__("re").compile(
-    r"(把|将|请|建议|应|可以|帮我|给我|需要)[^，,。；;！!？?]{0,8}"
-    r"(停|改|换|加|减|增加|减少|调整|停用|更换)[^，,。；;！!？?]{0,6}"
-    r"(药|片|粒|剂量|单位)"
-    r"|(把|将|请|建议|应|可以|帮我|给我)[^，,。；;！!？?]{0,8}"
-    r"(药|片|粒|剂量|单位)[^，,。；;！!？?]{0,4}"
-    r"(停|改|换|加|减|增加|减少|调整|停用|更换)"
+SEGMENT_DELIMS = "，," + SENTENCE_DELIMS
+VERIFY_CUES = ("核实", "确认", "回顾", "过去", "近一周", "近7天", "近 7 天", "历史")
+VERIFY_OBJECT = re.compile(
+    r"(?:是否|有无|有没有|曾否)(?:曾经?|自行|擅自|出现|有过|发生过|"
+    r"(?P<adherence>漏服|漏打|停药|自行停药|自行调整(?:用药|剂量))\s*(?:、|或(?:者)?|和|以及|及|/))*\s*$"
+)
+EXPLANATION_PREDICATE = re.compile(r"^(?:会|可能|容易)?(?:直接)?(?:导致|影响|干扰|增加.{0,6}风险)")
+CONDITIONAL_REFERRAL = re.compile(r"(?:遇到|如(?:果)?|若|一旦|当)(?:出现|有|需要|需)?\s*$")
+REFERRAL_PREDICATE = re.compile(
+    r"^(?:需求|的情况)?(?:时)?\s*[，,]?\s*(?:请|应|建议)?(?:引导患者|引导|转由)?"
+    r"(?:及时就医|就医|就诊|复诊|(?:咨询|联系|转交)(?:您的|处方|内分泌科)?医生|由医生评估|人工复核)"
 )
 
 
-def _clause_at(text: str, start: int, end: int) -> str:
-    left = max((text.rfind(ch, 0, start) for ch in SENTENCE_DELIMS), default=-1) + 1
-    rights = [pos for pos in (text.find(ch, end) for ch in SENTENCE_DELIMS) if pos != -1]
-    right = min(rights) if rights else len(text)
-    return text[left:right]
+def _bounds(text: str, start: int, end: int, delimiters: str) -> tuple[int, int]:
+    left = max(text.rfind(ch, 0, start) for ch in delimiters) + 1
+    rights = [pos for ch in delimiters if (pos := text.find(ch, end)) != -1]
+    return left, min(rights, default=len(text))
 
 
-VERIFY_CUES = ("核实", "确认", "回顾", "过去", "近一周", "近7天", "近 7 天", "历史")
-VERIFY_CUES_GENERATED = VERIFY_CUES + ("是否", "有无", "有没有")
-SEGMENT_DELIMS = "，,。；;！!？?\n"
-EDUCATIONAL_CUES = ("会", "可能", "容易", "导致", "影响", "风险", "趋势", "说明")
-IMPERATIVE_CUES = ("请", "建议", "应该", "立即", "马上", "把", "将", "帮我", "给我")
-
-
-def _segment_at(text: str, start: int, end: int) -> str:
-    """逗号也作为边界：避免"核实…，停药"被整句放行（A-034-01）。"""
-    left = max((text.rfind(ch, 0, start) for ch in SEGMENT_DELIMS), default=-1) + 1
-    rights = [pos for pos in (text.find(ch, end) for ch in SEGMENT_DELIMS) if pos != -1]
-    right = min(rights) if rights else len(text)
-    return text[left:right]
-
-
-def _is_verification_or_explanation(text: str, start: int, end: int, *, generated: bool = False) -> bool:
-    """A-033/A-034：核实历史事实、说明风险、转介解释不是用药指令。"""
-    segment = _segment_at(text, start, end)
-    sentence = _clause_at(text, start, end)
-    if INLINE_INSTRUCTION.search(sentence):
-        return False
-    if any(cue in segment for cue in VERIFY_CUES):
-        return True
-    # 逗号续接："核实…，有无漏服或自行停药" 的第二段仍属核实问句
-    if segment.strip().startswith(("是否", "有无", "有没有")):
-        left = text[:start].rstrip()
-        left = left[:-1] if left.endswith(("，", ",")) else left
-        prev = left[max(left.rfind(ch) for ch in "。；;！!？?\n") + 1:] if left else ""
-        if any(cue in prev for cue in VERIFY_CUES):
+def _is_verification_or_explanation(text: str, start: int, end: int) -> bool:
+    """仅豁免核实问句的宾语或直接连接说明谓语的命中词。"""
+    left, right = _bounds(text, start, end, SEGMENT_DELIMS)
+    prefix = text[left:start]
+    question = VERIFY_OBJECT.search(prefix)
+    if question:
+        sentence_start, _ = _bounds(text, start, end, SENTENCE_DELIMS)
+        context = text[sentence_start:left + question.start()]
+        if question["adherence"] or any(cue in context for cue in VERIFY_CUES):
             return True
-    if any(cue in segment for cue in EDUCATIONAL_CUES) and not any(
-        cue in segment for cue in IMPERATIVE_CUES
-    ):
-        return True
-    import re as _re
-    if generated:
-        referral = (any(cue in sentence for cue in REFERRAL_CUES)
-                    or ("咨询" in sentence and "医生" in sentence)
-                    or ("联系" in sentence and "医生" in sentence))
-        if referral and not _re.search(
-            r"(请|建议|应|立即|马上|把|将)[^，,。；;！!？?]{0,4}"
-            r"(调整|停|改|换|加|减|增|降|停用|更换)",
-            sentence,
-        ):
-            return True
-    return False
+    return not IMPERATIVE_TAIL.search(prefix) and bool(EXPLANATION_PREDICATE.match(text[end:right]))
 
 
-def _is_conditional_referral(text: str, start: int = 0, end: int | None = None) -> bool:
-    """条件式转介：'遇到调整用药需求时引导就医' 不是改药指令。
-
-    只看命中所在分句；同句混入独立越权指令时不豁免（B-032-01）。
-    """
-    clause = _clause_at(text, start, end if end is not None else start)
-    if INLINE_INSTRUCTION.search(clause):
+def _is_scoped_referral(text: str, start: int, end: int, *, generated: bool = False) -> bool:
+    left, _ = _bounds(text, start, end, SEGMENT_DELIMS)
+    _, right = _bounds(text, start, end, SENTENCE_DELIMS)
+    prefix = text[left:start]
+    if not REFERRAL_PREDICATE.match(text[end:right]):
         return False
-    return (any(cue in clause for cue in REFERRAL_CUES)
-            and any(cue in clause for cue in CONDITIONAL_CUES)
-            and any(cue in clause for cue in CHANGE_CUES))
+    return bool(CONDITIONAL_REFERRAL.search(prefix)) or (generated and prefix.strip() == "关于")
 
 
 def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
@@ -235,11 +214,13 @@ def check_text(text: str, *, generated: bool = False) -> dict[str, Any]:
                     continue
                 if _is_referral(lowered, match.start(), match.end()):
                     continue
+                if _is_scoped_referral(lowered, match.start(), match.end(), generated=generated):
+                    continue
                 if _is_question_inquiry(lowered, match.start(), match.end()):
                     continue
                 if _is_directly_negated(lowered, match.start()):
                     continue
-                if _is_verification_or_explanation(lowered, match.start(), match.end(), generated=generated):
+                if _is_verification_or_explanation(lowered, match.start(), match.end()):
                     continue
                 return {
                     "allowed": False,

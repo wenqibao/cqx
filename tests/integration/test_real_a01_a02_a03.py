@@ -149,13 +149,14 @@ def test_action_budget_rejects_ninth_action_with_detail(conn):
         for history in llm.histories
     ), "应在后续轮次告知剩余动作额度"
 
-def _event(conn, pid="MQ1", code="GLUCOSE_RISING"):
+def _event(conn, pid="MQ1", code="GLUCOSE_RISING", *, event_id=None):
+    event_id = event_id or f"EVT-{pid}"
     conn.execute(
         "INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at) "
         "VALUES(?,?,?,'high','open','x','{}',?,NULL,?)",
-        (f"EVT-{pid}", pid, code, f"{pid}:{code}:x", iso(now(conn))),
+        (event_id, pid, code, f"{pid}:{code}:x", iso(now(conn))),
     )
-    return f"EVT-{pid}"
+    return event_id
 
 
 def test_adherence_patient_without_medication_gets_question(conn):
@@ -367,3 +368,167 @@ def test_omitted_drug_dose_change_is_blocked(text):
 
 def test_educational_dose_statement_is_allowed():
     assert gate.check_text("调整剂量会影响血糖趋势。")['allowed'] is True
+
+
+MIXED_VERIFICATION = "核实既往用药记录后今天起停药。"
+
+
+@pytest.mark.parametrize("text", [
+    MIXED_VERIFICATION,
+    "今天起停药并核实既往用药记录。",
+    "核实既往用药记录，然后停药。",
+    "核实既往用药记录。今天起停药。",
+    "核实过去一周有无漏服并停药。",
+    "确认既往记录后降低剂量。",
+    "核实既往用药记录后不必等待直接停药。",
+    "如果需要核实既往记录后停药并咨询医生。",
+])
+def test_verification_does_not_cover_a_separate_instruction(text):
+    assert not gate.check_text(text)["allowed"]
+    assert not gate.check_text(text, generated=True)["allowed"]
+
+
+@pytest.mark.parametrize("text", [
+    "核实近7天是否按医嘱服药、有无漏服或自行停药，仅做记录核实。",
+    "近一周有没有漏服、停药的情况？",
+    "如果需要调整用药，请联系医生。",
+])
+def test_matched_verification_and_referral_remain_allowed(text):
+    assert gate.check_text(text, generated=True)["allowed"]
+
+
+def test_mixed_verification_input_is_blocked_before_model(client, conn, monkeypatch):
+    _patient(conn, "A035")
+    model = CaptureLLM([LLMResponse(content="", tool_calls=[], raw={})])
+    monkeypatch.setattr(orchestrator.llm_module, "get_llm", lambda: model)
+
+    run = client.post("/api/patients/A035/agent/runs", json={"message": MIXED_VERIFICATION}).json()
+
+    assert run["status"] == "blocked", run
+    assert model.calls == 0
+
+
+@pytest.mark.parametrize(("tool", "field", "args", "table"), [
+    ("create_notification", "body", {"title": "合成提醒"}, "notifications"),
+    ("create_task", "description", {"task_type": "record_glucose", "title": "核实记录"}, "tasks"),
+    ("ask_user", "question", {"target_field": "medication_taken"}, "questions"),
+    ("respond", "text", {}, None),
+])
+def test_mixed_generated_verification_does_not_reach_patient(
+        client, conn, monkeypatch, tool, field, args, table):
+    _patient(conn, "A035")
+    payload = {"patient_id": "A035", **args, field: MIXED_VERIFICATION}
+    if tool == "create_task":
+        payload["due_at"] = iso(now(conn) + timedelta(days=1))
+    model = CaptureLLM([LLMResponse(content="", tool_calls=[ToolCall(tool, payload, "mixed")], raw={})])
+    monkeypatch.setattr(orchestrator.llm_module, "get_llm", lambda: model)
+
+    run = client.post("/api/patients/A035/agent/runs", json={"message": "请核对健康记录"}).json()
+
+    assert any(r["code"] == "FORBIDDEN_ACTION" for r in run["rejections"]), run
+    assert MIXED_VERIFICATION not in run["responses"]
+    if table:
+        assert conn.execute(f"SELECT COUNT(*) FROM {table} WHERE patient_id='A035'").fetchone()[0] == 0
+    audit = client.get("/api/system/audit").json()
+    assert audit["forbidden_executed"] == 0
+    assert audit["blocked_total"] > 0
+
+
+def _review_reply(conn, text, *, pid="RV1", event_ids=None):
+    model = CaptureLLM([LLMResponse(content="", tool_calls=[
+        ToolCall("respond", {"patient_id": pid, "text": text}, "claim"),
+    ], raw={})])
+    return orchestrator.run_agent(conn, pid, trigger_type="answer_received",
+                                  message="记不清", event_ids=event_ids, llm=model)
+
+
+@pytest.mark.parametrize("reply", [
+    "此前已核对您的记录。本轮已安排新的复评，时间为明天上午。",
+    "此前已核对您的记录并已安排新的复评。",
+    "沿用此前已安排的复评。本轮又已创建新的复评。",
+    "沿用此前已安排的复评，时间为后天。",
+    "沿用此前已安排的复评，后天上午进行。",
+    "沿用之前安排的复评 REV-unknown。",
+    "沿用原计划，同时已改期复评。",
+    "保留既有复评并已安排另一条复评。",
+    "沿用患者P002的既有复评。",
+])
+def test_review_reference_cannot_cover_unverified_changes(conn, reply):
+    from backend.app.audit import trace
+
+    evt, review = _review_setup(conn)
+    result = _review_reply(conn, reply, event_ids=[evt])
+    assert any(r["code"] == "POSTCHECK_MISMATCH" and r["tool"] == "schedule_review"
+               for r in result["rejections"]), result
+    assert reply not in result["responses"]
+    assert not any(a["tool"] == "respond" and a["ok"] for a in result["actions"])
+    step = next(s for s in trace.steps(conn, result["run_id"]) if s["kind"] == "tool_result")
+    assert step["status"] == "failed" and not step["payload"]["post_check"]["ok"]
+    assert step["payload"]["result"]["text"] == reply
+    assert conn.execute("SELECT id FROM reviews").fetchone()["id"] == review["id"]
+    assert conn.execute("SELECT COUNT(*) FROM reviews").fetchone()[0] == 1
+
+
+def test_review_reference_checks_exact_time(conn):
+    evt, review = _review_setup(conn)
+    reply = f"沿用此前已安排的复评 {review['id']}，时间为{review['scheduled_for']}。"
+    result = _review_reply(conn, reply, event_ids=[evt])
+    assert result["status"] == "completed", result
+    assert result["responses"] == [reply]
+
+
+@pytest.mark.parametrize("scope", ["other_patient", "other_event", "expired"])
+def test_review_reference_requires_current_scope_and_future_time(conn, scope):
+    from backend.app.reviews import service as reviews
+
+    _patient(conn, "RV1")
+    event = _event(conn, "RV1")
+    review_event, review_patient = event, "RV1"
+    if scope == "other_patient":
+        _patient(conn, "RV2")
+        review_patient = "RV2"
+        review_event = _event(conn, "RV2")
+    if scope == "other_event":
+        review_event = _event(conn, "RV1", code="ADHERENCE_DROP", event_id="EVT-RV1-other")
+    review = reviews.schedule_review(conn, review_patient, event_id=review_event, delay_hours=24)
+    if scope == "expired":
+        conn.execute("UPDATE reviews SET scheduled_for=? WHERE id=?",
+                     (iso(now(conn) - timedelta(hours=1)), review["id"]))
+
+    reply = f"沿用此前已安排的复评 {review['id']}。"
+    result = _review_reply(conn, reply, event_ids=[event])
+
+    assert any(r["code"] == "POSTCHECK_MISMATCH" and r["tool"] == "schedule_review"
+               for r in result["rejections"]), result
+    assert reply not in result["responses"]
+
+
+def test_successful_review_tool_only_supports_its_persisted_time(conn):
+    evt, review = _review_setup(conn)
+    executed = [{"tool": "schedule_review", "ok": True, "result": {"review_id": review["id"]}}]
+    matches = f"本轮已安排复评 {review['id']}，时间为{review['scheduled_for']}。"
+    assert not orchestrator._unsupported_claims(matches, executed, conn=conn, patient_id="RV1", event_ids=[evt])
+    wrong = f"本轮已安排复评 {review['id']}，时间为后天。"
+    rejections = orchestrator._unsupported_claims(wrong, executed, conn=conn, patient_id="RV1", event_ids=[evt])
+    assert [r["code"] for r in rejections] == ["POSTCHECK_MISMATCH"]
+
+
+def test_b11_reference_records_each_review_and_does_not_reask(conn):
+    from backend.app.db.connection import loads
+
+    _patient(conn, "RV1")
+    evt = _event(conn, "RV1")
+    for task_type in ("record_glucose", "confirm_medication"):
+        tasks.create_task(conn, "RV1", task_type=task_type, title="核实记录",
+                          event_id=evt, due_at=iso(now(conn) + timedelta(days=2)))
+    expected = {row["id"] for row in conn.execute("SELECT id FROM reviews WHERE event_id=?", (evt,))}
+    assert len(expected) == 2
+    result = _review_reply(conn, "现有两项待办已覆盖本次事件。两项都已安排到期复评，届时会结合新记录再判断。",
+                           event_ids=[evt])
+
+    assert result["status"] == "completed", result
+    assert not result["rejections"]
+    assert conn.execute("SELECT COUNT(*) FROM questions").fetchone()[0] == 0
+    rows = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='review_reference'",
+                        (result["run_id"],)).fetchall()
+    assert {loads(row["payload"])["review_id"] for row in rows} == expected

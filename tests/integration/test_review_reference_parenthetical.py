@@ -88,3 +88,27 @@ def test_date_summary_covers_multiple_reviews(conn):
     import json as _json
     refs = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='review_reference'", (result["run_id"],)).fetchall()
     assert refs and len(_json.loads(refs[0]["payload"])["review_ids"]) >= 2
+
+def test_continued_reference_with_two_dates_covers_three_reviews(conn):
+    _patient(conn, "PR4")
+    evt = _event(conn, "PR4")
+    reviews.schedule_review(conn, "PR4", event_id=evt, delay_hours=24)
+    from backend.app.tasks import service as tasks
+    from backend.app.db.connection import iso, now
+    from datetime import timedelta
+
+    for index in range(2):
+        task, _ = tasks.create_task(conn, "PR4", task_type="record_glucose" if index == 0 else "record_activity",
+                                    title=f"任务{index}",
+                                    due_at=iso(now(conn) + timedelta(days=1 + index)), schedule_review=False)
+        reviews.schedule_review(conn, "PR4", task_id=task["id"], delay_hours=48)
+    rows = conn.execute("SELECT scheduled_for FROM reviews WHERE patient_id='PR4'").fetchall()
+    days = sorted({str(r["scheduled_for"])[5:10] for r in rows})
+    chinese = [f"{int(day[:2])}月{int(day[3:])}日" for day in days]
+    text = f"已经安排的复评（{'、'.join(chinese)}）继续沿用，无需重复安排。"
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {"patient_id": "PR4", "text": text}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "PR4", trigger_type="answer_received", message="记不清", llm=llm)
+    assert result["status"] == "completed", result
+    assert not [r for r in result["rejections"] if r["code"] == "POSTCHECK_MISMATCH"]
+    refs = conn.execute("SELECT payload FROM agent_steps WHERE run_id=? AND kind='review_reference'", (result["run_id"],)).fetchall()
+    assert len(refs) == 3

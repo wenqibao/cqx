@@ -808,8 +808,9 @@ _EXISTING_REVIEW = re.compile(
     r"(?:沿用|保留|继续执行)(?:既有|现有|原有|原先|原计划|之前|此前)?(?:已)?"
     r"(?:安排(?:好)?的?)?(?:的)?(?:到期|后续)?复评"
     r"|(?:之前|此前|原先|原计划)(?:已)?安排(?:好)?的?(?:到期|后续)?复评"
-    r"|(?:已有|既有|现有|原有)的?(?:到期|计划)?复评"
+    r"|(?:已有|既有|现有|原有|已安排|已经安排|此前安排)(?:好)?的?(?:到期|计划)?复评"
     r"|复评(?:\s*[（(][^）)]{0,60}[）)])?\s*(?:仍)?(?:按|沿用)原计划"
+    r"|复评(?:\s*[（(][^）)]{0,60}[）)])?\s*(?:继续)?(?:沿用|保留|按原计划执行|继续执行)"
 )
 _COLLECTIVE_REVIEW = re.compile(r"([两二三四五六七八九2-9])项(?:任务|待办)?(?:都|均)已安排(?:了)?(?:到期)?复评")
 _REVIEW_CHANGE = re.compile(
@@ -888,7 +889,10 @@ def _review_claims(text: str) -> Iterator[tuple[str, bool, int]]:
                                             or _REVIEW_TIME_CHANGE.match(segments[end])):
                 change = change or _REVIEW_TIME_CHANGE.match(segments[end])
                 end += 1
-            count = collective[1] if collective else "1"
+            count = collective[1] if collective else None
+            if count is None:
+                dates = set(_REVIEW_DATE.findall(part)) | set(_REVIEW_MONTH_DAY.findall(part))
+                count = str(len(dates) if dates else 1)
             yield "，".join(segments[index:end]), bool(existing and not change), int(count) if count.isdigit() else _DIGITS[count]
 
 

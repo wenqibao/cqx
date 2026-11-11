@@ -1,0 +1,71 @@
+{
+  "patient": {
+    "id": "VEDGE-202",
+    "name": "边界病例02（虚构）",
+    "age": 54,
+    "sex": "男",
+    "diabetes_type": "T2DM",
+    "duration_years": 6,
+    "complications": [],
+    "goals": [
+      "保持日常记录"
+    ],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 2,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 2,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 7.0,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "bp",
+      "value": null,
+      "hours_ago": 2,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]",
+      "payload": {
+        "systolic": 120,
+        "diastolic": 80
+      }
+    },
+    {
+      "kind": "bp",
+      "value": null,
+      "hours_ago": 2,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]",
+      "payload": {
+        "systolic": 128,
+        "diastolic": 82
+      }
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 99.9,
+      "hours_ago": 4,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]",
+      "expected_failed": true
+    }
+  ],
+  "expected_event_codes": [],
+  "expected_import": {
+    "success": 4,
+    "duplicates": 1,
+    "failed": 1
+  },
+  "demo_purpose": "重复与异常数据导入（去重、拒绝、隔离）"
+}

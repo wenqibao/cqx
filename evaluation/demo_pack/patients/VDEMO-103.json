@@ -1,0 +1,53 @@
+{
+  "patient": {
+    "id": "VDEMO-103",
+    "name": "视频演示病例03（虚构）",
+    "age": 49,
+    "sex": "女",
+    "diabetes_type": "T2DM",
+    "duration_years": 5,
+    "complications": [],
+    "goals": [
+      "保持日常记录"
+    ],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 7.2,
+      "hours_ago": 96,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 7.9,
+      "hours_ago": 72,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 8.5,
+      "hours_ago": 48,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 9.1,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 9.8,
+      "hours_ago": 1,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    }
+  ],
+  "expected_event_codes": [
+    "GLUCOSE_RISING"
+  ],
+  "demo_purpose": "信息缺失主动询问（无服药数据，等待用户回答）"
+}

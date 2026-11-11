@@ -1,0 +1,120 @@
+{
+  "pack_version": "VIDEO-DEMO-DATA-PACK-V1",
+  "pack_date": "2026-11-10",
+  "patient_count": 12,
+  "record_count": 57,
+  "patients": [
+    {
+      "id": "VDEMO-101",
+      "name": "视频演示病例01（虚构）",
+      "category": "主要演示病例",
+      "record_count": 10,
+      "expected_event_codes": [],
+      "demo_purpose": "稳定患者状态展示，正常患者无额外干预"
+    },
+    {
+      "id": "VDEMO-102",
+      "name": "视频演示病例02（虚构）",
+      "category": "主要演示病例",
+      "record_count": 9,
+      "expected_event_codes": [
+        "GLUCOSE_RISING",
+        "MEDICATION_NONADHERENCE",
+        "LOW_ACTIVITY"
+      ],
+      "demo_purpose": "多事件识别、综合分析与优先级排序"
+    },
+    {
+      "id": "VDEMO-103",
+      "name": "视频演示病例03（虚构）",
+      "category": "主要演示病例",
+      "record_count": 5,
+      "expected_event_codes": [
+        "GLUCOSE_RISING"
+      ],
+      "demo_purpose": "信息缺失主动询问（无服药数据，等待用户回答）"
+    },
+    {
+      "id": "VDEMO-104",
+      "name": "视频演示病例04（虚构）",
+      "category": "主要演示病例",
+      "record_count": 3,
+      "expected_event_codes": [
+        "HYPOGLYCEMIA_RECORD"
+      ],
+      "demo_purpose": "低血糖风险升级与人工复核"
+    },
+    {
+      "id": "VDEMO-105",
+      "name": "视频演示病例05（虚构）",
+      "category": "主要演示病例",
+      "record_count": 2,
+      "expected_event_codes": [
+        "HYPERGLYCEMIA_RECORD"
+      ],
+      "demo_purpose": "显著高血糖风险与人工复核"
+    },
+    {
+      "id": "VDEMO-106",
+      "name": "视频演示病例06（虚构）",
+      "category": "主要演示病例",
+      "record_count": 7,
+      "expected_event_codes": [
+        "GLUCOSE_RISING"
+      ],
+      "demo_purpose": "任务完成与 CLOSED 复评闭环"
+    },
+    {
+      "id": "VDEMO-107",
+      "name": "视频演示病例07（虚构）",
+      "category": "主要演示病例",
+      "record_count": 5,
+      "expected_event_codes": [
+        "GLUCOSE_RISING"
+      ],
+      "demo_purpose": "任务逾期与 MISSING_DATA 复评"
+    },
+    {
+      "id": "VDEMO-108",
+      "name": "视频演示病例08（虚构）",
+      "category": "主要演示病例",
+      "record_count": 3,
+      "expected_event_codes": [
+        "LOW_ACTIVITY"
+      ],
+      "demo_purpose": "时间冲突与个性化任务调整"
+    },
+    {
+      "id": "VEDGE-201",
+      "name": "边界病例01（虚构）",
+      "category": "边界测试病例",
+      "record_count": 1,
+      "expected_event_codes": [],
+      "demo_purpose": "档案严重缺项，完整性检查识别缺失字段"
+    },
+    {
+      "id": "VEDGE-202",
+      "name": "边界病例02（虚构）",
+      "category": "边界测试病例",
+      "record_count": 6,
+      "expected_event_codes": [],
+      "demo_purpose": "重复与异常数据导入（去重、拒绝、隔离）"
+    },
+    {
+      "id": "VEDGE-203",
+      "name": "边界病例03（虚构）",
+      "category": "边界测试病例",
+      "record_count": 3,
+      "expected_event_codes": [],
+      "demo_purpose": "低血糖阈值附近，不应触发 HYPOGLYCEMIA_RECORD"
+    },
+    {
+      "id": "VEDGE-204",
+      "name": "边界病例04（虚构）",
+      "category": "边界测试病例",
+      "record_count": 3,
+      "expected_event_codes": [],
+      "demo_purpose": "高血糖阈值附近，不应触发 HYPERGLYCEMIA_RECORD"
+    }
+  ]
+}

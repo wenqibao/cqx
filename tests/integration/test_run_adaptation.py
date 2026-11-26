@@ -81,7 +81,7 @@ def test_plan_changes_from_update_task(client, conn):
     _patient(conn, "O4A")
     task, _ = tasks.create_task(conn, "O4A", task_type="record_glucose", title="记录",
                                 due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
-    new_due = (now(conn) + timedelta(days=3)).isoformat()
+    new_due = (now(conn) + timedelta(days=2)).isoformat()
     llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("update_task", {
         "patient_id": "O4A", "task_id": task["id"], "due_at": new_due}, "c1")], raw={})])
     result = orchestrator.run_agent(conn, "O4A", trigger_type="answer_received", message="改成后天", llm=llm)
@@ -197,3 +197,51 @@ def test_reason_due_date_conflict_is_rejected(conn):
     })
     assert bad["ok"] is False
     assert bad["code"] == "MISSING_REQUIRED_DATA"
+
+def test_only_matching_resolved_error_is_removed(client, conn):
+    _patient(conn, "W3")
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,intent,output,started_at) "
+        "VALUES('RUN-W3','W3','event_detected','mock','completed','event_response',?,?)",
+        (dumps({
+            "rejections": [
+                {"code": "TOOL_EXECUTION_FAILED", "message": "缺少 task_id", "tool": "schedule_review"},
+                {"code": "TOOL_EXECUTION_FAILED", "message": "时间已过", "tool": "schedule_review"},
+            ],
+            "warnings": [{"code": "TOOL_EXECUTION_FAILED", "message": "缺少 task_id",
+                          "tool": "schedule_review", "resolved": True}],
+        }), iso(now(conn))),
+    )
+    body = client.get("/api/runs/RUN-W3").json()
+    remaining = [item["message"] for item in body["summary"]["unfinished"]]
+    assert remaining == ["时间已过"]
+
+
+def test_adherence_mixed_with_change_is_blocked():
+    from backend.app.safety import gate
+
+    assert gate.check_text("核对后把注射次数增加到每天三次。", generated=True)["allowed"] is False
+    assert gate.check_text("核对既往服用与注射次数。", generated=True)["allowed"] is True
+
+
+def test_request_date_conflict_is_rejected(conn):
+    _patient(conn, "W4")
+    task, _ = tasks.create_task(conn, "W4", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=2)), schedule_review=False)
+    from backend.app.db.connection import dumps as _dumps
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,input,started_at) "
+        "VALUES('RUN-W4','W4','answer_received','mock','running',?,?)",
+        (_dumps({"message": "明天晚上8点提醒我"}), iso(now(conn))),
+    )
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Asia/Shanghai")
+    due = now(conn).astimezone(tz).replace(hour=20, minute=0, second=0, microsecond=0)
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="W4", run_id="RUN-W4"), "update_task", {
+        "patient_id": "W4", "task_id": task["id"], "due_at": due.isoformat(),
+        "reason": "患者申请调整时间",
+    })
+    assert result["ok"] is False
+    assert result["code"] == "MISSING_REQUIRED_DATA"

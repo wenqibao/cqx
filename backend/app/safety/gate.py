@@ -141,7 +141,8 @@ def _is_adherence_collection(text: str, start: int, end: int) -> bool:
     prefix = text[left:start]
     if not any(cue in prefix for cue in COLLECTION_CUES):
         return False
-    return not any(verb in prefix or verb in matched for verb in CHANGE_VERBS)
+    effective = re.split(r"不涉及|不调整|不做|无需|仅做|只做", segment)[0]
+    return not any(verb in effective for verb in CHANGE_VERBS)
 
 
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:

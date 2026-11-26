@@ -803,7 +803,7 @@ x_contract_notes:
   frozen_at: v0.3.6
   run_summary:
     description: "运行详情新增 summary：goal/trigger/completed/unfinished/waiting/next_owner/partial_success/warnings/refs；旧运行缺字段时返回空数组与 null"
-    fields: [goal, trigger, completed, unfinished, waiting, next_owner, partial_success, warnings, refs]
+    fields: [goal, trigger, completed, unfinished, waiting, next_owner, partial_success, warnings, refs, plan_changes]
   run_result:
     warnings: "可修正拒绝被后续同工具成功纠正时保留在 rejections，并在 warnings 标记 resolved=true"
     status: "存在未解决的安全/业务拒绝才为 failed；可修正拒绝被纠正后按实际动作计算（通常 completed）"

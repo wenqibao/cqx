@@ -148,6 +148,19 @@ def _search_knowledge(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _ask_user(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    field = args.get("target_field")
+    patient_id = args.get("patient_id") or ctx.patient_id
+    if field:
+        recent = ctx.conn.execute(
+            "SELECT id, answer, answer_text FROM questions WHERE patient_id=? AND target_field=? "
+            "AND status='answered' ORDER BY answered_at DESC LIMIT 1", (patient_id, field)
+        ).fetchone()
+        if recent:
+            payload = loads(recent["answer"], {}) or {}
+            if payload.get("uncertain") is False:
+                return _ok(question_id=recent["id"], created=False, reused=True,
+                           status="answered", answer=payload.get("value"),
+                           question=f"已复用此前回答：{recent['answer_text'] or ''}")
     question, created = questioning.create_question(
         ctx.conn,
         args.get("patient_id") or ctx.patient_id,

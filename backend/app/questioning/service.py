@@ -135,6 +135,16 @@ def get_question(conn: sqlite3.Connection, question_id: str) -> dict[str, Any] |
     return _row(row) if row else None
 
 
+UNCERTAIN_CUES = ("记不清", "不确定", "不能确定", "没法确认", "无法确认", "说不清", "不清楚", "忘了", "想不起来", "不知道")
+
+
+def _is_uncertain(text: str | None) -> bool:
+    value = (text or "").strip().lower()
+    if value in {"unknown", "skip"}:
+        return True
+    return any(cue in value for cue in UNCERTAIN_CUES)
+
+
 def answer_question(
     conn: sqlite3.Connection,
     question_id: str,
@@ -161,7 +171,7 @@ def answer_question(
     payload = answer if answer is not None else {
         "text": answer_text,
         "value": answer_value,
-        "uncertain": (answer_text or "").strip() in {"不知道", "记不清", "不确定", "unknown", "skip"},
+        "uncertain": _is_uncertain(answer_text),
     }
     status = "expired" if expires and ts > expires else "answered"
     # QUESTION-ANSWER-RACE-01：只有第一个请求能从 waiting 转换到 answered

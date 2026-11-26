@@ -5,7 +5,12 @@ from datetime import timedelta
 
 from backend.app.agent import orchestrator
 from backend.app.agent.llm import LLMResponse, ToolCall
-from backend.app.db.connection import iso, now
+from backend.app.db.connection import iso, now, parse_ts
+from zoneinfo import ZoneInfo
+
+
+def _local_day(value):
+    return parse_ts(value).astimezone(ZoneInfo("Asia/Shanghai")).date()
 from backend.app.reviews import service as reviews
 from backend.app.services import patients
 from backend.app.services import records
@@ -45,7 +50,7 @@ def test_parenthetical_review_reference_is_recognized(conn):
     _patient(conn, "PR1")
     evt = _event(conn, "PR1")
     review = reviews.schedule_review(conn, "PR1", event_id=evt, delay_hours=48)
-    day = str(review["scheduled_for"])[:10]
+    day = _local_day(review["scheduled_for"]).isoformat()
     text = f"该任务对应的复评（{review['id']}，{day}）沿用原计划，不重复安排。"
     llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {"patient_id": "PR1", "text": text}, "c1")], raw={})])
     result = orchestrator.run_agent(conn, "PR1", trigger_type="answer_received", message="记不清", llm=llm)
@@ -78,8 +83,8 @@ def test_date_summary_covers_multiple_reviews(conn):
     task2, _ = tasks.create_task(conn, "PR3", task_type="record_activity", title="活动",
                                  due_at=iso(now(conn) + timedelta(days=2)), schedule_review=False)
     third = reviews.schedule_review(conn, "PR3", task_id=task2["id"], delay_hours=48)
-    day1 = str(first["scheduled_for"])[:10]
-    day2 = str(second["scheduled_for"])[:10]
+    day1 = _local_day(first["scheduled_for"]).isoformat()
+    day2 = _local_day(second["scheduled_for"]).isoformat()
     text = f"两项任务都已安排复评（{day1}、{day2}），沿用原计划。"
     llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {"patient_id": "PR3", "text": text}, "c1")], raw={})])
     result = orchestrator.run_agent(conn, "PR3", trigger_type="answer_received", message="记不清", llm=llm)
@@ -92,7 +97,7 @@ def test_date_summary_covers_multiple_reviews(conn):
 def test_continued_reference_with_two_dates_covers_three_reviews(conn):
     _patient(conn, "PR4")
     evt = _event(conn, "PR4")
-    reviews.schedule_review(conn, "PR4", event_id=evt, delay_hours=24)
+    reviews.schedule_review(conn, "PR4", event_id=evt, delay_hours=48)
     from backend.app.tasks import service as tasks
     from backend.app.db.connection import iso, now
     from datetime import timedelta
@@ -101,9 +106,9 @@ def test_continued_reference_with_two_dates_covers_three_reviews(conn):
         task, _ = tasks.create_task(conn, "PR4", task_type="record_glucose" if index == 0 else "record_activity",
                                     title=f"任务{index}",
                                     due_at=iso(now(conn) + timedelta(days=1 + index)), schedule_review=False)
-        reviews.schedule_review(conn, "PR4", task_id=task["id"], delay_hours=48)
+        reviews.schedule_review(conn, "PR4", task_id=task["id"], delay_hours=48 + index * 24)
     rows = conn.execute("SELECT scheduled_for FROM reviews WHERE patient_id='PR4'").fetchall()
-    days = sorted({str(r["scheduled_for"])[5:10] for r in rows})
+    days = sorted({_local_day(r["scheduled_for"]).strftime("%m-%d") for r in rows})
     chinese = [f"{int(day[:2])}月{int(day[3:])}日" for day in days]
     text = f"已经安排的复评（{'、'.join(chinese)}）继续沿用，无需重复安排。"
     llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {"patient_id": "PR4", "text": text}, "c1")], raw={})])

@@ -907,7 +907,14 @@ def _review_claims(text: str) -> Iterator[tuple[str, bool, int]]:
 
 
 def _review_time_matches(statement: str, scheduled: datetime, current: datetime) -> bool:
-    """按服务业务时钟核对日期、时分与显式相对时间。"""
+    """按服务业务时钟（Asia/Shanghai）核对日期、时分与显式相对时间。"""
+    from zoneinfo import ZoneInfo
+
+    business_tz = ZoneInfo("Asia/Shanghai")
+    if scheduled.tzinfo is not None:
+        scheduled = scheduled.astimezone(business_tz)
+    if current.tzinfo is not None:
+        current = current.astimezone(business_tz)
     for value in _REVIEW_DATE.findall(statement):
         try:
             stated = parse_ts(value)
@@ -976,7 +983,9 @@ def _verified_review_ids(conn: sqlite3.Connection, patient_id: str, event_ids: l
         if any(values and row[column] not in values for column, values in id_filters.items()):
             continue
         if count > 1:
-            scheduled_at = parse_ts(row["scheduled_for"])
+            from zoneinfo import ZoneInfo
+
+            scheduled_at = parse_ts(row["scheduled_for"]).astimezone(ZoneInfo("Asia/Shanghai"))
             if multi_dates and (scheduled_at.year, scheduled_at.month, scheduled_at.day) not in multi_dates:
                 continue
         elif not _review_time_matches(statement, parse_ts(row["scheduled_for"]), current):

@@ -245,3 +245,48 @@ def test_request_date_conflict_is_rejected(conn):
     })
     assert result["ok"] is False
     assert result["code"] == "MISSING_REQUIRED_DATA"
+
+def _scheduled_review(conn, pid, *, local_time="2026-11-30T02:04:55+08:00"):
+    from datetime import datetime
+
+    from backend.app.db.connection import dumps as _dumps
+    task, _ = tasks.create_task(conn, pid, task_type="record_glucose", title="核实",
+                                due_at=iso(now(conn) + timedelta(days=2)), schedule_review=False)
+    review_id = f"REV-{pid}"
+    conn.execute(
+        "INSERT INTO reviews(id,patient_id,task_id,event_id,run_id,branch,status,reason,scheduled_for,created_at) "
+        "VALUES(?,?,?,NULL,NULL,'MISSING_DATA','scheduled','核实',?,?)",
+        (review_id, pid, task["id"], local_time, iso(now(conn))),
+    )
+    return review_id
+
+
+def test_existing_review_claim_with_local_date_is_accepted(conn):
+    _patient(conn, "F2A")
+    review_id = _scheduled_review(conn, "F2A")
+    text = "已安排的复评仍按原计划在11月30日凌晨（北京时间）进行。"
+    run_id = "RUN-F2A"
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,input,started_at) "
+        "VALUES('RUN-F2A','F2A','answer_received','mock','running',?,?)",
+        (dumps({"message": "我不记得了"}), iso(now(conn))),
+    )
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {
+        "patient_id": "F2A", "text": text}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "F2A", trigger_type="answer_received", message="我不记得了", llm=llm)
+    assert result["status"] == "completed", result
+    assert not [r for r in result["rejections"] if r["code"] == "POSTCHECK_MISMATCH"]
+    refs = conn.execute(
+        "SELECT payload FROM agent_steps WHERE run_id=? AND kind='review_reference'", (result["run_id"],)
+    ).fetchall()
+    assert refs
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='F2A'").fetchone()["c"] == 1
+
+
+def test_review_claim_without_any_review_is_rejected(conn):
+    _patient(conn, "F2B")
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {
+        "patient_id": "F2B", "text": "已安排的复评仍按原计划在11月30日凌晨（北京时间）进行。"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "F2B", trigger_type="answer_received", message="我不记得了", llm=llm)
+    assert result["status"] == "failed"
+    assert any(r["code"] == "POSTCHECK_MISMATCH" for r in result["rejections"])

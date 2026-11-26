@@ -199,7 +199,11 @@ def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, A
             refs.update(_refs_from_result(result))
             if result.get("status") == "done":
                 completed[-1]["detail"] = "任务已完成"
+    resolved = {(w.get("code"), w.get("tool")) for w in (output.get("warnings") or [])
+                if w.get("resolved") is True}
     for rejection in output.get("rejections") or []:
+        if (rejection.get("code"), rejection.get("tool")) in resolved:
+            continue
         unfinished.append({
             "code": rejection.get("code"),
             "message": rejection.get("message"),
@@ -209,6 +213,8 @@ def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, A
         if step.get("status") == "failed" and step.get("kind") in ("tool_result", "rejection"):
             entry = {"code": step.get("code"), "message": (_payload(step).get("post_check") or {}).get("message"),
                      "tool": step.get("tool_name")}
+            if (entry["code"], entry["tool"]) in resolved:
+                continue
             if entry["code"] and all(item.get("code") != entry["code"] or item.get("tool") != entry["tool"]
                                      for item in unfinished):
                 unfinished.append(entry)

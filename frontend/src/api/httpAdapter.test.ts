@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { HttpAdapter } from "./httpAdapter";
 import { createClient } from "./client";
-import { traceSchema, runSummarySchema } from "./types";
+import { traceSchema, runSummarySchema, planChangeSchema } from "./types";
 it("非JSON的502仍保留HTTP错误码", async () => {
   await expect(
     new HttpAdapter(
@@ -61,6 +61,39 @@ describe("O1 运行详情 summary 契约", () => {
     expect(
       runSummarySchema.safeParse({ ...summary, partial_success: "false" })
         .success,
+    ).toBe(false);
+  });
+});
+
+describe("O4 plan_changes 契约", () => {
+  const change = {
+    task_id: "TSK-example",
+    title: "核实记录",
+    version_before: 1,
+    version_after: 2,
+    changed_fields: { priority: { before: 0, after: 1 } },
+    reason: "患者补充约束",
+    result: "saved",
+  };
+  it("保留实际版本、零值和来源扩展字段", () => {
+    const body = { ...change, changed_by: "patient" };
+    expect(planChangeSchema.parse(body)).toEqual(body);
+  });
+  it("首次保存支持空前版本和空字段值", () => {
+    expect(
+      planChangeSchema.parse({
+        ...change,
+        version_before: null,
+        changed_fields: { description: { before: null, after: "补充说明" } },
+      }).version_before,
+    ).toBeNull();
+  });
+  it("错误版本类型和差异结构拒绝解析", () => {
+    expect(
+      planChangeSchema.safeParse({ ...change, version_after: "2" }).success,
+    ).toBe(false);
+    expect(
+      planChangeSchema.safeParse({ ...change, changed_fields: [] }).success,
     ).toBe(false);
   });
 });

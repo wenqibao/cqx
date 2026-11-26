@@ -1,5 +1,18 @@
 # C第二阶段文件地图
 
+## 2026-11-27 O4 增量
+
+| 文件 | 作用 |
+| --- | --- |
+| `src/api/types.ts`、`src/api/httpAdapter.test.ts` | 可选 plan_changes 契约与版本/字段结构校验 |
+| `src/components/PlanChanges.tsx` | 实际保存的任务版本及字段前后对照，过滤无差异与失败结果 |
+| `src/components/RunOutcome.tsx` | 在本次业务结果内接入计划对照 |
+| `e2e/plan-changes.spec.ts` | 真实改期与历史版本定位、无变化、失败和日志完整性验证 |
+| `docs/O4_PLAN_CHANGES_INTEGRATION.md` | 基线、实际结果、兼容范围和 B 复验说明 |
+| `docs/evidence/o4/plan-changes-api.json`、`plan-changes.png` | 两次实际 API 改期的版本证据与截图，后端 Mock |
+
+根文件地图按既有所有权由 A 同步本增量。
+
 ## 2026-11-27 O1 增量
 
 | 文件 | 作用 |

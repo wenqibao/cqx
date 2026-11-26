@@ -1,8 +1,13 @@
 import { Alert, Button } from "antd";
 import { Link } from "react-router-dom";
 import type { RunSummary } from "../api/types";
-import { businessName, businessText, toolDescriptions } from "../utils/business";
+import {
+  businessName,
+  businessText,
+  toolDescriptions,
+} from "../utils/business";
 import { link } from "../utils/format";
+import { PlanChanges } from "./PlanChanges";
 
 const owners: Record<string, string> = {
   patient: "患者",
@@ -64,6 +69,7 @@ export function RunOutcome({
           </ul>
         </section>
       )}
+      <PlanChanges changes={summary.plan_changes || []} patientId={patientId} />
       {waiting && (
         <section aria-label="当前等待事项">
           <h3>当前等待</h3>

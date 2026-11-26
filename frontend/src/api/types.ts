@@ -102,6 +102,26 @@ export const healthSchema = z
     version: z.string().optional(),
   })
   .passthrough();
+export const planChangeSchema = z
+  .object({
+    task_id: z.string(),
+    title: z.string().nullable(),
+    version_before: z.number().nullable(),
+    version_after: z.number().nullable(),
+    changed_fields: z.record(
+      z.string(),
+      z
+        .object({
+          before: z.unknown(),
+          after: z.unknown(),
+        })
+        .passthrough(),
+    ),
+    reason: z.string().nullable(),
+    result: z.string(),
+  })
+  .passthrough();
+export type PlanChange = z.infer<typeof planChangeSchema>;
 export const runSummarySchema = z
   .object({
     goal: z.string().nullable(),
@@ -148,6 +168,7 @@ export const runSummarySchema = z
       .nullable(),
     partial_success: z.boolean(),
     refs: z.array(z.string()),
+    plan_changes: z.array(planChangeSchema).optional(),
   })
   .passthrough();
 export type RunSummary = z.infer<typeof runSummarySchema>;

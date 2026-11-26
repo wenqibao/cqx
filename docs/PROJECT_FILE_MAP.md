@@ -260,3 +260,9 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - `backend/app/agent/orchestrator.py`：逐条核对复评声明，验证持久化复评的患者、事件、任务和时间，未核实回复在技术轨迹标为失败。
 - `tests/integration/test_real_a01_a02_a03.py`：混合指令、越权零写入、复评声明作用域及 B11 回归。
 - `docs/A_FINAL_BACKEND_REPAIR_REPORT.md`：修复范围、验证命令及 B 复验交接。
+
+## 两天优化 O1（2026-11-26）
+
+- ackend/app/agent/run_summary.py：运行顶部业务摘要（目标/触发/完成/未完成/等待/下一步/引用）
+- ackend/app/audit/trace.py：运行详情返回 summary
+- 	ests/integration/test_run_summary.py：完成/等待/失败/旧数据四类回归

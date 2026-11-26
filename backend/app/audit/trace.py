@@ -135,11 +135,17 @@ def trace(conn: sqlite3.Connection, run_id: str) -> dict[str, Any]:
         for t in list_tasks(conn, patient_id, limit=200)
         if t.get("source_run_id") == run_id or t['id'] in version_tasks or run_id in (t.get("meta") or {}).get("run_ids", [])
     ]
+    step_items = steps(conn, run_id)
+    question_items = [q for q in list_questions(conn, patient_id, limit=200) if q.get("run_id") == run_id]
+    review_items = [r for r in list_reviews(conn, patient_id, limit=200) if r.get("run_id") == run_id]
+    from backend.app.agent import run_summary
+
     return {
         "run": run,
-        "steps": steps(conn, run_id),
+        "steps": step_items,
         "evidence": evidence_for_run(conn, run_id),
-        "questions": [q for q in list_questions(conn, patient_id, limit=200) if q.get("run_id") == run_id],
-        "reviews": [r for r in list_reviews(conn, patient_id, limit=200) if r.get("run_id") == run_id],
+        "questions": question_items,
+        "reviews": review_items,
         "tasks": tasks,
+        "summary": run_summary.build(conn, run, step_items, question_items, review_items, tasks),
     }

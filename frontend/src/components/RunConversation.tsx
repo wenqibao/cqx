@@ -1,6 +1,7 @@
 import { Button, Tag } from "antd";
 import { Link } from "react-router-dom";
 import { api } from "../api/workbench";
+import type { RunSummary } from "../api/types";
 import { useResource } from "../hooks/useResource";
 import { link, obj } from "../utils/format";
 import {
@@ -14,13 +15,15 @@ export function RunConversation({
   run,
   patientId,
   questions,
+  summary,
 }: {
   run: Record<string, unknown>;
   patientId: string;
   questions?: Record<string, unknown>[];
+  summary?: RunSummary | null;
 }) {
   const runId = String(run.id || run.run_id || "");
-  const waiting = run.status === "waiting_user";
+  const waiting = !summary && run.status === "waiting_user";
   const resource = useResource(
     `conversation:${patientId}:${runId}:${run.status}`,
     (signal) =>
@@ -54,7 +57,14 @@ export function RunConversation({
         </div>
       )}
       {related
-        .filter((q) => !pending.includes(q))
+        .filter(
+          (q) =>
+            !pending.includes(q) &&
+            !(
+              summary?.waiting?.kind === "question" &&
+              summary.waiting.id === q.id
+            ),
+        )
         .map((q) => (
           <div key={String(q.id)}>
             <div className="conversation-message agent-message">

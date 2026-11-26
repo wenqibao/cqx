@@ -1,0 +1,478 @@
+{
+  "validation_mode": "controlled Python LLM stub; no vendor request",
+  "backend_sha": "dc383482a8de4e94009f27bb7d1659a48efc3a41",
+  "trace": {
+    "run": {
+      "id": "RUN-b474c6c83772",
+      "patient_id": "O1-WARNING",
+      "trigger_type": "user_request",
+      "trigger_ref": null,
+      "llm_mode": "real",
+      "model_name": "controlled-stub-no-provider",
+      "status": "completed",
+      "intent": "patient_request",
+      "input": {
+        "event_ids": [],
+        "message": "安排复评",
+        "trigger_type": "user_request"
+      },
+      "plan": {
+        "actions": [
+          {
+            "tool": "schedule_review"
+          },
+          {
+            "tool": "schedule_review"
+          }
+        ],
+        "intent": "patient_request",
+        "priority_order": [],
+        "reasoning_summary": [
+          "真实模型通过原生工具调用决策，执行结果已核验"
+        ],
+        "tool_rounds": [
+          {
+            "round": 0,
+            "tools": [
+              {
+                "code": "TOOL_EXECUTION_FAILED",
+                "ok": false,
+                "tool": "schedule_review"
+              }
+            ]
+          },
+          {
+            "round": 1,
+            "tools": [
+              {
+                "code": null,
+                "ok": true,
+                "tool": "schedule_review"
+              }
+            ]
+          }
+        ],
+        "warnings": []
+      },
+      "output": {
+        "actions": [
+          {
+            "args": {
+              "delay_hours": 24,
+              "patient_id": "O1-WARNING"
+            },
+            "ok": false,
+            "post_check": {
+              "code": "TOOL_EXECUTION_FAILED",
+              "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+              "ok": false
+            },
+            "result": {
+              "code": "TOOL_EXECUTION_FAILED",
+              "error": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+              "ok": false
+            },
+            "step_no": 8,
+            "tool": "schedule_review"
+          },
+          {
+            "args": {
+              "delay_hours": 24,
+              "patient_id": "O1-WARNING",
+              "task_id": "TSK-6cd4f41b195f"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {
+                "review_id": "REV-69358e3e9aba",
+                "scheduled_for": "2026-11-27T16:14:31Z"
+              },
+              "ok": true
+            },
+            "result": {
+              "branch": "PENDING",
+              "ok": true,
+              "review_id": "REV-69358e3e9aba",
+              "scheduled_for": "2026-11-27T16:14:31Z"
+            },
+            "step_no": 14,
+            "tool": "schedule_review"
+          }
+        ],
+        "rejections": [
+          {
+            "code": "TOOL_EXECUTION_FAILED",
+            "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "tool": "schedule_review"
+          }
+        ],
+        "responses": [
+          "已安排复评。"
+        ],
+        "warnings": [
+          {
+            "code": "TOOL_EXECUTION_FAILED",
+            "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "resolved": true,
+            "tool": "schedule_review"
+          }
+        ]
+      },
+      "error": null,
+      "started_at": "2026-11-26T16:14:31Z",
+      "finished_at": "2026-11-26T16:14:31Z"
+    },
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "perceive",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "llm_mode": "real",
+          "missing_fields": [
+            "fasting_glucose",
+            "steps",
+            "medication_taken"
+          ],
+          "open_events": [],
+          "patient_id": "O1-WARNING"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 2,
+        "phase": "plan",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "intent": "patient_request"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 3,
+        "phase": "plan",
+        "kind": "llm_request",
+        "tool_name": null,
+        "payload": {
+          "model": "controlled-stub-no-provider",
+          "round": 0
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 4,
+        "phase": "plan",
+        "kind": "llm_response",
+        "tool_name": null,
+        "payload": {
+          "model": null,
+          "response_id": null,
+          "round": 0,
+          "tool_calls": [
+            {
+              "arguments": {
+                "delay_hours": 24,
+                "patient_id": "O1-WARNING"
+              },
+              "id": "c1",
+              "name": "schedule_review"
+            }
+          ],
+          "usage": null
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 5,
+        "phase": "plan",
+        "kind": "decision_rationale",
+        "tool_name": null,
+        "payload": {
+          "linked_event_ids": [],
+          "rationale": "",
+          "round": 0,
+          "tools": [
+            "schedule_review"
+          ]
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 6,
+        "phase": "validate",
+        "kind": "validation",
+        "tool_name": "schedule_review",
+        "payload": {
+          "ok": true
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 7,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "schedule_review",
+        "payload": {
+          "args": {
+            "delay_hours": 24,
+            "patient_id": "O1-WARNING"
+          },
+          "reason": "模型决策"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 8,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "schedule_review",
+        "payload": {
+          "post_check": {
+            "code": "TOOL_EXECUTION_FAILED",
+            "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "ok": false
+          },
+          "result": {
+            "code": "TOOL_EXECUTION_FAILED",
+            "error": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+            "ok": false
+          }
+        },
+        "status": "failed",
+        "code": "TOOL_EXECUTION_FAILED",
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 9,
+        "phase": "plan",
+        "kind": "llm_request",
+        "tool_name": null,
+        "payload": {
+          "model": "controlled-stub-no-provider",
+          "round": 1
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 10,
+        "phase": "plan",
+        "kind": "llm_response",
+        "tool_name": null,
+        "payload": {
+          "model": null,
+          "response_id": null,
+          "round": 1,
+          "tool_calls": [
+            {
+              "arguments": {
+                "delay_hours": 24,
+                "patient_id": "O1-WARNING",
+                "task_id": "TSK-6cd4f41b195f"
+              },
+              "id": "c2",
+              "name": "schedule_review"
+            }
+          ],
+          "usage": null
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 11,
+        "phase": "plan",
+        "kind": "decision_rationale",
+        "tool_name": null,
+        "payload": {
+          "linked_event_ids": [],
+          "rationale": "",
+          "round": 1,
+          "tools": [
+            "schedule_review"
+          ]
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 12,
+        "phase": "validate",
+        "kind": "validation",
+        "tool_name": "schedule_review",
+        "payload": {
+          "ok": true
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 13,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "schedule_review",
+        "payload": {
+          "args": {
+            "delay_hours": 24,
+            "patient_id": "O1-WARNING",
+            "task_id": "TSK-6cd4f41b195f"
+          },
+          "reason": "模型决策"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 14,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "schedule_review",
+        "payload": {
+          "post_check": {
+            "detail": {
+              "review_id": "REV-69358e3e9aba",
+              "scheduled_for": "2026-11-27T16:14:31Z"
+            },
+            "ok": true
+          },
+          "result": {
+            "branch": "PENDING",
+            "ok": true,
+            "review_id": "REV-69358e3e9aba",
+            "scheduled_for": "2026-11-27T16:14:31Z"
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 15,
+        "phase": "plan",
+        "kind": "llm_request",
+        "tool_name": null,
+        "payload": {
+          "model": "controlled-stub-no-provider",
+          "round": 2
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 16,
+        "phase": "plan",
+        "kind": "llm_response",
+        "tool_name": null,
+        "payload": {
+          "model": null,
+          "response_id": null,
+          "round": 2,
+          "tool_calls": [],
+          "usage": null
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      },
+      {
+        "step_no": 17,
+        "phase": "observe",
+        "kind": "review_reference",
+        "tool_name": "respond",
+        "payload": {
+          "reason": "引用既有复评",
+          "review_id": "REV-69358e3e9aba",
+          "review_ids": [
+            "REV-69358e3e9aba"
+          ]
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:14:31Z"
+      }
+    ],
+    "evidence": [],
+    "questions": [],
+    "reviews": [
+      {
+        "id": "REV-69358e3e9aba",
+        "patient_id": "O1-WARNING",
+        "task_id": "TSK-6cd4f41b195f",
+        "event_id": null,
+        "run_id": "RUN-b474c6c83772",
+        "branch": "PENDING",
+        "status": "scheduled",
+        "reason": "按计划安排复评",
+        "detail": {
+          "scheduled_by": "RUN-b474c6c83772"
+        },
+        "scheduled_for": "2026-11-27T16:14:31Z",
+        "created_at": "2026-11-26T16:14:31Z",
+        "resolved_at": null
+      }
+    ],
+    "tasks": [],
+    "summary": {
+      "goal": "执行患者请求的健康管理动作",
+      "trigger": {
+        "type": "user_request",
+        "label": "患者主动请求",
+        "ref": null,
+        "reason": "安排复评"
+      },
+      "completed": [
+        {
+          "tool": "schedule_review",
+          "label": "安排复评",
+          "refs": [
+            "REV-69358e3e9aba"
+          ]
+        }
+      ],
+      "unfinished": [
+        {
+          "code": "TOOL_EXECUTION_FAILED",
+          "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+          "tool": "schedule_review"
+        }
+      ],
+      "waiting": null,
+      "next_owner": null,
+      "partial_success": true,
+      "warnings": [
+        {
+          "code": "TOOL_EXECUTION_FAILED",
+          "message": "ReviewError: 安排复评需要 task_id 或 event_id（当前无法唯一确定关联任务）",
+          "resolved": true,
+          "tool": "schedule_review"
+        }
+      ],
+      "refs": [
+        "REV-69358e3e9aba",
+        "RUN-b474c6c83772"
+      ]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { HttpAdapter } from "./httpAdapter";
 import { createClient } from "./client";
+import { traceSchema, runSummarySchema } from "./types";
 it("非JSON的502仍保留HTTP错误码", async () => {
   await expect(
     new HttpAdapter(
@@ -8,6 +9,60 @@ it("非JSON的502仍保留HTTP错误码", async () => {
       vi.fn().mockResolvedValue(new Response("Bad Gateway", { status: 502 })),
     ).health(),
   ).rejects.toMatchObject({ code: "HTTP_502", detail: "Bad Gateway" });
+});
+
+describe("O1 运行详情 summary 契约", () => {
+  const summary = {
+    goal: "核实健康记录",
+    trigger: { label: "患者回答问题", ref: "Q-actual" },
+    completed: [],
+    unfinished: [{ code: "TOOL_EXECUTION_FAILED", message: null }],
+    waiting: {
+      kind: "question",
+      id: "Q-actual",
+      target_field: "medication_taken",
+      text: "请补充记录",
+    },
+    next_owner: { role: "patient", action: "回答待确认问题" },
+    partial_success: true,
+    warnings: [],
+    refs: ["RUN-actual", "Q-actual"],
+  };
+  const trace = {
+    run: {
+      id: "RUN-actual",
+      patient_id: "P001",
+      status: "waiting_user",
+      llm_mode: "mock",
+      trigger_type: "answer_received",
+      started_at: "2026-11-26T00:00:00Z",
+    },
+    steps: [],
+    evidence: [],
+    tasks: [],
+  };
+
+  it("HTTP详情保留summary、来源与原始扩展字段", async () => {
+    const body = { ...trace, summary };
+    const adapter = new HttpAdapter(
+      "",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(body))),
+    );
+    expect(await adapter.trace("RUN-actual")).toEqual(body);
+  });
+  it("旧详情缺少summary或summary为null时仍可读取", () => {
+    expect(traceSchema.parse(trace)).toEqual(trace);
+    expect(traceSchema.parse({ ...trace, summary: null }).summary).toBeNull();
+  });
+  it("completed或partial_success类型错误会拒绝解析", () => {
+    expect(
+      runSummarySchema.safeParse({ ...summary, completed: "已完成" }).success,
+    ).toBe(false);
+    expect(
+      runSummarySchema.safeParse({ ...summary, partial_success: "false" })
+        .success,
+    ).toBe(false);
+  });
 });
 it("同一客户端请求串行执行", async () => {
   let active = 0,

@@ -1,5 +1,22 @@
 # C第二阶段文件地图
 
+## 2026-11-27 O1 增量
+
+| 文件 | 作用 |
+| --- | --- |
+| `src/api/types.ts`、`src/api/httpAdapter.test.ts` | 可选 summary 契约、旧响应兼容及结构错误校验 |
+| `src/components/RunOutcome.tsx` | summary 驱动的业务结果与患者/问题深链接 |
+| `src/components/RunConversation.tsx` | 与顶部等待入口协调，保留真实回复与旧后端兼容 |
+| `src/pages/agent/Agent.tsx` | 运行详情接入 summary，原始轨迹保留在日志 |
+| `e2e/run-summary.spec.ts` | 真实 summary 入口、受控成功声明反例与失败展示 |
+| `e2e/reply-guidance.spec.ts` | 显式缺少 summary 的旧后端问题读取异常用例 |
+| `docs/O1_SUMMARY_INTEGRATION.md` | O1 基线、验证结果与 B/A 交接 |
+| `docs/evidence/o1/summary-warning-source.json` | 已纠正 warning 仍进入 unfinished 的后端真实轨迹，受控 Stub、无厂商调用 |
+
+仓库根 `docs/PROJECT_FILE_MAP.md` 按既有所有权由 A 同步，可引用本增量地图。
+
+## 历史文件地图
+
 2026-11-05。本轮源码、工具、文档和脱敏证据均在frontend/；未修改A/B后端、CLI、规则、原测试或场景Expected。仓库根PROJECT_FILE_MAP由A维护，合并后可引用本地图。
 
 | 文件 / 目录 | 作用 |

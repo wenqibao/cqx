@@ -266,3 +266,10 @@ python scripts/run_scenarios.py     # 33 个固定场景（A 9 + B 24），生�
 - ackend/app/agent/run_summary.py：运行顶部业务摘要（目标/触发/完成/未完成/等待/下一步/引用）
 - ackend/app/audit/trace.py：运行详情返回 summary
 - 	ests/integration/test_run_summary.py：完成/等待/失败/旧数据四类回归
+
+## 两天优化 O2/O3/O4（2026-11-27）
+
+- `backend/app/agent/tools.py`：已回答有效字段复用，不重复提问
+- `backend/app/questioning/service.py`：未知回答统一识别（记不清/不能确定/无法确认）
+- `backend/app/agent/run_summary.py`：新增 plan_changes（版本前后、字段差异、原因、结果）
+- `tests/integration/test_run_adaptation.py`：O2/O3/O4 七项回归

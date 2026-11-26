@@ -121,6 +121,41 @@ def _verify_object(conn: sqlite3.Connection, patient_id: str, tool: str,
     return True, None
 
 
+PLAN_FIELDS = ("due_at", "title", "description", "status", "priority", "task_type")
+
+
+def _plan_changes(conn: sqlite3.Connection, run_id: str) -> list[dict[str, Any]]:
+    """O4：本次运行实际写入的任务版本与前一版本对照。"""
+    rows = conn.execute(
+        "SELECT task_id, version, snapshot, change_kind, reason, changed_by, created_at "
+        "FROM task_versions WHERE run_id=? ORDER BY task_id, version", (run_id,)
+    ).fetchall()
+    changes: list[dict[str, Any]] = []
+    for row in rows:
+        after = loads(row["snapshot"], {}) or {}
+        previous = conn.execute(
+            "SELECT snapshot FROM task_versions WHERE task_id=? AND version<? ORDER BY version DESC LIMIT 1",
+            (row["task_id"], row["version"]),
+        ).fetchone()
+        before = (loads(previous["snapshot"], {}) or {}) if previous else {}
+        diff = {}
+        for field in PLAN_FIELDS:
+            if before.get(field) != after.get(field):
+                diff[field] = {"before": before.get(field), "after": after.get(field)}
+        changes.append({
+            "task_id": row["task_id"],
+            "title": after.get("title"),
+            "change_kind": row["change_kind"],
+            "version_before": before.get("version"),
+            "version_after": after.get("version"),
+            "changed_fields": diff,
+            "reason": row["reason"],
+            "changed_by": row["changed_by"],
+            "result": "saved",
+        })
+    return changes
+
+
 def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, Any]],
           questions: list[dict[str, Any]], reviews: list[dict[str, Any]],
           tasks: list[dict[str, Any]]) -> dict[str, Any]:
@@ -219,5 +254,6 @@ def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, A
         "next_owner": next_owner,
         "partial_success": partial_success,
         "warnings": output.get("warnings") or [],
+        "plan_changes": _plan_changes(conn, run["id"]),
         "refs": sorted(refs),
     }

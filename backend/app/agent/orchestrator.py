@@ -356,7 +356,7 @@ def _run_agent_body(
         if idx in rejected_indexes:
             continue
         result = _execute_action(conn, ctx, run_id, action, executed, rejections)
-        if result.get("question_id"):
+        if _is_new_waiting_question(result):
             question_created = True
         if result.get("text"):
             responses.append(result["text"])
@@ -400,6 +400,16 @@ def _status_for(executed: list[dict[str, Any]], rejections: list[dict[str, Any]]
     if executed and all((not e.get("ok")) for e in executed):
         return "failed"
     return "completed"
+
+
+def _is_new_waiting_question(result: dict[str, Any]) -> bool:
+    """复用已回答字段的 ask_user 不进入 waiting（O3）。"""
+    return bool(
+        result.get("question_id")
+        and result.get("ok")
+        and result.get("created", True)
+        and result.get("status") == "waiting"
+    )
 
 
 def _execute_action(
@@ -1256,7 +1266,7 @@ def _run_real_llm(
                     ctx.evidence = evidence
                 if result.get("ok") and call.name == "update_task":
                     force_reuse_task_id = None
-                if result.get('question_id') and result.get('ok'):
+                if _is_new_waiting_question(result):
                     question_created = True
                 if result.get('text') and result.get('ok'):
                     responses.append(result['text'])

@@ -277,7 +277,12 @@ def post_execution_check(
     if tool == "ask_user":
         qid = result.get("question_id")
         row = conn.execute("SELECT * FROM questions WHERE id=?", (qid,)).fetchone()
-        if not row or row["status"] != "waiting":
+        if not row:
+            return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题不存在"}
+        if result.get("reused"):
+            if row["status"] != "answered":
+                return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "复用的问题不是已回答状态"}
+        elif row["status"] != "waiting":
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题未进入等待答复状态"}
         if row["patient_id"] != args.get("patient_id"):
             return {"ok": False, "code": POSTCHECK_MISMATCH, "message": "问题患者归属不一致"}

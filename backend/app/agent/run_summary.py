@@ -24,7 +24,7 @@ GOAL_BY_INTENT = {
     "event_response": "核实并处理患者近期健康事件",
     "answer_received": "根据患者回答恢复管理流程",
     "knowledge_question": "回答患者健康问题",
-    "negotiation_plan": "根据患者时间约束调整计划",
+    "negotiate_plan": "根据患者时间约束调整计划",
     "unsafe_request": "拦截越权请求并给出安全指引",
     "check_in": "跟进患者近期管理情况",
     "patient_request": "执行患者请求的健康管理动作",
@@ -64,6 +64,63 @@ def _refs_from_result(result: dict[str, Any]) -> list[str]:
     return refs
 
 
+def _verify_object(conn: sqlite3.Connection, patient_id: str, tool: str,
+                   result: dict[str, Any]) -> tuple[bool, str | None]:
+    """成功工具必须能在数据库中找到真实对象，且归属/状态与声明一致。"""
+    if tool in ("create_task", "update_task", "complete_task"):
+        task_id = result.get("task_id")
+        row = conn.execute("SELECT patient_id,status,version FROM tasks WHERE id=?", (task_id,)).fetchone()
+        if not task_id or not row:
+            return False, "任务不存在"
+        if row["patient_id"] != patient_id:
+            return False, "任务属于其他患者"
+        if tool == "complete_task" and row["status"] != "done":
+            return False, "任务未标记完成"
+        if tool == "update_task" and result.get("version") is not None:
+            if int(row["version"]) != int(result["version"]):
+                return False, "任务版本与工具返回不一致"
+        return True, None
+    if tool in ("schedule_review", "request_human_review"):
+        review_id = result.get("review_id")
+        row = conn.execute("SELECT patient_id,status,branch FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if not review_id or not row:
+            return False, "复评不存在"
+        if row["patient_id"] != patient_id:
+            return False, "复评属于其他患者"
+        if tool == "request_human_review" and row["branch"] != "HUMAN_REVIEW":
+            return False, "不是人工复核分支"
+        if tool == "schedule_review" and row["status"] not in ("scheduled", "resolved"):
+            return False, "复评状态异常"
+        return True, None
+    if tool == "ask_user":
+        question_id = result.get("question_id")
+        row = conn.execute("SELECT patient_id,status FROM questions WHERE id=?", (question_id,)).fetchone()
+        if not question_id or not row:
+            return False, "问题不存在"
+        if row["patient_id"] != patient_id:
+            return False, "问题属于其他患者"
+        if row["status"] not in ("waiting", "answered", "expired"):
+            return False, "问题状态异常"
+        return True, None
+    if tool == "create_notification":
+        notification_id = result.get("notification_id")
+        row = conn.execute("SELECT patient_id FROM notifications WHERE id=?", (notification_id,)).fetchone()
+        if not notification_id or not row:
+            return False, "通知不存在"
+        if row["patient_id"] != patient_id:
+            return False, "通知属于其他患者"
+        return True, None
+    if tool == "save_preference":
+        preference_id = result.get("preference_id")
+        row = conn.execute("SELECT patient_id,status FROM preferences WHERE id=?", (preference_id,)).fetchone()
+        if not preference_id or not row:
+            return False, "偏好不存在"
+        if row["patient_id"] != patient_id or row["status"] != "active":
+            return False, "偏好无效或属于其他患者"
+        return True, None
+    return True, None
+
+
 def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, Any]],
           questions: list[dict[str, Any]], reviews: list[dict[str, Any]],
           tasks: list[dict[str, Any]]) -> dict[str, Any]:
@@ -95,6 +152,10 @@ def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, A
         tool = step.get("tool_name")
         if step.get("kind") == "tool_result" and step.get("status") == "ok" and tool in MANAGEMENT_TOOLS:
             result = payload.get("result") or {}
+            verified, reason = _verify_object(conn, run["patient_id"], tool, result)
+            if not verified:
+                unfinished.append({"code": "TRACE_MISMATCH", "message": reason, "tool": tool})
+                continue
             completed.append({
                 "tool": tool,
                 "label": TOOL_LABELS.get(tool, tool),
@@ -116,6 +177,10 @@ def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, A
             if entry["code"] and all(item.get("code") != entry["code"] or item.get("tool") != entry["tool"]
                                      for item in unfinished):
                 unfinished.append(entry)
+
+    if run.get("status") in ("failed", "blocked") and run.get("error"):
+        if not any(item.get("message") == run["error"] for item in unfinished):
+            unfinished.append({"code": "RUN_ERROR", "message": run["error"], "tool": None})
 
     waiting_question = next((q for q in questions if q.get("status") == "waiting"), None)
     waiting_review = next((r for r in reviews if r.get("status") == "pending_human"), None)
@@ -144,7 +209,7 @@ def build(conn: sqlite3.Connection, run: dict[str, Any], steps: list[dict[str, A
         refs.add(review["id"])
 
     unresolved = [w for w in (output.get("warnings") or []) if not w.get("resolved", True)]
-    partial_success = bool(unfinished) or bool(unresolved and not completed)
+    partial_success = bool(completed) and (bool(unfinished) or bool(unresolved))
     return {
         "goal": goal,
         "trigger": trigger,

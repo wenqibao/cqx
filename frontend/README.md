@@ -4,7 +4,15 @@
 
 当前前端版本为 V3（0.3.0）。C-DS-01 写请求超时为 60 秒，C-DS-03 通过随访问题列表读取并提交答复。契约专项包含 14 项既有用例，支持 Edge。
 
-## 最终联调基线
+## O1 运行结果联调候选
+
+本轮 O1 绑定后端 `dc383482a8de4e94009f27bb7d1659a48efc3a41`，基于其兼容新增的运行详情 `summary` 展示目标、触发原因、已完成动作、未完成事项、等待对象和下一步责任人。候选待 B 独立验收后合并。
+
+已完成动作只来自 `summary.completed`，工具名称沿用中文业务映射；失败原因来自 `unfinished`，部分成功提示来自 `partial_success`。`waiting.kind=question` 时，顶部“去回答”携带实际患者及 `waiting.id` 并聚焦回答框。完整回复展示一次，`refs`、原始回复和工具结果保留在运行日志。缺少 `summary` 的历史接口沿用既有展示。
+
+专项用例位于 `e2e/run-summary.spec.ts`，使用真实 FastAPI/SQLite 的后端 Mock 做接口联调，包含明确标注的浏览器受控反例。执行 `npm run test:e2e -- e2e/run-summary.spec.ts`，需要先按下节启动隔离测试后端。
+
+## 历史 v0.3.5 联调基线
 
 后端固定为 `v0.3.5`，标签指向 `02841073219fdc2912ecbbcfeeb0bbc91df163aa`。前端业务源码取 `405ace3b4f768f5113006ea284f6782a7a27773b`。后端启动时自动迁移旧库至 schema 3 并归一已知任务类型。 [后端冻结标签](https://github.com/wenqibao/cqx/tree/v0.3.5) · [接口契约](https://github.com/wenqibao/cqx/blob/v0.3.5/docs/api_contract.yaml)
 

@@ -29,6 +29,7 @@ import {
   TechnicalLog,
 } from "../../components/common";
 import { RunConversation } from "../../components/RunConversation";
+import { RunOutcome } from "../../components/RunOutcome";
 import { array, link, name, obj, text, when } from "../../utils/format";
 import {
   toolDescriptions,
@@ -320,7 +321,22 @@ export function TraceView({ trace: t }: { trace: Trace }) {
     output = obj(run.output),
     pid = run.patient_id;
   const narrative = runNarrative(run, t);
-  const results = t.steps.filter((s) => s.kind === "tool_result");
+  const summary = t.summary;
+  const toolResults = t.steps.filter((s) => s.kind === "tool_result");
+  const results = toolResults.filter(
+    (s) =>
+      !summary ||
+      ![
+        "create_task",
+        "update_task",
+        "complete_task",
+        "schedule_review",
+        "request_human_review",
+        "ask_user",
+        "create_notification",
+        "save_preference",
+      ].includes(s.tool_name || ""),
+  );
   const responses = runResponses(run);
   const reasons = unresolvedRejections(run).map((r) =>
     businessText(obj(r).message, businessName(obj(r).code)),
@@ -329,8 +345,18 @@ export function TraceView({ trace: t }: { trace: Trace }) {
     <>
       <div className="run-overview">
         <div>
-          <h2>{narrative.title}</h2>
-          {narrative.incomplete ? (
+          <h2>
+            {summary
+              ? businessText(summary.goal, "本次健康管理处理")
+              : narrative.title}
+          </h2>
+          {summary ? (
+            summary.partial_success ? (
+              <Tag color="warning">部分处理未完成</Tag>
+            ) : (
+              <Status value={run.status} />
+            )
+          ) : narrative.incomplete ? (
             <Tag color="error">
               {run.status === "blocked" ? "请求已拦截" : "部分处理未完成"}
             </Tag>
@@ -341,16 +367,26 @@ export function TraceView({ trace: t }: { trace: Trace }) {
         <TechnicalLog value={t} label="运行日志" />
       </div>
       <Card title="Agent 的回复与下一步" className="business-overview">
-        <p className="next-action">
-          <strong>接下来：</strong>
-          {narrative.next}
-        </p>
-        <RunConversation run={run} patientId={pid} questions={t.questions} />
+        {summary ? (
+          <RunOutcome summary={summary} patientId={pid} />
+        ) : (
+          <p className="next-action">
+            <strong>接下来：</strong>
+            {narrative.next}
+          </p>
+        )}
+        <RunConversation
+          run={run}
+          patientId={pid}
+          questions={t.questions}
+          summary={summary}
+        />
         <p className="muted">
-          触发原因：{narrative.reason} · {when(run.started_at)}
+          {summary ? "开始时间" : `触发原因：${narrative.reason}`} ·{" "}
+          {when(run.started_at)}
         </p>
       </Card>
-      {narrative.incomplete && (
+      {!summary && narrative.incomplete && (
         <Alert
           showIcon
           type={run.status === "failed" ? "error" : "warning"}
@@ -363,39 +399,46 @@ export function TraceView({ trace: t }: { trace: Trace }) {
       {resolvedWarnings(run).length > 0 && (
         <Alert type="info" title="先前校验问题已纠正，完整经过见运行日志" />
       )}
-      <Card title="本次处理">
-        <List
-          dataSource={results}
-          locale={{ emptyText: "本次没有返回动作结果" }}
-          renderItem={(s) => (
-            <List.Item>
-              <List.Item.Meta
-                title={businessName(s.tool_name)}
-                description={
-                  s.status === "failed" &&
-                  actionWasCorrected(
-                    run,
-                    s.tool_name,
-                    obj(s.payload.post_check).ok === false
-                      ? obj(s.payload.post_check)
-                      : obj(s.payload.result),
-                  )
-                    ? "首次尝试未完成，后续已纠正；原始原因见运行日志。"
-                    : actionSummary(s.tool_name, s.payload, s.status, responses)
-                }
-              />
-              <Status
-                value={
-                  obj(s.payload.post_check).ok === false ||
-                  obj(s.payload.result).ok === false
-                    ? "failed"
-                    : s.status
-                }
-              />
-            </List.Item>
-          )}
-        />
-      </Card>
+      {(!summary || results.length > 0 || toolResults.length === 0) && (
+        <Card title={summary ? "工具返回记录" : "本次处理"}>
+          <List
+            dataSource={results}
+            locale={{ emptyText: "本次没有返回动作结果" }}
+            renderItem={(s) => (
+              <List.Item>
+                <List.Item.Meta
+                  title={businessName(s.tool_name)}
+                  description={
+                    s.status === "failed" &&
+                    actionWasCorrected(
+                      run,
+                      s.tool_name,
+                      obj(s.payload.post_check).ok === false
+                        ? obj(s.payload.post_check)
+                        : obj(s.payload.result),
+                    )
+                      ? "首次尝试未完成，后续已纠正；原始原因见运行日志。"
+                      : actionSummary(
+                          s.tool_name,
+                          s.payload,
+                          s.status,
+                          responses,
+                        )
+                  }
+                />
+                <Status
+                  value={
+                    obj(s.payload.post_check).ok === false ||
+                    obj(s.payload.result).ok === false
+                      ? "failed"
+                      : s.status
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        </Card>
+      )}
       {t.tasks.length > 0 || t.reviews?.length ? (
         <Card title="后续安排">
           {t.tasks.map((task) => (

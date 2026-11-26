@@ -140,6 +140,12 @@ test("待回答问题缺失或读取失败时不编造去回答入口", async ({
     })
   ).json();
   expect(run.status).toBe("waiting_user");
+  // 此用例继续验证旧后端缺少 summary 时的问题查询兼容路径。
+  await page.route(BASE + `/runs/${run.run_id}`, async (route) => {
+    const trace = await (await route.fetch()).json();
+    delete trace.summary;
+    await route.fulfill({ json: trace });
+  });
   await page.route(BASE + `/patients/${pid}/questions`, (r) =>
     r.fulfill({ json: { items: [] } }),
   );

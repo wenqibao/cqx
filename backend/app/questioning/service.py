@@ -135,7 +135,8 @@ def get_question(conn: sqlite3.Connection, question_id: str) -> dict[str, Any] |
     return _row(row) if row else None
 
 
-UNCERTAIN_CUES = ("记不清", "不确定", "不能确定", "没法确认", "无法确认", "说不清", "不清楚", "忘了", "想不起来", "不知道")
+UNCERTAIN_CUES = ("记不清", "不记得", "记不得", "不确定", "不能确定", "无法确定", "没法确认", "无法确认",
+                  "无法判断", "没法判断", "判断不了", "说不清", "说不好", "不好说", "不清楚", "忘了", "想不起来", "不知道")
 
 
 def _is_uncertain(text: str | None) -> bool:

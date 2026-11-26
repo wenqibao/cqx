@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from backend.app.agent import orchestrator, tools
 from backend.app.agent.llm import LLMResponse, ToolCall
 from backend.app.db.connection import iso, now
@@ -114,3 +116,25 @@ def test_resume_with_uncertain_answer_keeps_unknown(client, conn):
     body = client.get(f"/api/runs/{result['run_id']}").json()
     assert body["summary"]["plan_changes"] == []
     assert conn.execute("SELECT COUNT(*) c FROM health_records WHERE patient_id='O3E' AND kind='medication_taken'").fetchone()["c"] == 1
+
+def test_reused_answer_run_does_not_enter_waiting(conn):
+    _patient(conn, "O3F")
+    question = _question(conn, "O3F")
+    questioning.answer_question(conn, question["id"], answer_text="已按时服药")
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("ask_user", {
+        "patient_id": "O3F", "question": "再次确认服药？", "target_field": "medication_taken"}, "c1")], raw={}),
+        LLMResponse(content="已复用此前回答：已按时服药。", tool_calls=[], raw={})])
+    result = orchestrator.run_agent(conn, "O3F", trigger_type="answer_received", message="已按时服药", llm=llm)
+    assert result["status"] == "completed", result
+    assert conn.execute("SELECT COUNT(*) c FROM questions WHERE patient_id='O3F' AND status='waiting'").fetchone()["c"] == 0
+
+
+@pytest.mark.parametrize("text", ["我不记得了", "现在无法判断", "这个不好说"])
+def test_more_uncertain_phrases_stay_unknown(conn, text):
+    _patient(conn, "O3G")
+    question = _question(conn, "O3G")
+    answered = questioning.answer_question(conn, question["id"], answer_text=text)
+    assert answered["answer"]["uncertain"] is True
+    assert conn.execute(
+        "SELECT COUNT(*) c FROM health_records WHERE patient_id='O3G' AND kind='medication_taken'"
+    ).fetchone()["c"] == 1

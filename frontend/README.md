@@ -6,11 +6,11 @@
 
 ## O4 计划变化联调候选
 
-本轮从 main `80117eaad5fd31c18d348c27f5787d86ae452590` 建立前端分支，包含此前 O1 前端接入。O1 后端已在 main；`summary.plan_changes` 按 A 的适配提交 `d49dc837b3e660a0163972410ec3212364ec0d9b` 联调，该提交尚在适配分支。
+本轮前端分支 `feature/frontend-agent-2day-plan-changes` 已同步 main `11622a9435fdae6d2797b792c8aa0d61c9a46a05`，包含此前 O1 前端接入。O1 `summary` 和 O4 `summary.plan_changes` 后端均已合入该 main，页面绑定这个实际基线。
 
 运行顶部增加计划调整前后对照，仅展示 `result=saved` 且实际有差异的字段。任务链接携带正确患者与任务，时间按带时区 API 值转换为本地显示。失败、空差异及缺少 `plan_changes` 的旧响应不产生新版本展示；原始数据完整保留在运行日志。
 
-专项执行 `npm run test:e2e -- e2e/plan-changes.spec.ts`，需把隔离后端源码绑定上述适配提交。完整结果及 B 复验步骤见 [O4 交接](docs/O4_PLAN_CHANGES_INTEGRATION.md)。
+专项执行 `npm run test:e2e -- e2e/plan-changes.spec.ts`，隔离后端源码绑定上述 main。完整结果及 B 复验步骤见 [O4 交接](docs/O4_PLAN_CHANGES_INTEGRATION.md)。
 
 ## O1 运行结果历史接入
 

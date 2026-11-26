@@ -10,6 +10,7 @@
 | `e2e/plan-changes.spec.ts` | 真实改期与历史版本定位、无变化、失败和日志完整性验证 |
 | `docs/O4_PLAN_CHANGES_INTEGRATION.md` | 基线、实际结果、兼容范围和 B 复验说明 |
 | `docs/evidence/o4/plan-changes-api.json`、`plan-changes.png` | 两次实际 API 改期的版本证据与截图，后端 Mock |
+| `docs/evidence/o4-main/plan-changes-api.json`、`plan-changes.png` | main 11622a9 组合重验的实际 API 证据与截图，后端 Mock |
 
 根文件地图按既有所有权由 A 同步本增量。
 

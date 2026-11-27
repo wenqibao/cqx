@@ -181,7 +181,15 @@ def create_task(
     if schedule_review:
         from backend.app.reviews import service as review_service
 
-        review_service.schedule_review(
+        existing = None
+        if event_id:
+            existing = conn.execute(
+                "SELECT id FROM reviews WHERE patient_id=? AND event_id=? "
+                "AND status IN ('scheduled','pending_human') LIMIT 1",
+                (patient_id, event_id),
+            ).fetchone()
+        if existing is None:
+            review_service.schedule_review(
             conn,
             patient_id,
             task_id=tid,

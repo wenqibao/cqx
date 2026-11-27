@@ -290,3 +290,30 @@ def test_review_claim_without_any_review_is_rejected(conn):
     result = orchestrator.run_agent(conn, "F2B", trigger_type="answer_received", message="我不记得了", llm=llm)
     assert result["status"] == "failed"
     assert any(r["code"] == "POSTCHECK_MISMATCH" for r in result["rejections"])
+
+def test_new_task_reuses_existing_event_review(conn):
+    _patient(conn, "R1")
+    conn.execute(
+        "INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at) "
+        "VALUES('EVT-R1','R1','GLUCOSE_RISING','high','open','x','{}','R1:x',NULL,?)",
+        (iso(now(conn)),),
+    )
+    tasks.create_task(conn, "R1", task_type="record_glucose", title="一",
+                      due_at=iso(now(conn) + timedelta(days=1)), event_id="EVT-R1")
+    tasks.create_task(conn, "R1", task_type="record_activity", title="二",
+                      due_at=iso(now(conn) + timedelta(days=2)), event_id="EVT-R1")
+    count = conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='R1'").fetchone()["c"]
+    assert count == 1
+
+
+def test_new_task_on_new_event_gets_own_review(conn):
+    _patient(conn, "R2")
+    for index, evt in enumerate(("EVT-R2A", "EVT-R2B")):
+        conn.execute(
+            "INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at) "
+            "VALUES(?,?,'GLUCOSE_RISING','high','open','x','{}',?,NULL,?)",
+            (evt, "R2", f"R2:{index}", iso(now(conn))),
+        )
+        tasks.create_task(conn, "R2", task_type="record_glucose", title=f"t{index}",
+                          due_at=iso(now(conn) + timedelta(days=1 + index)), event_id=evt)
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='R2'").fetchone()["c"] >= 1

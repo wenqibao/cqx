@@ -205,4 +205,4 @@ def test_health_reports_new_version():
     app = create_app()
     with TestClient(app) as client:
         body = client.get("/api/health").json()
-    assert body["version"] == "0.3.6"
+    assert body["version"] == "0.3.7"

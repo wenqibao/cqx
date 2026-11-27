@@ -1,0 +1,816 @@
+{
+  "mode": "backend mock, real HTTP/SQLite",
+  "pid": "WB-O4changes-mwxs4fkn-oey2",
+  "first": {
+    "run": {
+      "id": "RUN-fe1da9eafbbf",
+      "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+      "trigger_type": "user_request",
+      "trigger_ref": null,
+      "llm_mode": "mock",
+      "model_name": "deterministic-planner",
+      "status": "completed",
+      "intent": "negotiate_plan",
+      "input": {
+        "event_ids": [],
+        "message": "我19:00上班，改成08:00记录血糖",
+        "trigger_type": "user_request"
+      },
+      "plan": {
+        "actions": [
+          {
+            "args": {
+              "message": "我19:00上班，改成08:00记录血糖"
+            },
+            "reason": "解析时间约束",
+            "requires_evidence": false,
+            "tool": "parse_constraint"
+          },
+          {
+            "args": {
+              "due_at": "2026-11-28T08:00:00Z",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "reason": "患者提出时间冲突：我19:00上班，改成08:00记录血糖",
+              "task_id": "TSK-e6a0ec171fc2"
+            },
+            "reason": "按患者要求把 补录 2 次空腹血糖 调整到 08:00",
+            "requires_evidence": false,
+            "tool": "update_task"
+          },
+          {
+            "args": {
+              "kind": "preferred_time_window",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "source": "patient_confirmed",
+              "value": "08:00"
+            },
+            "reason": "记录患者确认的时间偏好（F25）",
+            "requires_evidence": false,
+            "tool": "save_preference"
+          }
+        ],
+        "constraint": {
+          "confidence": 0.9,
+          "raw": "我19:00上班，改成08:00记录血糖",
+          "target_hour": 8,
+          "target_minute": 0,
+          "task_type": "record_glucose"
+        },
+        "events": [],
+        "intent": "negotiate_plan",
+        "priority_order": [],
+        "reasoning_summary": [
+          "把任务 补录 2 次空腹血糖 从 2026-11-28T04:41:04Z 调整到 2026-11-28T08:00:00Z"
+        ]
+      },
+      "output": {
+        "actions": [
+          {
+            "args": {
+              "message": "我19:00上班，改成08:00记录血糖"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {},
+              "ok": true
+            },
+            "result": {
+              "confidence": 0.9,
+              "ok": true,
+              "raw": "我19:00上班，改成08:00记录血糖",
+              "target_hour": 8,
+              "target_minute": 0,
+              "task_type": "record_glucose"
+            },
+            "step_no": 6,
+            "tool": "parse_constraint"
+          },
+          {
+            "args": {
+              "due_at": "2026-11-28T08:00:00Z",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "reason": "患者提出时间冲突：我19:00上班，改成08:00记录血糖",
+              "task_id": "TSK-e6a0ec171fc2"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {
+                "task_id": "TSK-e6a0ec171fc2",
+                "version": 2
+              },
+              "ok": true
+            },
+            "result": {
+              "due_at": "2026-11-28T08:00:00Z",
+              "ok": true,
+              "status": "pending",
+              "task_id": "TSK-e6a0ec171fc2",
+              "version": 2
+            },
+            "step_no": 8,
+            "tool": "update_task"
+          },
+          {
+            "args": {
+              "kind": "preferred_time_window",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "source": "patient_confirmed",
+              "value": "08:00"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {
+                "preference_id": "PREF-8f000ea96c03"
+              },
+              "ok": true
+            },
+            "result": {
+              "kind": "preferred_time_window",
+              "ok": true,
+              "preference_id": "PREF-8f000ea96c03",
+              "value": "08:00"
+            },
+            "step_no": 10,
+            "tool": "save_preference"
+          }
+        ],
+        "evidence": [],
+        "rejections": [],
+        "responses": []
+      },
+      "error": null,
+      "started_at": "2026-11-26T16:41:04Z",
+      "finished_at": "2026-11-26T16:41:04Z"
+    },
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "perceive",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "llm_mode": "mock",
+          "missing_fields": [],
+          "open_events": [],
+          "patient_id": "WB-O4changes-mwxs4fkn-oey2"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 2,
+        "phase": "plan",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "intent": "negotiate_plan"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 3,
+        "phase": "plan",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "actions": [
+            "parse_constraint",
+            "update_task",
+            "save_preference"
+          ],
+          "intent": "negotiate_plan"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 4,
+        "phase": "validate",
+        "kind": "validation",
+        "tool_name": null,
+        "payload": {
+          "ok": true,
+          "rejections": 0
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 5,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "parse_constraint",
+        "payload": {
+          "args": {
+            "message": "我19:00上班，改成08:00记录血糖"
+          },
+          "reason": "解析时间约束"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 6,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "parse_constraint",
+        "payload": {
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "confidence": 0.9,
+            "ok": true,
+            "raw": "我19:00上班，改成08:00记录血糖",
+            "target_hour": 8,
+            "target_minute": 0,
+            "task_type": "record_glucose"
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 7,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "update_task",
+        "payload": {
+          "args": {
+            "due_at": "2026-11-28T08:00:00Z",
+            "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+            "reason": "患者提出时间冲突：我19:00上班，改成08:00记录血糖",
+            "task_id": "TSK-e6a0ec171fc2"
+          },
+          "reason": "按患者要求把 补录 2 次空腹血糖 调整到 08:00"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 8,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "update_task",
+        "payload": {
+          "post_check": {
+            "detail": {
+              "task_id": "TSK-e6a0ec171fc2",
+              "version": 2
+            },
+            "ok": true
+          },
+          "result": {
+            "due_at": "2026-11-28T08:00:00Z",
+            "ok": true,
+            "status": "pending",
+            "task_id": "TSK-e6a0ec171fc2",
+            "version": 2
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 9,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "save_preference",
+        "payload": {
+          "args": {
+            "kind": "preferred_time_window",
+            "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+            "source": "patient_confirmed",
+            "value": "08:00"
+          },
+          "reason": "记录患者确认的时间偏好（F25）"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      },
+      {
+        "step_no": 10,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "save_preference",
+        "payload": {
+          "post_check": {
+            "detail": {
+              "preference_id": "PREF-8f000ea96c03"
+            },
+            "ok": true
+          },
+          "result": {
+            "kind": "preferred_time_window",
+            "ok": true,
+            "preference_id": "PREF-8f000ea96c03",
+            "value": "08:00"
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:04Z"
+      }
+    ],
+    "evidence": [],
+    "questions": [],
+    "reviews": [],
+    "tasks": [
+      {
+        "id": "TSK-e6a0ec171fc2",
+        "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+        "task_type": "record_glucose",
+        "title": "补录 2 次空腹血糖",
+        "description": "在明天早餐前补录空腹血糖，用于判断趋势是否持续。",
+        "status": "pending",
+        "priority": 61,
+        "due_at": "2026-11-28T08:00:00Z",
+        "event_id": "EVT-a907fb7c57c4",
+        "source_run_id": "RUN-dc61af37213a",
+        "version": 2,
+        "required_fields": [],
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-a907fb7c57c4"
+          ],
+          "knowledge_query": null,
+          "severity": "medium"
+        },
+        "created_at": "2026-11-26T16:41:04Z",
+        "updated_at": "2026-11-26T16:41:04Z",
+        "completed_at": null
+      }
+    ],
+    "summary": {
+      "goal": "根据患者时间约束调整计划",
+      "trigger": {
+        "type": "user_request",
+        "label": "患者主动请求",
+        "ref": null,
+        "reason": "我19:00上班，改成08:00记录血糖"
+      },
+      "completed": [
+        {
+          "tool": "update_task",
+          "label": "调整任务",
+          "refs": [
+            "TSK-e6a0ec171fc2"
+          ]
+        },
+        {
+          "tool": "save_preference",
+          "label": "保存偏好",
+          "refs": [
+            "PREF-8f000ea96c03"
+          ]
+        }
+      ],
+      "unfinished": [],
+      "waiting": null,
+      "next_owner": null,
+      "partial_success": false,
+      "warnings": [],
+      "plan_changes": [
+        {
+          "task_id": "TSK-e6a0ec171fc2",
+          "title": "补录 2 次空腹血糖",
+          "change_kind": "reschedule",
+          "version_before": 1,
+          "version_after": 2,
+          "changed_fields": {
+            "due_at": {
+              "before": "2026-11-28T04:41:04Z",
+              "after": "2026-11-28T08:00:00Z"
+            }
+          },
+          "reason": "患者提出时间冲突：我19:00上班，改成08:00记录血糖（原时间 2026-11-28T04:41:04Z）",
+          "changed_by": "patient",
+          "result": "saved"
+        }
+      ],
+      "refs": [
+        "PREF-8f000ea96c03",
+        "RUN-fe1da9eafbbf",
+        "TSK-e6a0ec171fc2"
+      ]
+    }
+  },
+  "second": {
+    "run": {
+      "id": "RUN-90845f7154ab",
+      "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+      "trigger_type": "user_request",
+      "trigger_ref": null,
+      "llm_mode": "mock",
+      "model_name": "deterministic-planner",
+      "status": "completed",
+      "intent": "negotiate_plan",
+      "input": {
+        "event_ids": [],
+        "message": "改成20:00记录血糖",
+        "trigger_type": "user_request"
+      },
+      "plan": {
+        "actions": [
+          {
+            "args": {
+              "message": "改成20:00记录血糖"
+            },
+            "reason": "解析时间约束",
+            "requires_evidence": false,
+            "tool": "parse_constraint"
+          },
+          {
+            "args": {
+              "due_at": "2026-11-28T20:00:00Z",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "reason": "患者提出时间冲突：改成20:00记录血糖",
+              "task_id": "TSK-e6a0ec171fc2"
+            },
+            "reason": "按患者要求把 补录 2 次空腹血糖 调整到 20:00",
+            "requires_evidence": false,
+            "tool": "update_task"
+          },
+          {
+            "args": {
+              "kind": "preferred_time_window",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "source": "patient_confirmed",
+              "value": "20:00"
+            },
+            "reason": "记录患者确认的时间偏好（F25）",
+            "requires_evidence": false,
+            "tool": "save_preference"
+          }
+        ],
+        "constraint": {
+          "confidence": 0.9,
+          "raw": "改成20:00记录血糖",
+          "target_hour": 20,
+          "target_minute": 0,
+          "task_type": "record_glucose"
+        },
+        "events": [],
+        "intent": "negotiate_plan",
+        "priority_order": [],
+        "reasoning_summary": [
+          "把任务 补录 2 次空腹血糖 从 2026-11-28T08:00:00Z 调整到 2026-11-28T20:00:00Z"
+        ]
+      },
+      "output": {
+        "actions": [
+          {
+            "args": {
+              "message": "改成20:00记录血糖"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {},
+              "ok": true
+            },
+            "result": {
+              "confidence": 0.9,
+              "ok": true,
+              "raw": "改成20:00记录血糖",
+              "target_hour": 20,
+              "target_minute": 0,
+              "task_type": "record_glucose"
+            },
+            "step_no": 6,
+            "tool": "parse_constraint"
+          },
+          {
+            "args": {
+              "due_at": "2026-11-28T20:00:00Z",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "reason": "患者提出时间冲突：改成20:00记录血糖",
+              "task_id": "TSK-e6a0ec171fc2"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {
+                "task_id": "TSK-e6a0ec171fc2",
+                "version": 3
+              },
+              "ok": true
+            },
+            "result": {
+              "due_at": "2026-11-28T20:00:00Z",
+              "ok": true,
+              "status": "pending",
+              "task_id": "TSK-e6a0ec171fc2",
+              "version": 3
+            },
+            "step_no": 8,
+            "tool": "update_task"
+          },
+          {
+            "args": {
+              "kind": "preferred_time_window",
+              "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+              "source": "patient_confirmed",
+              "value": "20:00"
+            },
+            "ok": true,
+            "post_check": {
+              "detail": {
+                "preference_id": "PREF-c9488c0600bc"
+              },
+              "ok": true
+            },
+            "result": {
+              "kind": "preferred_time_window",
+              "ok": true,
+              "preference_id": "PREF-c9488c0600bc",
+              "value": "20:00"
+            },
+            "step_no": 10,
+            "tool": "save_preference"
+          }
+        ],
+        "evidence": [],
+        "rejections": [],
+        "responses": []
+      },
+      "error": null,
+      "started_at": "2026-11-26T16:41:06Z",
+      "finished_at": "2026-11-26T16:41:06Z"
+    },
+    "steps": [
+      {
+        "step_no": 1,
+        "phase": "perceive",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "llm_mode": "mock",
+          "missing_fields": [],
+          "open_events": [],
+          "patient_id": "WB-O4changes-mwxs4fkn-oey2"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 2,
+        "phase": "plan",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "intent": "negotiate_plan"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 3,
+        "phase": "plan",
+        "kind": "decision",
+        "tool_name": null,
+        "payload": {
+          "actions": [
+            "parse_constraint",
+            "update_task",
+            "save_preference"
+          ],
+          "intent": "negotiate_plan"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 4,
+        "phase": "validate",
+        "kind": "validation",
+        "tool_name": null,
+        "payload": {
+          "ok": true,
+          "rejections": 0
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 5,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "parse_constraint",
+        "payload": {
+          "args": {
+            "message": "改成20:00记录血糖"
+          },
+          "reason": "解析时间约束"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 6,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "parse_constraint",
+        "payload": {
+          "post_check": {
+            "detail": {},
+            "ok": true
+          },
+          "result": {
+            "confidence": 0.9,
+            "ok": true,
+            "raw": "改成20:00记录血糖",
+            "target_hour": 20,
+            "target_minute": 0,
+            "task_type": "record_glucose"
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 7,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "update_task",
+        "payload": {
+          "args": {
+            "due_at": "2026-11-28T20:00:00Z",
+            "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+            "reason": "患者提出时间冲突：改成20:00记录血糖",
+            "task_id": "TSK-e6a0ec171fc2"
+          },
+          "reason": "按患者要求把 补录 2 次空腹血糖 调整到 20:00"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 8,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "update_task",
+        "payload": {
+          "post_check": {
+            "detail": {
+              "task_id": "TSK-e6a0ec171fc2",
+              "version": 3
+            },
+            "ok": true
+          },
+          "result": {
+            "due_at": "2026-11-28T20:00:00Z",
+            "ok": true,
+            "status": "pending",
+            "task_id": "TSK-e6a0ec171fc2",
+            "version": 3
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 9,
+        "phase": "act",
+        "kind": "tool_call",
+        "tool_name": "save_preference",
+        "payload": {
+          "args": {
+            "kind": "preferred_time_window",
+            "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+            "source": "patient_confirmed",
+            "value": "20:00"
+          },
+          "reason": "记录患者确认的时间偏好（F25）"
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      },
+      {
+        "step_no": 10,
+        "phase": "observe",
+        "kind": "tool_result",
+        "tool_name": "save_preference",
+        "payload": {
+          "post_check": {
+            "detail": {
+              "preference_id": "PREF-c9488c0600bc"
+            },
+            "ok": true
+          },
+          "result": {
+            "kind": "preferred_time_window",
+            "ok": true,
+            "preference_id": "PREF-c9488c0600bc",
+            "value": "20:00"
+          }
+        },
+        "status": "ok",
+        "code": null,
+        "created_at": "2026-11-26T16:41:06Z"
+      }
+    ],
+    "evidence": [],
+    "questions": [],
+    "reviews": [],
+    "tasks": [
+      {
+        "id": "TSK-e6a0ec171fc2",
+        "patient_id": "WB-O4changes-mwxs4fkn-oey2",
+        "task_type": "record_glucose",
+        "title": "补录 2 次空腹血糖",
+        "description": "在明天早餐前补录空腹血糖，用于判断趋势是否持续。",
+        "status": "pending",
+        "priority": 61,
+        "due_at": "2026-11-28T20:00:00Z",
+        "event_id": "EVT-a907fb7c57c4",
+        "source_run_id": "RUN-dc61af37213a",
+        "version": 3,
+        "required_fields": [],
+        "meta": {
+          "event_code": "GLUCOSE_RISING",
+          "event_ids": [
+            "EVT-a907fb7c57c4"
+          ],
+          "knowledge_query": null,
+          "severity": "medium"
+        },
+        "created_at": "2026-11-26T16:41:04Z",
+        "updated_at": "2026-11-26T16:41:06Z",
+        "completed_at": null
+      }
+    ],
+    "summary": {
+      "goal": "根据患者时间约束调整计划",
+      "trigger": {
+        "type": "user_request",
+        "label": "患者主动请求",
+        "ref": null,
+        "reason": "改成20:00记录血糖"
+      },
+      "completed": [
+        {
+          "tool": "update_task",
+          "label": "调整任务",
+          "refs": [
+            "TSK-e6a0ec171fc2"
+          ]
+        },
+        {
+          "tool": "save_preference",
+          "label": "保存偏好",
+          "refs": [
+            "PREF-c9488c0600bc"
+          ]
+        }
+      ],
+      "unfinished": [],
+      "waiting": null,
+      "next_owner": null,
+      "partial_success": false,
+      "warnings": [],
+      "plan_changes": [
+        {
+          "task_id": "TSK-e6a0ec171fc2",
+          "title": "补录 2 次空腹血糖",
+          "change_kind": "reschedule",
+          "version_before": 2,
+          "version_after": 3,
+          "changed_fields": {
+            "due_at": {
+              "before": "2026-11-28T08:00:00Z",
+              "after": "2026-11-28T20:00:00Z"
+            }
+          },
+          "reason": "患者提出时间冲突：改成20:00记录血糖（原时间 2026-11-28T08:00:00Z）",
+          "changed_by": "patient",
+          "result": "saved"
+        }
+      ],
+      "refs": [
+        "PREF-c9488c0600bc",
+        "RUN-90845f7154ab",
+        "TSK-e6a0ec171fc2"
+      ]
+    }
+  }
+}

@@ -102,6 +102,76 @@ export const healthSchema = z
     version: z.string().optional(),
   })
   .passthrough();
+export const planChangeSchema = z
+  .object({
+    task_id: z.string(),
+    title: z.string().nullable(),
+    version_before: z.number().nullable(),
+    version_after: z.number().nullable(),
+    changed_fields: z.record(
+      z.string(),
+      z
+        .object({
+          before: z.unknown(),
+          after: z.unknown(),
+        })
+        .passthrough(),
+    ),
+    reason: z.string().nullable(),
+    result: z.string(),
+  })
+  .passthrough();
+export type PlanChange = z.infer<typeof planChangeSchema>;
+export const runSummarySchema = z
+  .object({
+    goal: z.string().nullable(),
+    trigger: z
+      .object({
+        label: z.string().nullable(),
+        reason: z.string().nullable().optional(),
+      })
+      .passthrough(),
+    completed: z.array(
+      z
+        .object({
+          tool: z.string(),
+          label: z.string(),
+          detail: z.string().nullable().optional(),
+          refs: z.array(z.string()),
+        })
+        .passthrough(),
+    ),
+    unfinished: z.array(
+      z
+        .object({
+          tool: z.string().nullable().optional(),
+          code: z.string().nullable().optional(),
+          message: z.string().nullable().optional(),
+        })
+        .passthrough(),
+    ),
+    waiting: z
+      .object({
+        kind: z.string(),
+        id: z.string().nullable().optional(),
+        target_field: z.string().nullable().optional(),
+        text: z.string().nullable().optional(),
+      })
+      .passthrough()
+      .nullable(),
+    next_owner: z
+      .object({
+        role: z.string(),
+        action: z.string(),
+      })
+      .passthrough()
+      .nullable(),
+    partial_success: z.boolean(),
+    refs: z.array(z.string()),
+    plan_changes: z.array(planChangeSchema).optional(),
+  })
+  .passthrough();
+export type RunSummary = z.infer<typeof runSummarySchema>;
 export const traceSchema = z
   .object({
     run: runSchema,
@@ -123,6 +193,7 @@ export const traceSchema = z
     tasks: z.array(taskSchema),
     questions: z.array(z.record(z.string(), z.unknown())).optional(),
     reviews: z.array(z.record(z.string(), z.unknown())).optional(),
+    summary: runSummarySchema.nullable().optional(),
   })
   .passthrough();
 export const recordKinds = [

@@ -1,5 +1,36 @@
 # C第二阶段文件地图
 
+## 2026-11-27 O4 增量
+
+| 文件 | 作用 |
+| --- | --- |
+| `src/api/types.ts`、`src/api/httpAdapter.test.ts` | 可选 plan_changes 契约与版本/字段结构校验 |
+| `src/components/PlanChanges.tsx` | 实际保存的任务版本及字段前后对照，过滤无差异与失败结果 |
+| `src/components/RunOutcome.tsx` | 在本次业务结果内接入计划对照 |
+| `e2e/plan-changes.spec.ts` | 真实改期与历史版本定位、无变化、失败和日志完整性验证 |
+| `docs/O4_PLAN_CHANGES_INTEGRATION.md` | 基线、实际结果、兼容范围和 B 复验说明 |
+| `docs/evidence/o4/plan-changes-api.json`、`plan-changes.png` | 两次实际 API 改期的版本证据与截图，后端 Mock |
+| `docs/evidence/o4-main/plan-changes-api.json`、`plan-changes.png` | main 11622a9 组合重验的实际 API 证据与截图，后端 Mock |
+
+根文件地图按既有所有权由 A 同步本增量。
+
+## 2026-11-27 O1 增量
+
+| 文件 | 作用 |
+| --- | --- |
+| `src/api/types.ts`、`src/api/httpAdapter.test.ts` | 可选 summary 契约、旧响应兼容及结构错误校验 |
+| `src/components/RunOutcome.tsx` | summary 驱动的业务结果与患者/问题深链接 |
+| `src/components/RunConversation.tsx` | 与顶部等待入口协调，保留真实回复与旧后端兼容 |
+| `src/pages/agent/Agent.tsx` | 运行详情接入 summary，原始轨迹保留在日志 |
+| `e2e/run-summary.spec.ts` | 真实 summary 入口、受控成功声明反例与失败展示 |
+| `e2e/reply-guidance.spec.ts` | 显式缺少 summary 的旧后端问题读取异常用例 |
+| `docs/O1_SUMMARY_INTEGRATION.md` | O1 基线、验证结果与 B/A 交接 |
+| `docs/evidence/o1/summary-warning-source.json` | 已纠正 warning 仍进入 unfinished 的后端真实轨迹，受控 Stub、无厂商调用 |
+
+仓库根 `docs/PROJECT_FILE_MAP.md` 按既有所有权由 A 同步，可引用本增量地图。
+
+## 历史文件地图
+
 2026-11-05。本轮源码、工具、文档和脱敏证据均在frontend/；未修改A/B后端、CLI、规则、原测试或场景Expected。仓库根PROJECT_FILE_MAP由A维护，合并后可引用本地图。
 
 | 文件 / 目录 | 作用 |

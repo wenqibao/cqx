@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "diabetes-agent"
-version = "0.3.6"
+version = "0.3.7"
 description = "糖衡智管 - 单 Agent 稳定期 2 型糖尿病健康管理演示系统（参赛作品，非临床软件）"
 readme = "README.md"
 requires-python = ">=3.11"

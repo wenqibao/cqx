@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: 糖衡智管 Agent API
-  version: 0.3.6
+  version: 0.3.7
   description: |
     单 Agent 稳定期 2 型糖尿病健康管理演示系统。
     本契约由成员 A 维护；C 按此契约接入前端，B 按此契约做接口测试。
@@ -800,7 +800,7 @@ components:
               score: { type: number }
 
 x_contract_notes:
-  frozen_at: v0.3.6
+  frozen_at: v0.3.7
   run_summary:
     description: "运行详情新增 summary：goal/trigger/completed/unfinished/waiting/next_owner/partial_success/warnings/refs；旧运行缺字段时返回空数组与 null"
     fields: [goal, trigger, completed, unfinished, waiting, next_owner, partial_success, warnings, refs, plan_changes]

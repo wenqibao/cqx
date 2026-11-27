@@ -219,7 +219,188 @@ def _create_task(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
     return _ok(task_id=task["id"], created=created, version=task["version"], status=task["status"], title=task["title"])
 
 
+DATE_TZ = __import__("zoneinfo").ZoneInfo("Asia/Shanghai")
+
+
+def _request_due_conflict(conn, run_id: str, due_at: str) -> str | None:
+    """患者请求文本中的明确日期必须与 due_at 的北京时间日期一致。"""
+    import json as _json
+    import re as _re
+    from datetime import date, timedelta
+
+    from backend.app.db.connection import parse_ts
+
+    if not run_id or not due_at:
+        return None
+    row = conn.execute("SELECT input FROM agent_runs WHERE id=?", (run_id,)).fetchone()
+    try:
+        message = (_json.loads(row["input"]) if row and row["input"] else {}).get("message") or ""
+    except Exception:
+        return None
+    if not message:
+        return None
+    try:
+        due_local = parse_ts(due_at).astimezone(DATE_TZ)
+    except Exception:
+        return None
+    base = now(conn).astimezone(DATE_TZ)
+    explicit = _re.findall(r"(\d{4})-(\d{2})-(\d{2})", message)
+    if explicit:
+        year, month, day = (int(part) for part in explicit[-1])
+        if due_local.date() != date(year, month, day):
+            return f"请求日期 {year:04d}-{month:02d}-{day:02d} 与 due_at 北京时间 {due_local.date()} 不一致"
+    month_day = _re.findall(r"(\d{1,2})月(\d{1,2})日", message)
+    if month_day:
+        month, day = (int(part) for part in month_day[-1])
+        if (due_local.month, due_local.day) != (month, day):
+            return f"请求日期 {month}月{day}日 与 due_at 北京时间 {due_local.month}月{due_local.day}日 不一致"
+    for word, days in (("大后天", 3), ("后天", 2), ("明天", 1), ("今天", 0)):
+        if word in message:
+            expected = (base + timedelta(days=days)).date()
+            if due_local.date() != expected:
+                return f"请求“{word}”对应 {expected}，与 due_at 北京时间 {due_local.date()} 不一致"
+            break
+    return None
+
+
+FULL_DATETIME = r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)"
+DATE_ONLY = r"(UTC|北京时间|BJT)?\s*(\d{4})-(\d{2})-(\d{2})"
+
+VAGUE_TIME_CUES = ("再说", "晚一点", "晚点", "之后", "回头", "改天", "有空", "看情况")
+
+
+def _run_message(conn, run_id: str) -> str:
+    import json as _json
+
+    if not run_id:
+        return ""
+    row = conn.execute("SELECT input FROM agent_runs WHERE id=?", (run_id,)).fetchone()
+    try:
+        return (_json.loads(row["input"]) if row and row["input"] else {}).get("message") or ""
+    except Exception:
+        return ""
+
+
+def _vague_time_request(message: str) -> bool:
+    """含糊时间表达：没有明确日期和时刻，不得直接改期。"""
+    import re as _re
+
+    if not message:
+        return False
+    if any(cue in message for cue in VAGUE_TIME_CUES):
+        return True
+    if "周末" in message and not _re.search(r"(周六|周日|星期六|星期日|礼拜六|礼拜日)", message):
+        return True
+    return False
+
+
+def _message_has_time(message: str, hour: int, minute: int) -> bool:
+    import re as _re
+
+    for period, raw_hour, raw_minute in _re.findall(
+            r"(上午|下午|晚上|早上|凌晨|中午)?\s*(\d{1,2})\s*[:：点]\s*(\d{1,2})?", message):
+        value = int(raw_hour)
+        if period in ("下午", "晚上") and value < 12:
+            value += 12
+        if period == "凌晨" and value == 12:
+            value = 0
+        if value == hour and int(raw_minute or 0) == minute:
+            return True
+    return f"{hour:02d}:{minute:02d}" in message
+
+
+
+def _date_conflict(text: str, due_at: str, base, clock_text: str | None = None) -> str | None:
+    """按标注时区核对文本中的日期与 due_at；完整时间按瞬时比较。"""
+    import re as _re
+    from datetime import date, timedelta, timezone
+
+    from backend.app.db.connection import parse_ts
+
+    try:
+        due_instant = parse_ts(due_at)
+    except Exception:
+        return None
+    due_local = due_instant.astimezone(DATE_TZ)
+    for value in _re.findall(FULL_DATETIME, text):
+        try:
+            stated = parse_ts(value)
+        except Exception:
+            continue
+        if stated.tzinfo is None:
+            stated = stated.replace(tzinfo=DATE_TZ)
+        if abs((stated - due_instant).total_seconds()) >= 60:
+            return f"文本时间 {value} 与 due_at 不一致"
+    rest = _re.sub(FULL_DATETIME, "", text)
+    for label, year, month, day in _re.findall(DATE_ONLY, rest):
+        target = date(int(year), int(month), int(day))
+        if label.upper() == "UTC":
+            actual = due_instant.astimezone(timezone.utc).date()
+        else:
+            actual = due_local.date()
+        if actual != target:
+            zone = "UTC" if label.upper() == "UTC" else "北京时间"
+            return f"文本日期 {target}（{zone}）与 due_at 对应日期 {actual} 不一致"
+    clock_source = clock_text if clock_text is not None else rest
+    strict_clock = bool(_re.search(r"北京时间|上午|下午|晚上|早上|凌晨|中午|点", clock_source))
+    for period, hour, minute in (_re.findall(
+            r"(上午|下午|晚上|早上|凌晨|中午)?\s*(\d{1,2})\s*[:：点]\s*(\d{1,2})?", clock_source)
+            if strict_clock else []):
+        value = int(hour)
+        if period in ("下午", "晚上") and value < 12:
+            value += 12
+        if period == "凌晨" and value == 12:
+            value = 0
+        if value != due_local.hour or int(minute or 0) != due_local.minute:
+            return f"文本时刻 {hour}:{minute or '00'} 与 due_at 北京时间 {due_local.hour:02d}:{due_local.minute:02d} 不一致"
+    for month, day in _re.findall(r"(\d{1,2})月(\d{1,2})日", rest):
+        target = (int(month), int(day))
+        if (due_local.month, due_local.day) != target:
+            return f"文本日期 {month}月{day}日 与 due_at 北京时间 {due_local.month}月{due_local.day}日 不一致"
+    if not _re.search(r"\d{4}-\d{2}-\d{2}", rest):
+        for word, days in (("大后天", 3), ("后天", 2), ("明天", 1), ("今天", 0)):
+            if word in rest:
+                expected = (base + timedelta(days=days)).date()
+                if due_local.date() != expected:
+                    return f"文本“{word}”对应 {expected}，与 due_at 北京时间 {due_local.date()} 不一致"
+                break
+    return None
+
+
+def _reason_due_conflict(conn, reason: str, due_at: str) -> str | None:
+    if not reason or not due_at:
+        return None
+    return _date_conflict(reason, due_at, now(conn).astimezone(DATE_TZ))
+
+
+def _request_due_conflict(conn, run_id: str, due_at: str) -> str | None:
+    """患者请求文本中的明确日期必须与 due_at 一致。"""
+    import json as _json
+
+    if not run_id or not due_at:
+        return None
+    row = conn.execute("SELECT input FROM agent_runs WHERE id=?", (run_id,)).fetchone()
+    try:
+        message = (_json.loads(row["input"]) if row and row["input"] else {}).get("message") or ""
+    except Exception:
+        return None
+    if not message:
+        return None
+    import re as _re
+
+    tail = _re.split(r"改成|改到|改为|调整到|调整成|换成|改在", message)[-1]
+    return _date_conflict(message, due_at, now(conn).astimezone(DATE_TZ), clock_text=tail)
+
+
 def _update_task(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    message = _run_message(ctx.conn, ctx.run_id)
+    if _vague_time_request(message):
+        return _fail("MISSING_REQUIRED_DATA", "患者仅给出含糊时间，请先询问具体日期和时刻后再改期")
+    conflict = _reason_due_conflict(ctx.conn, args.get("reason") or "", args.get("due_at") or "")
+    if not conflict:
+        conflict = _request_due_conflict(ctx.conn, ctx.run_id, args.get("due_at") or "")
+    if conflict:
+        return _fail("MISSING_REQUIRED_DATA", conflict)
     task = tasks.reschedule_task(
         ctx.conn,
         args["task_id"],
@@ -346,6 +527,15 @@ def _request_human_review(ctx: ToolContext, args: dict[str, Any]) -> dict[str, A
 
 
 def _save_preference(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    source = args.get("source", "patient_confirmed")
+    value = str(args.get("value", ""))
+    if source == "patient_input":
+        import re as _re
+
+        message = _run_message(ctx.conn, ctx.run_id)
+        clock = _re.search(r"(\d{1,2})[:：](\d{2})", value)
+        if clock and message and not _message_has_time(message, int(clock.group(1)), int(clock.group(2))):
+            return _fail("MISSING_REQUIRED_DATA", "患者原话未给出该时间，不能记为患者偏好")
     pref = preferences.set_preference(
         ctx.conn,
         args.get("patient_id") or ctx.patient_id,

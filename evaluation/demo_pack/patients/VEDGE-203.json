@@ -1,0 +1,39 @@
+{
+  "patient": {
+    "id": "VEDGE-203",
+    "name": "边界病例03（虚构）",
+    "age": 60,
+    "sex": "女",
+    "diabetes_type": "T2DM",
+    "duration_years": 7,
+    "complications": [],
+    "goals": [
+      "保持日常记录"
+    ],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 4.2,
+      "hours_ago": 48,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 4.0,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 3.91,
+      "hours_ago": 1,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    }
+  ],
+  "expected_event_codes": [],
+  "demo_purpose": "低血糖阈值附近，不应触发 HYPOGLYCEMIA_RECORD"
+}

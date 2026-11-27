@@ -1,0 +1,43 @@
+{
+  "patient": {
+    "id": "VDEMO-108",
+    "name": "视频演示病例08（虚构）",
+    "age": 46,
+    "sex": "女",
+    "diabetes_type": "T2DM",
+    "duration_years": 3,
+    "complications": [],
+    "goals": [
+      "维持日常活动记录"
+    ],
+    "constraints": [
+      "19:00 后需要照顾家人，不方便记录"
+    ],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "steps",
+      "value": 2200,
+      "hours_ago": 48,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "steps",
+      "value": 1800,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "steps",
+      "value": 1500,
+      "hours_ago": 2,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    }
+  ],
+  "expected_event_codes": [
+    "LOW_ACTIVITY"
+  ],
+  "demo_purpose": "时间冲突与个性化任务调整"
+}

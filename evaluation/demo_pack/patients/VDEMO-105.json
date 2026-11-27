@@ -1,0 +1,35 @@
+{
+  "patient": {
+    "id": "VDEMO-105",
+    "name": "视频演示病例05（虚构）",
+    "age": 57,
+    "sex": "女",
+    "diabetes_type": "T2DM",
+    "duration_years": 9,
+    "complications": [],
+    "goals": [
+      "保持日常记录连续"
+    ],
+    "constraints": [],
+    "baseline": {},
+    "is_synthetic": true
+  },
+  "records": [
+    {
+      "kind": "fasting_glucose",
+      "value": 9.0,
+      "hours_ago": 24,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    },
+    {
+      "kind": "fasting_glucose",
+      "value": 17.2,
+      "hours_ago": 1,
+      "note": "[合成演示数据｜非真实患者｜非临床结论]"
+    }
+  ],
+  "expected_event_codes": [
+    "HYPERGLYCEMIA_RECORD"
+  ],
+  "demo_purpose": "显著高血糖风险与人工复核"
+}

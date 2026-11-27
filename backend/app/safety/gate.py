@@ -125,6 +125,26 @@ def _is_container_reference(text: str, start: int, end: int) -> bool:
     return bool(re.search(r"药(盒|箱|瓶|袋|板|包装|说明)", window))
 
 
+COLLECTION_CUES = ("核对", "记录", "询问", "确认", "核实", "统计", "了解", "补充", "回顾")
+CHANGE_VERBS = ("增加", "减少", "调整", "改", "换", "停", "多打", "少打", "加量", "减量")
+
+
+def _is_adherence_collection(text: str, start: int, end: int) -> bool:
+    """核对/记录/询问“服用或注射次数”是事实采集，不是剂量调整。"""
+    left, right = _bounds(text, start, end, SEGMENT_DELIMS)
+    segment = text[left:right]
+    matched = text[start:end]
+    if not any(cue in matched for cue in ("次数", "时间")):
+        return False
+    if any(cue in matched for cue in ("剂量", "单位")):
+        return False
+    prefix = text[left:start]
+    if not any(cue in prefix for cue in COLLECTION_CUES):
+        return False
+    effective = re.split(r"不涉及|不调整|不做|无需|仅做|只做", segment)[0]
+    return not any(verb in effective for verb in CHANGE_VERBS)
+
+
 def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -> tuple[int, str] | None:
     for pattern in patterns:
         try:
@@ -145,6 +165,8 @@ def _match_pattern(text: str, patterns: list[str], *, generated: bool = False) -
             if _is_directly_negated(text, m.start()):
                 continue
             if _is_container_reference(text, m.start(), m.end()):
+                continue
+            if _is_adherence_collection(text, m.start(), m.end()):
                 continue
             return m.start(), m.group(0)
     return None

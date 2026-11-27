@@ -7,7 +7,7 @@ import pytest
 
 from backend.app.agent import orchestrator, tools
 from backend.app.agent.llm import LLMResponse, ToolCall
-from backend.app.db.connection import iso, now
+from backend.app.db.connection import dumps, iso, now
 from backend.app.questioning import service as questioning
 from backend.app.services import patients, records
 from backend.app.tasks import service as tasks
@@ -81,7 +81,7 @@ def test_plan_changes_from_update_task(client, conn):
     _patient(conn, "O4A")
     task, _ = tasks.create_task(conn, "O4A", task_type="record_glucose", title="记录",
                                 due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
-    new_due = (now(conn) + timedelta(days=3)).isoformat()
+    new_due = (now(conn) + timedelta(days=2)).isoformat()
     llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("update_task", {
         "patient_id": "O4A", "task_id": task["id"], "due_at": new_due}, "c1")], raw={})])
     result = orchestrator.run_agent(conn, "O4A", trigger_type="answer_received", message="改成后天", llm=llm)
@@ -138,3 +138,295 @@ def test_more_uncertain_phrases_stay_unknown(conn, text):
     assert conn.execute(
         "SELECT COUNT(*) c FROM health_records WHERE patient_id='O3G' AND kind='medication_taken'"
     ).fetchone()["c"] == 1
+
+def test_resolved_warning_not_in_unfinished(client, conn):
+    _patient(conn, "W1")
+    run_id = "RUN-W1"
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,intent,output,started_at) "
+        "VALUES('RUN-W1','W1','event_detected','mock','completed','event_response',?,?)",
+        (dumps({"responses": ["已安排复评"], "rejections": [
+            {"code": "TOOL_EXECUTION_FAILED", "message": "缺少 task_id", "tool": "schedule_review"}],
+            "warnings": [{"code": "TOOL_EXECUTION_FAILED", "message": "缺少 task_id",
+                          "tool": "schedule_review", "resolved": True}]}), iso(now(conn))),
+    )
+    task, _ = tasks.create_task(conn, "W1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    review = __import__("backend.app.reviews.service", fromlist=["schedule_review"]).schedule_review(
+        conn, "W1", task_id=task["id"], delay_hours=24)
+    conn.execute(
+        "INSERT INTO agent_steps(run_id,step_no,phase,kind,tool_name,payload,status,created_at) "
+        "VALUES('RUN-W1',1,'observe','tool_result','schedule_review',?,'ok',?)",
+        (dumps({"result": {"ok": True, "review_id": review["id"]}}), iso(now(conn))),
+    )
+    body = client.get("/api/runs/RUN-W1").json()
+    assert body["summary"]["unfinished"] == []
+    assert body["summary"]["partial_success"] is False
+    assert body["summary"]["warnings"][0]["resolved"] is True
+
+
+def test_adherence_injection_count_is_allowed():
+    from backend.app.safety import gate
+
+    text = "核对近7天降糖药/胰岛素的服用与注射次数，仅做记录核实，不涉及任何用药调整。"
+    assert gate.check_text(text, generated=True)["allowed"] is True
+    assert gate.check_text("增加注射次数。", generated=True)["allowed"] is False
+    assert gate.check_text("调整胰岛素剂量。", generated=True)["allowed"] is False
+
+
+def test_reason_due_date_conflict_is_rejected(conn):
+    _patient(conn, "W2")
+    task, _ = tasks.create_task(conn, "W2", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    from backend.app.agent import tools
+    from zoneinfo import ZoneInfo
+    from datetime import datetime
+
+    tz = ZoneInfo("Asia/Shanghai")
+    base = now(conn).astimezone(tz)
+    target = (base + timedelta(days=1)).replace(hour=20, minute=0, second=0, microsecond=0)
+    good = tools.execute(tools.ToolContext(conn, patient_id="W2", run_id="RUN-W2"), "update_task", {
+        "patient_id": "W2", "task_id": task["id"], "due_at": target.isoformat(),
+        "reason": f"明天（{target.date()}）北京时间20:00",
+    })
+    assert good["ok"] is True, good
+    bad = tools.execute(tools.ToolContext(conn, patient_id="W2", run_id="RUN-W2"), "update_task", {
+        "patient_id": "W2", "task_id": task["id"],
+        "due_at": (target - timedelta(days=1)).isoformat(),
+        "reason": f"明天（{target.date()}）北京时间20:00",
+    })
+    assert bad["ok"] is False
+    assert bad["code"] == "MISSING_REQUIRED_DATA"
+
+def test_only_matching_resolved_error_is_removed(client, conn):
+    _patient(conn, "W3")
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,intent,output,started_at) "
+        "VALUES('RUN-W3','W3','event_detected','mock','completed','event_response',?,?)",
+        (dumps({
+            "rejections": [
+                {"code": "TOOL_EXECUTION_FAILED", "message": "缺少 task_id", "tool": "schedule_review"},
+                {"code": "TOOL_EXECUTION_FAILED", "message": "时间已过", "tool": "schedule_review"},
+            ],
+            "warnings": [{"code": "TOOL_EXECUTION_FAILED", "message": "缺少 task_id",
+                          "tool": "schedule_review", "resolved": True}],
+        }), iso(now(conn))),
+    )
+    body = client.get("/api/runs/RUN-W3").json()
+    remaining = [item["message"] for item in body["summary"]["unfinished"]]
+    assert remaining == ["时间已过"]
+
+
+def test_adherence_mixed_with_change_is_blocked():
+    from backend.app.safety import gate
+
+    assert gate.check_text("核对后把注射次数增加到每天三次。", generated=True)["allowed"] is False
+    assert gate.check_text("核对既往服用与注射次数。", generated=True)["allowed"] is True
+
+
+def test_request_date_conflict_is_rejected(conn):
+    _patient(conn, "W4")
+    task, _ = tasks.create_task(conn, "W4", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=2)), schedule_review=False)
+    from backend.app.db.connection import dumps as _dumps
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,input,started_at) "
+        "VALUES('RUN-W4','W4','answer_received','mock','running',?,?)",
+        (_dumps({"message": "明天晚上8点提醒我"}), iso(now(conn))),
+    )
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Asia/Shanghai")
+    due = now(conn).astimezone(tz).replace(hour=20, minute=0, second=0, microsecond=0)
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="W4", run_id="RUN-W4"), "update_task", {
+        "patient_id": "W4", "task_id": task["id"], "due_at": due.isoformat(),
+        "reason": "患者申请调整时间",
+    })
+    assert result["ok"] is False
+    assert result["code"] == "MISSING_REQUIRED_DATA"
+
+def _scheduled_review(conn, pid, *, local_time="2026-11-30T02:04:55+08:00"):
+    from datetime import datetime
+
+    from backend.app.db.connection import dumps as _dumps
+    task, _ = tasks.create_task(conn, pid, task_type="record_glucose", title="核实",
+                                due_at=iso(now(conn) + timedelta(days=2)), schedule_review=False)
+    review_id = f"REV-{pid}"
+    conn.execute(
+        "INSERT INTO reviews(id,patient_id,task_id,event_id,run_id,branch,status,reason,scheduled_for,created_at) "
+        "VALUES(?,?,?,NULL,NULL,'MISSING_DATA','scheduled','核实',?,?)",
+        (review_id, pid, task["id"], local_time, iso(now(conn))),
+    )
+    return review_id
+
+
+def test_existing_review_claim_with_local_date_is_accepted(conn):
+    _patient(conn, "F2A")
+    review_id = _scheduled_review(conn, "F2A")
+    text = "已安排的复评仍按原计划在11月30日凌晨（北京时间）进行。"
+    run_id = "RUN-F2A"
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,input,started_at) "
+        "VALUES('RUN-F2A','F2A','answer_received','mock','running',?,?)",
+        (dumps({"message": "我不记得了"}), iso(now(conn))),
+    )
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {
+        "patient_id": "F2A", "text": text}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "F2A", trigger_type="answer_received", message="我不记得了", llm=llm)
+    assert result["status"] == "completed", result
+    assert not [r for r in result["rejections"] if r["code"] == "POSTCHECK_MISMATCH"]
+    refs = conn.execute(
+        "SELECT payload FROM agent_steps WHERE run_id=? AND kind='review_reference'", (result["run_id"],)
+    ).fetchall()
+    assert refs
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='F2A'").fetchone()["c"] == 1
+
+
+def test_review_claim_without_any_review_is_rejected(conn):
+    _patient(conn, "F2B")
+    llm = _LLM([LLMResponse(content="", tool_calls=[ToolCall("respond", {
+        "patient_id": "F2B", "text": "已安排的复评仍按原计划在11月30日凌晨（北京时间）进行。"}, "c1")], raw={})])
+    result = orchestrator.run_agent(conn, "F2B", trigger_type="answer_received", message="我不记得了", llm=llm)
+    assert result["status"] == "failed"
+    assert any(r["code"] == "POSTCHECK_MISMATCH" for r in result["rejections"])
+
+def test_new_task_reuses_existing_event_review(conn):
+    _patient(conn, "R1")
+    conn.execute(
+        "INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at) "
+        "VALUES('EVT-R1','R1','GLUCOSE_RISING','high','open','x','{}','R1:x',NULL,?)",
+        (iso(now(conn)),),
+    )
+    conn.execute(
+        "INSERT INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,started_at) "
+        "VALUES('RUN-R1','R1','answer_received','mock','running',?)", (iso(now(conn)),),
+    )
+    tasks.create_task(conn, "R1", task_type="record_glucose", title="一",
+                      due_at=iso(now(conn) + timedelta(days=1)), event_id="EVT-R1", run_id="RUN-R1")
+    tasks.create_task(conn, "R1", task_type="record_activity", title="二",
+                      due_at=iso(now(conn) + timedelta(days=2)), event_id="EVT-R1", run_id="RUN-R1")
+    count = conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='R1'").fetchone()["c"]
+    assert count == 1
+
+
+def test_new_task_on_new_event_gets_own_review(conn):
+    _patient(conn, "R2")
+    for index, evt in enumerate(("EVT-R2A", "EVT-R2B")):
+        conn.execute(
+            "INSERT INTO events(id,patient_id,code,severity,status,message,evidence,dedupe_key,source_record_id,detected_at) "
+            "VALUES(?,?,'GLUCOSE_RISING','high','open','x','{}',?,NULL,?)",
+            (evt, "R2", f"R2:{index}", iso(now(conn))),
+        )
+        tasks.create_task(conn, "R2", task_type="record_glucose", title=f"t{index}",
+                          due_at=iso(now(conn) + timedelta(days=1 + index)), event_id=evt)
+    assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='R2'").fetchone()["c"] >= 1
+
+def test_equivalent_local_and_utc_reason_is_accepted(conn):
+    _patient(conn, "TZ1")
+    task, _ = tasks.create_task(conn, "TZ1", task_type="record_glucose", title="记录",
+                                due_at="2026-11-28T12:00:00Z", schedule_review=False)
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="TZ1", run_id="RUN-TZ1"), "update_task", {
+        "patient_id": "TZ1", "task_id": task["id"],
+        "due_at": "2026-11-28T23:00:00Z",
+        "reason": "患者要求改到后天（北京时间2026-11-29）早上7点，即UTC 2026-11-28T23:00:00Z",
+    })
+    assert result["ok"] is True, result
+    assert tasks.get_task(conn, task["id"])["version"] == 2
+
+
+def test_local_and_utc_conflict_is_rejected(conn):
+    _patient(conn, "TZ2")
+    task, _ = tasks.create_task(conn, "TZ2", task_type="record_glucose", title="记录",
+                                due_at="2026-11-28T12:00:00Z", schedule_review=False)
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="TZ2", run_id="RUN-TZ2"), "update_task", {
+        "patient_id": "TZ2", "task_id": task["id"],
+        "due_at": "2026-11-28T23:00:00Z",
+        "reason": "北京时间 2026-11-28 07:00",
+    })
+    assert result["ok"] is False
+    assert result["code"] == "MISSING_REQUIRED_DATA", result
+    assert tasks.get_task(conn, task["id"])["version"] == 1
+
+def _run_with_message(conn, pid, message):
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,input,started_at) "
+        "VALUES(?,?,?,?,?,?,?)",
+        (f"RUN-{pid}", pid, "answer_received", "mock", "running", dumps({"message": message}), iso(now(conn))),
+    )
+    return f"RUN-{pid}"
+
+
+def test_vague_time_cannot_update_task(conn):
+    _patient(conn, "V1")
+    task, _ = tasks.create_task(conn, "V1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    run_id = _run_with_message(conn, "V1", "这几天没记，不能确定，周末再说。")
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="V1", run_id=run_id), "update_task", {
+        "patient_id": "V1", "task_id": task["id"],
+        "due_at": (now(conn) + timedelta(days=2)).replace(hour=12, minute=0).isoformat(),
+        "reason": "周末再补记",
+    })
+    assert result["ok"] is False and result["code"] == "MISSING_REQUIRED_DATA"
+    assert tasks.get_task(conn, task["id"])["version"] == 1
+
+
+def test_explicit_weekend_time_can_update(conn):
+    _patient(conn, "V2")
+    task, _ = tasks.create_task(conn, "V2", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    run_id = _run_with_message(conn, "V2", "改到周六晚上8点。")
+    from backend.app.agent import tools
+
+    from zoneinfo import ZoneInfo
+
+    base = now(conn).astimezone(ZoneInfo("Asia/Shanghai"))
+    base = base + timedelta(days=(5 - base.weekday()) % 7 or 7)
+    due = base.replace(hour=20, minute=0, second=0, microsecond=0)
+    result = tools.execute(tools.ToolContext(conn, patient_id="V2", run_id=run_id), "update_task", {
+        "patient_id": "V2", "task_id": task["id"], "due_at": due.isoformat(),
+        "reason": "周六晚上8点",
+    })
+    assert result["ok"] is True, result
+    assert tasks.get_task(conn, task["id"])["version"] == 2
+
+
+def test_clock_mismatch_is_rejected(conn):
+    _patient(conn, "V3")
+    task, _ = tasks.create_task(conn, "V3", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    run_id = _run_with_message(conn, "V3", "改到周六晚上8点。")
+    from backend.app.agent import tools
+
+    from zoneinfo import ZoneInfo
+
+    due = (now(conn).astimezone(ZoneInfo("Asia/Shanghai")) + timedelta(days=2)).replace(
+        hour=12, minute=0, second=0, microsecond=0)
+    result = tools.execute(tools.ToolContext(conn, patient_id="V3", run_id=run_id), "update_task", {
+        "patient_id": "V3", "task_id": task["id"], "due_at": due.isoformat(),
+        "reason": "晚上8点",
+    })
+    assert result["ok"] is False
+    assert "不一致" in result.get("error", "")
+    assert tasks.get_task(conn, task["id"])["version"] == 1
+
+
+def test_inferred_time_cannot_be_saved_as_patient_preference(conn):
+    _patient(conn, "V4")
+    run_id = _run_with_message(conn, "V4", "这几天没记，不能确定，周末再说。")
+    from backend.app.agent import tools
+
+    bad = tools.execute(tools.ToolContext(conn, patient_id="V4", run_id=run_id), "save_preference", {
+        "patient_id": "V4", "kind": "preferred_time_window", "value": "20:00", "source": "patient_input",
+    })
+    assert bad["ok"] is False
+    good = tools.execute(tools.ToolContext(conn, patient_id="V4", run_id=run_id), "save_preference", {
+        "patient_id": "V4", "kind": "note", "value": "20:00", "source": "patient_confirmed",
+    })
+    assert good["ok"] is True

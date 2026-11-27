@@ -182,12 +182,14 @@ def create_task(
         from backend.app.reviews import service as review_service
 
         existing = None
-        if event_id:
-            existing = conn.execute(
-                "SELECT id FROM reviews WHERE patient_id=? AND event_id=? "
-                "AND status IN ('scheduled','pending_human') LIMIT 1",
-                (patient_id, event_id),
-            ).fetchone()
+        if event_id and run_id:
+            run_row = conn.execute("SELECT trigger_type FROM agent_runs WHERE id=?", (run_id,)).fetchone()
+            if run_row and run_row["trigger_type"] == "answer_received":
+                existing = conn.execute(
+                    "SELECT id FROM reviews WHERE patient_id=? AND event_id=? "
+                    "AND status IN ('scheduled','pending_human') LIMIT 1",
+                    (patient_id, event_id),
+                ).fetchone()
         if existing is None:
             review_service.schedule_review(
             conn,

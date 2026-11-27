@@ -298,10 +298,14 @@ def test_new_task_reuses_existing_event_review(conn):
         "VALUES('EVT-R1','R1','GLUCOSE_RISING','high','open','x','{}','R1:x',NULL,?)",
         (iso(now(conn)),),
     )
+    conn.execute(
+        "INSERT INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,started_at) "
+        "VALUES('RUN-R1','R1','answer_received','mock','running',?)", (iso(now(conn)),),
+    )
     tasks.create_task(conn, "R1", task_type="record_glucose", title="一",
-                      due_at=iso(now(conn) + timedelta(days=1)), event_id="EVT-R1")
+                      due_at=iso(now(conn) + timedelta(days=1)), event_id="EVT-R1", run_id="RUN-R1")
     tasks.create_task(conn, "R1", task_type="record_activity", title="二",
-                      due_at=iso(now(conn) + timedelta(days=2)), event_id="EVT-R1")
+                      due_at=iso(now(conn) + timedelta(days=2)), event_id="EVT-R1", run_id="RUN-R1")
     count = conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='R1'").fetchone()["c"]
     assert count == 1
 

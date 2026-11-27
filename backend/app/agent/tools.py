@@ -266,8 +266,51 @@ def _request_due_conflict(conn, run_id: str, due_at: str) -> str | None:
 FULL_DATETIME = r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)"
 DATE_ONLY = r"(UTC|北京时间|BJT)?\s*(\d{4})-(\d{2})-(\d{2})"
 
+VAGUE_TIME_CUES = ("再说", "晚一点", "晚点", "之后", "回头", "改天", "有空", "看情况")
 
-def _date_conflict(text: str, due_at: str, base) -> str | None:
+
+def _run_message(conn, run_id: str) -> str:
+    import json as _json
+
+    if not run_id:
+        return ""
+    row = conn.execute("SELECT input FROM agent_runs WHERE id=?", (run_id,)).fetchone()
+    try:
+        return (_json.loads(row["input"]) if row and row["input"] else {}).get("message") or ""
+    except Exception:
+        return ""
+
+
+def _vague_time_request(message: str) -> bool:
+    """含糊时间表达：没有明确日期和时刻，不得直接改期。"""
+    import re as _re
+
+    if not message:
+        return False
+    if any(cue in message for cue in VAGUE_TIME_CUES):
+        return True
+    if "周末" in message and not _re.search(r"(周六|周日|星期六|星期日|礼拜六|礼拜日)", message):
+        return True
+    return False
+
+
+def _message_has_time(message: str, hour: int, minute: int) -> bool:
+    import re as _re
+
+    for period, raw_hour, raw_minute in _re.findall(
+            r"(上午|下午|晚上|早上|凌晨|中午)?\s*(\d{1,2})\s*[:：点]\s*(\d{1,2})?", message):
+        value = int(raw_hour)
+        if period in ("下午", "晚上") and value < 12:
+            value += 12
+        if period == "凌晨" and value == 12:
+            value = 0
+        if value == hour and int(raw_minute or 0) == minute:
+            return True
+    return f"{hour:02d}:{minute:02d}" in message
+
+
+
+def _date_conflict(text: str, due_at: str, base, clock_text: str | None = None) -> str | None:
     """按标注时区核对文本中的日期与 due_at；完整时间按瞬时比较。"""
     import re as _re
     from datetime import date, timedelta, timezone
@@ -298,6 +341,18 @@ def _date_conflict(text: str, due_at: str, base) -> str | None:
         if actual != target:
             zone = "UTC" if label.upper() == "UTC" else "北京时间"
             return f"文本日期 {target}（{zone}）与 due_at 对应日期 {actual} 不一致"
+    clock_source = clock_text if clock_text is not None else rest
+    strict_clock = bool(_re.search(r"北京时间|上午|下午|晚上|早上|凌晨|中午|点", clock_source))
+    for period, hour, minute in (_re.findall(
+            r"(上午|下午|晚上|早上|凌晨|中午)?\s*(\d{1,2})\s*[:：点]\s*(\d{1,2})?", clock_source)
+            if strict_clock else []):
+        value = int(hour)
+        if period in ("下午", "晚上") and value < 12:
+            value += 12
+        if period == "凌晨" and value == 12:
+            value = 0
+        if value != due_local.hour or int(minute or 0) != due_local.minute:
+            return f"文本时刻 {hour}:{minute or '00'} 与 due_at 北京时间 {due_local.hour:02d}:{due_local.minute:02d} 不一致"
     for month, day in _re.findall(r"(\d{1,2})月(\d{1,2})日", rest):
         target = (int(month), int(day))
         if (due_local.month, due_local.day) != target:
@@ -331,10 +386,16 @@ def _request_due_conflict(conn, run_id: str, due_at: str) -> str | None:
         return None
     if not message:
         return None
-    return _date_conflict(message, due_at, now(conn).astimezone(DATE_TZ))
+    import re as _re
+
+    tail = _re.split(r"改成|改到|改为|调整到|调整成|换成|改在", message)[-1]
+    return _date_conflict(message, due_at, now(conn).astimezone(DATE_TZ), clock_text=tail)
 
 
 def _update_task(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    message = _run_message(ctx.conn, ctx.run_id)
+    if _vague_time_request(message):
+        return _fail("MISSING_REQUIRED_DATA", "患者仅给出含糊时间，请先询问具体日期和时刻后再改期")
     conflict = _reason_due_conflict(ctx.conn, args.get("reason") or "", args.get("due_at") or "")
     if not conflict:
         conflict = _request_due_conflict(ctx.conn, ctx.run_id, args.get("due_at") or "")
@@ -466,6 +527,15 @@ def _request_human_review(ctx: ToolContext, args: dict[str, Any]) -> dict[str, A
 
 
 def _save_preference(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
+    source = args.get("source", "patient_confirmed")
+    value = str(args.get("value", ""))
+    if source == "patient_input":
+        import re as _re
+
+        message = _run_message(ctx.conn, ctx.run_id)
+        clock = _re.search(r"(\d{1,2})[:：](\d{2})", value)
+        if clock and message and not _message_has_time(message, int(clock.group(1)), int(clock.group(2))):
+            return _fail("MISSING_REQUIRED_DATA", "患者原话未给出该时间，不能记为患者偏好")
     pref = preferences.set_preference(
         ctx.conn,
         args.get("patient_id") or ctx.patient_id,

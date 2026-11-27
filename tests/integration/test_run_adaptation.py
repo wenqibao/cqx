@@ -351,3 +351,82 @@ def test_local_and_utc_conflict_is_rejected(conn):
     assert result["ok"] is False
     assert result["code"] == "MISSING_REQUIRED_DATA", result
     assert tasks.get_task(conn, task["id"])["version"] == 1
+
+def _run_with_message(conn, pid, message):
+    conn.execute(
+        "INSERT OR REPLACE INTO agent_runs(id,patient_id,trigger_type,llm_mode,status,input,started_at) "
+        "VALUES(?,?,?,?,?,?,?)",
+        (f"RUN-{pid}", pid, "answer_received", "mock", "running", dumps({"message": message}), iso(now(conn))),
+    )
+    return f"RUN-{pid}"
+
+
+def test_vague_time_cannot_update_task(conn):
+    _patient(conn, "V1")
+    task, _ = tasks.create_task(conn, "V1", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    run_id = _run_with_message(conn, "V1", "这几天没记，不能确定，周末再说。")
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="V1", run_id=run_id), "update_task", {
+        "patient_id": "V1", "task_id": task["id"],
+        "due_at": (now(conn) + timedelta(days=2)).replace(hour=12, minute=0).isoformat(),
+        "reason": "周末再补记",
+    })
+    assert result["ok"] is False and result["code"] == "MISSING_REQUIRED_DATA"
+    assert tasks.get_task(conn, task["id"])["version"] == 1
+
+
+def test_explicit_weekend_time_can_update(conn):
+    _patient(conn, "V2")
+    task, _ = tasks.create_task(conn, "V2", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    run_id = _run_with_message(conn, "V2", "改到周六晚上8点。")
+    from backend.app.agent import tools
+
+    from zoneinfo import ZoneInfo
+
+    base = now(conn).astimezone(ZoneInfo("Asia/Shanghai"))
+    base = base + timedelta(days=(5 - base.weekday()) % 7 or 7)
+    due = base.replace(hour=20, minute=0, second=0, microsecond=0)
+    result = tools.execute(tools.ToolContext(conn, patient_id="V2", run_id=run_id), "update_task", {
+        "patient_id": "V2", "task_id": task["id"], "due_at": due.isoformat(),
+        "reason": "周六晚上8点",
+    })
+    assert result["ok"] is True, result
+    assert tasks.get_task(conn, task["id"])["version"] == 2
+
+
+def test_clock_mismatch_is_rejected(conn):
+    _patient(conn, "V3")
+    task, _ = tasks.create_task(conn, "V3", task_type="record_glucose", title="记录",
+                                due_at=iso(now(conn) + timedelta(days=1)), schedule_review=False)
+    run_id = _run_with_message(conn, "V3", "改到周六晚上8点。")
+    from backend.app.agent import tools
+
+    from zoneinfo import ZoneInfo
+
+    due = (now(conn).astimezone(ZoneInfo("Asia/Shanghai")) + timedelta(days=2)).replace(
+        hour=12, minute=0, second=0, microsecond=0)
+    result = tools.execute(tools.ToolContext(conn, patient_id="V3", run_id=run_id), "update_task", {
+        "patient_id": "V3", "task_id": task["id"], "due_at": due.isoformat(),
+        "reason": "晚上8点",
+    })
+    assert result["ok"] is False
+    assert "不一致" in result.get("error", "")
+    assert tasks.get_task(conn, task["id"])["version"] == 1
+
+
+def test_inferred_time_cannot_be_saved_as_patient_preference(conn):
+    _patient(conn, "V4")
+    run_id = _run_with_message(conn, "V4", "这几天没记，不能确定，周末再说。")
+    from backend.app.agent import tools
+
+    bad = tools.execute(tools.ToolContext(conn, patient_id="V4", run_id=run_id), "save_preference", {
+        "patient_id": "V4", "kind": "preferred_time_window", "value": "20:00", "source": "patient_input",
+    })
+    assert bad["ok"] is False
+    good = tools.execute(tools.ToolContext(conn, patient_id="V4", run_id=run_id), "save_preference", {
+        "patient_id": "V4", "kind": "note", "value": "20:00", "source": "patient_confirmed",
+    })
+    assert good["ok"] is True

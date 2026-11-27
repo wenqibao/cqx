@@ -1,5 +1,19 @@
 # PROJECT_FILE_MAP.md
 
+## 2026-11-27 患者体验数据交付
+
+本增量基于v0.3.7（40aa6bf），不修改后端、接口或数据库结构。
+
+| 文件 | 作用 |
+| --- | --- |
+| `data/patient_experience_pack/snapshot.json` | 本地14位患者及16张业务表的可导入快照，保留记录日期、任务版本、问答、复评、运行模式及失败状态 |
+| `data/patient_experience_pack/README.md` | clone后的启动、患者入口和恢复核对操作 |
+| `scripts/patient_experience_pack.py` | 只读导出、原子恢复、完整性核对；拒绝覆盖已有数据库 |
+| `scripts/start_patient_experience.py` | 在独立体验库中恢复数据并启动本机API，后台调度可显式启用 |
+| `tests/integration/test_patient_experience_pack.py` | 导入、幂等、覆盖保护、坏包回滚及真实API读取回归 |
+
+根目录README顶部提供当前体验入口；下方原有记录未按新交付重新宣称验收。
+
 > 本文件由成员 A 维护，必须与真实代码一致；不写不存在的路径。
 > 最近更新：2026-11-02（A0–A9 工作包完成）。Git：仓库已 `git init -b main`，因本机未配置 Git 身份，尚无初始 commit。
 

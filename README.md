@@ -1,5 +1,26 @@
 # 糖衡智管 · diabetes-agent
 
+## 直接体验当前工作台
+
+仓库已附带本地工作台的14位患者、73条健康记录，以及随访、任务、复评和完整运行历史。首次启动会导入体验数据，后续启动保留操作进度。
+
+```powershell
+python -m pip install -e ".[dev]"
+python scripts/start_patient_experience.py
+```
+
+另开终端：
+
+```powershell
+cd frontend
+npm ci
+$env:VITE_API_MODE="http"
+$env:VITE_API_BASE_URL="http://127.0.0.1:8000/api"
+npm run dev -- --host 127.0.0.1 --port 5180 --strictPort
+```
+
+打开 [监管工作台](http://127.0.0.1:5180)。患者入口、真实模型配置、数据恢复与核对步骤见 [患者体验数据包](data/patient_experience_pack/README.md)。本入口使用v0.3.7后端；下方早期开发记录保留作为历史参考。
+
 面向**稳定期成年 2 型糖尿病患者**的日常健康管理 Agent（参赛演示作品）。
 
 > ⚠️ 本项目是比赛演示系统，**不是医疗器械软件**：不诊断、不开处方、不更改用药或胰岛素剂量；

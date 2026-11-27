@@ -321,3 +321,33 @@ def test_new_task_on_new_event_gets_own_review(conn):
         tasks.create_task(conn, "R2", task_type="record_glucose", title=f"t{index}",
                           due_at=iso(now(conn) + timedelta(days=1 + index)), event_id=evt)
     assert conn.execute("SELECT COUNT(*) c FROM reviews WHERE patient_id='R2'").fetchone()["c"] >= 1
+
+def test_equivalent_local_and_utc_reason_is_accepted(conn):
+    _patient(conn, "TZ1")
+    task, _ = tasks.create_task(conn, "TZ1", task_type="record_glucose", title="记录",
+                                due_at="2026-11-28T12:00:00Z", schedule_review=False)
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="TZ1", run_id="RUN-TZ1"), "update_task", {
+        "patient_id": "TZ1", "task_id": task["id"],
+        "due_at": "2026-11-28T23:00:00Z",
+        "reason": "患者要求改到后天（北京时间2026-11-29）早上7点，即UTC 2026-11-28T23:00:00Z",
+    })
+    assert result["ok"] is True, result
+    assert tasks.get_task(conn, task["id"])["version"] == 2
+
+
+def test_local_and_utc_conflict_is_rejected(conn):
+    _patient(conn, "TZ2")
+    task, _ = tasks.create_task(conn, "TZ2", task_type="record_glucose", title="记录",
+                                due_at="2026-11-28T12:00:00Z", schedule_review=False)
+    from backend.app.agent import tools
+
+    result = tools.execute(tools.ToolContext(conn, patient_id="TZ2", run_id="RUN-TZ2"), "update_task", {
+        "patient_id": "TZ2", "task_id": task["id"],
+        "due_at": "2026-11-28T23:00:00Z",
+        "reason": "北京时间 2026-11-28 07:00",
+    })
+    assert result["ok"] is False
+    assert result["code"] == "MISSING_REQUIRED_DATA", result
+    assert tasks.get_task(conn, task["id"])["version"] == 1

@@ -263,37 +263,75 @@ def _request_due_conflict(conn, run_id: str, due_at: str) -> str | None:
     return None
 
 
-def _reason_due_conflict(conn, reason: str, due_at: str) -> str | None:
-    """reason 中的日期/相对时间必须与 due_at 的北京时间日期一致（O2/T06）。"""
+FULL_DATETIME = r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)"
+DATE_ONLY = r"(UTC|北京时间|BJT)?\s*(\d{4})-(\d{2})-(\d{2})"
+
+
+def _date_conflict(text: str, due_at: str, base) -> str | None:
+    """按标注时区核对文本中的日期与 due_at；完整时间按瞬时比较。"""
     import re as _re
-    from datetime import date, timedelta
+    from datetime import date, timedelta, timezone
 
     from backend.app.db.connection import parse_ts
 
-    if not reason or not due_at:
-        return None
     try:
-        due_local = parse_ts(due_at).astimezone(DATE_TZ)
+        due_instant = parse_ts(due_at)
     except Exception:
         return None
-    base = now(conn).astimezone(DATE_TZ)
-    explicit = _re.findall(r"(\d{4})-(\d{2})-(\d{2})", reason)
-    if explicit:
-        year, month, day = (int(part) for part in explicit[-1])
-        if due_local.date() != date(year, month, day):
-            return f"reason 日期 {year:04d}-{month:02d}-{day:02d} 与 due_at 北京时间 {due_local.date()} 不一致"
-    month_day = _re.findall(r"(\d{1,2})月(\d{1,2})日", reason)
-    if month_day:
-        month, day = (int(part) for part in month_day[-1])
-        if (due_local.month, due_local.day) != (month, day):
-            return f"reason 日期 {month}月{day}日 与 due_at 北京时间 {due_local.month}月{due_local.day}日 不一致"
-    for word, days in (("大后天", 3), ("后天", 2), ("明天", 1), ("今天", 0)):
-        if word in reason:
-            expected = (base + timedelta(days=days)).date()
-            if due_local.date() != expected:
-                return f"reason “{word}” 对应 {expected}，与 due_at 北京时间 {due_local.date()} 不一致"
-            break
+    due_local = due_instant.astimezone(DATE_TZ)
+    for value in _re.findall(FULL_DATETIME, text):
+        try:
+            stated = parse_ts(value)
+        except Exception:
+            continue
+        if stated.tzinfo is None:
+            stated = stated.replace(tzinfo=DATE_TZ)
+        if abs((stated - due_instant).total_seconds()) >= 60:
+            return f"文本时间 {value} 与 due_at 不一致"
+    rest = _re.sub(FULL_DATETIME, "", text)
+    for label, year, month, day in _re.findall(DATE_ONLY, rest):
+        target = date(int(year), int(month), int(day))
+        if label.upper() == "UTC":
+            actual = due_instant.astimezone(timezone.utc).date()
+        else:
+            actual = due_local.date()
+        if actual != target:
+            zone = "UTC" if label.upper() == "UTC" else "北京时间"
+            return f"文本日期 {target}（{zone}）与 due_at 对应日期 {actual} 不一致"
+    for month, day in _re.findall(r"(\d{1,2})月(\d{1,2})日", rest):
+        target = (int(month), int(day))
+        if (due_local.month, due_local.day) != target:
+            return f"文本日期 {month}月{day}日 与 due_at 北京时间 {due_local.month}月{due_local.day}日 不一致"
+    if not _re.search(r"\d{4}-\d{2}-\d{2}", rest):
+        for word, days in (("大后天", 3), ("后天", 2), ("明天", 1), ("今天", 0)):
+            if word in rest:
+                expected = (base + timedelta(days=days)).date()
+                if due_local.date() != expected:
+                    return f"文本“{word}”对应 {expected}，与 due_at 北京时间 {due_local.date()} 不一致"
+                break
     return None
+
+
+def _reason_due_conflict(conn, reason: str, due_at: str) -> str | None:
+    if not reason or not due_at:
+        return None
+    return _date_conflict(reason, due_at, now(conn).astimezone(DATE_TZ))
+
+
+def _request_due_conflict(conn, run_id: str, due_at: str) -> str | None:
+    """患者请求文本中的明确日期必须与 due_at 一致。"""
+    import json as _json
+
+    if not run_id or not due_at:
+        return None
+    row = conn.execute("SELECT input FROM agent_runs WHERE id=?", (run_id,)).fetchone()
+    try:
+        message = (_json.loads(row["input"]) if row and row["input"] else {}).get("message") or ""
+    except Exception:
+        return None
+    if not message:
+        return None
+    return _date_conflict(message, due_at, now(conn).astimezone(DATE_TZ))
 
 
 def _update_task(ctx: ToolContext, args: dict[str, Any]) -> dict[str, Any]:
